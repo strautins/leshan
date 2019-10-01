@@ -246,7 +246,7 @@ public class LeshanServer {
             @Override
             public void unregistered(Registration registration, Collection<Observation> observations, boolean expired,
                     Registration newReg) {
-                requestSender.cancelPendingRequests(registration);
+                requestSender.cancelOngoingRequests(registration);
             }
 
             @Override
