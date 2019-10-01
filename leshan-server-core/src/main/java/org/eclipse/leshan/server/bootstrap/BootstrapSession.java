@@ -27,6 +27,11 @@ import org.eclipse.leshan.core.request.Identity;
 public interface BootstrapSession {
 
     /**
+     * @Return the identifier for this session
+     */
+    String getId();
+
+    /**
      * @return the endpoint of the LwM2M client.
      */
     String getEndpoint();
@@ -52,4 +57,13 @@ public interface BootstrapSession {
      */
     long getCreationTime();
 
+    /**
+     * Cancel the current session
+     */
+    void cancel();
+
+    /**
+     * @return True if this session was cancellled
+     */
+    boolean isCancelled();
 }
