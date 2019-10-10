@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LWM2M xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.openmobilealliance.org/tech/profiles/LWM2M.xsd">
+	<Object ObjectType="MODefinition">
+		<Name>Group Data</Name>
+		<Description1><![CDATA[Describes single LAN device group. Instance to serial number mapping. Group level control functionality.]]></Description1>
+		<ObjectID>43000</ObjectID>
+		<ObjectURN></ObjectURN>
+		<LWM2MVersion>1.0</LWM2MVersion>
+		<ObjectVersion />
+		<MultipleInstances>Single</MultipleInstances>
+		<Mandatory>Mandatory</Mandatory>
+		<Resources>
+			<Item ID="0">
+				<Name>Status</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Boolean</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[True value indicates changes to group - one or multiple devices attached or removed from group.
+Resource should be set to false after it is read.]]></Description>
+			</Item>
+			<Item ID="1">
+				<Name>Mapping</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Multiple</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>String</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Each instance holds serial number for device. This relationship of instance number and serial number is respected in all other objects. This should be used to deduce device identification.]]></Description>
+			</Item>
+			<Item ID="2">
+				<Name>Scheduled Alarm Time</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Time</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Time when device group must perform alarm test.]]></Description>
+			</Item>
+			<Item ID="3">
+				<Name>Scheduled Alarm Duration</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Integer</Type>
+				<RangeEnumeration>3..120</RangeEnumeration>
+				<Units>s</Units>
+				<Description><![CDATA[Alarm test duration.]]></Description>
+			</Item>
+		</Resources>
+		<Description2 />
+	</Object>
+</LWM2M>
