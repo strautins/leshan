@@ -95,7 +95,7 @@ public class Co2Readings extends BaseInstanceEnabler {
 
     @Override
     public synchronized WriteResponse write(ServerIdentity identity, int resourceid, LwM2mResource value) {
-        //LOG.info("Write on Device Resource " + resourceid + " value " + value);
+        LOG.info("Write on Device Resource " + resourceid + " value " + value);
         switch (resourceid) {
         case R0:
             if(GroupSensors.isBoolean(value.getValue().toString())) {

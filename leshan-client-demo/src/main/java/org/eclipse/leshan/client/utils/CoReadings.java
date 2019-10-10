@@ -1,24 +1,14 @@
 package org.eclipse.leshan.client.utils;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
-import javax.xml.datatype.DatatypeConfigurationException;
-import javax.xml.datatype.DatatypeFactory;
-import javax.xml.datatype.XMLGregorianCalendar;
 
 import org.eclipse.californium.elements.util.NamedThreadFactory;
 import org.eclipse.leshan.client.request.ServerIdentity;
@@ -105,7 +95,7 @@ public class CoReadings extends BaseInstanceEnabler {
 
     @Override
     public synchronized WriteResponse write(ServerIdentity identity, int resourceid, LwM2mResource value) {
-        //LOG.info("Write on Device Resource " + resourceid + " value " + value);
+        LOG.info("Write on Device Resource " + resourceid + " value " + value);
         switch (resourceid) {
         case R0:
             if(GroupSensors.isBoolean(value.getValue().toString())) {

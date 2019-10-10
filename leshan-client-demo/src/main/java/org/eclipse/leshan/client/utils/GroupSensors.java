@@ -10,9 +10,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
@@ -23,7 +20,6 @@ import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
 import org.eclipse.leshan.core.response.ExecuteResponse;
 import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.WriteResponse;
-import org.eclipse.leshan.util.NamedThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.eclipse.leshan.core.model.ObjectModel;
@@ -110,7 +106,7 @@ public class GroupSensors extends BaseInstanceEnabler {
     }
     @Override
     public ReadResponse read(ServerIdentity identity, int resourceid) {
-        //LOG.info("Read on Device Resource " + resourceid);
+        LOG.info("Read on Device Resource " + resourceid);
         switch (resourceid) {
         case 0:
             return ReadResponse.success(resourceid, this.mStatus);
@@ -153,7 +149,7 @@ public class GroupSensors extends BaseInstanceEnabler {
     }
     public static boolean isInt(String strNum) {
         try {
-            int i = Integer.parseInt(strNum);
+            Integer.parseInt(strNum);
         } catch (NumberFormatException | NullPointerException nfe) {
             return false;
         }
@@ -161,7 +157,7 @@ public class GroupSensors extends BaseInstanceEnabler {
     }
     public static boolean isBoolean(String strNum) {
         try {
-            boolean i = Boolean.parseBoolean(strNum);
+            Boolean.parseBoolean(strNum);
         } catch (NumberFormatException | NullPointerException nfe) {
             return false;
         }
