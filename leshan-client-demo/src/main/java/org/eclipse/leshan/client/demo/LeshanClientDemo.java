@@ -45,6 +45,13 @@ import org.eclipse.leshan.client.californium.LeshanClientBuilder;
 import org.eclipse.leshan.client.object.Server;
 import org.eclipse.leshan.client.resource.LwM2mObjectEnabler;
 import org.eclipse.leshan.client.resource.ObjectsInitializer;
+import org.eclipse.leshan.client.utils.AlarmStatus;
+import org.eclipse.leshan.client.utils.AtmosphericPressureReadings;
+import org.eclipse.leshan.client.utils.Co2Readings;
+import org.eclipse.leshan.client.utils.CoReadings;
+import org.eclipse.leshan.client.utils.GroupSensors;
+import org.eclipse.leshan.client.utils.HumidityReadings;
+import org.eclipse.leshan.client.utils.TemperatureReadings;
 import org.eclipse.leshan.core.model.ObjectLoader;
 import org.eclipse.leshan.core.model.ObjectModel;
 import org.eclipse.leshan.core.model.StaticModel;
@@ -61,6 +68,14 @@ public class LeshanClientDemo {
     private final static String[] modelPaths = new String[] { "3303.xml" };
 
     private static final int OBJECT_ID_TEMPERATURE_SENSOR = 3303;
+    private static final int OBJECT_ID_GROUP_DATA = 43000;
+    private static final int OBJECT_ID_DEVICES = 43001;
+    private static final int OBJECT_ID_TEMPERATURE = 43002;
+    private static final int OBJECT_ID_HUMIDITY = 43003;
+    private static final int OBJECT_ID_PRESSURE = 43004;
+    private static final int OBJECT_ID_SMOKE  = 43005;
+    private static final int OBJECT_ID_CO2 = 43006;
+    private static final int OBJECT_ID_CO = 43007;
     private final static String DEFAULT_ENDPOINT = "LeshanClientDemo";
     private final static String USAGE = "java -jar leshan-client-demo.jar [OPTION]\n\n";
 
@@ -361,8 +376,21 @@ public class LeshanClientDemo {
         initializer.setInstancesForObject(DEVICE, new MyDevice());
         initializer.setInstancesForObject(LOCATION, locationInstance);
         initializer.setInstancesForObject(OBJECT_ID_TEMPERATURE_SENSOR, new RandomTemperatureSensor());
+        
+         //>>>//additional sensors
+        GroupSensors gs = new GroupSensors();
+        gs.setGroupSensors("SN00000000001", "SN00000000002", "SN00000000003", "SN00000000004", "SN00000000005", 
+             "SN00000000006", "SN00000000007", "SN00000000008");
+        initializer.setInstancesForObject(OBJECT_ID_GROUP_DATA, gs);
+        System.out.println(gs.getTemperatureObjReadings().size());
+        initializer.setInstancesForObject(OBJECT_ID_TEMPERATURE, gs.getTemperatureObjReadings().toArray(new TemperatureReadings[gs.getTemperatureObjReadings().size()]));
+        initializer.setInstancesForObject(OBJECT_ID_HUMIDITY, gs.getHumidityObjReadings().toArray(new HumidityReadings[gs.getTemperatureObjReadings().size()]));
+        initializer.setInstancesForObject(OBJECT_ID_CO2, gs.getCo2ObjReadings().toArray(new Co2Readings[gs.getCo2ObjReadings().size()]));
+        initializer.setInstancesForObject(OBJECT_ID_SMOKE, gs.getAlarmReadings().toArray(new AlarmStatus[gs.getAlarmReadings().size()]));
+        initializer.setInstancesForObject(OBJECT_ID_PRESSURE, gs.getAtmosphericReadings().toArray(new AtmosphericPressureReadings[gs.getAtmosphericReadings().size()]));
+        initializer.setInstancesForObject(OBJECT_ID_CO, gs.getCoReadings().toArray(new CoReadings[gs.getCoReadings().size()]));
         List<LwM2mObjectEnabler> enablers = initializer.createAll();
-
+        //<<<//additional sensors
         // Create CoAP Config
         NetworkConfig coapConfig;
         File configFile = new File(NetworkConfig.DEFAULT_FILE_NAME);

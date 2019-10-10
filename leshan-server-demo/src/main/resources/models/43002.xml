@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LWM2M xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.openmobilealliance.org/tech/profiles/LWM2M.xsd">
+	<Object ObjectType="MODefinition">
+		<Name>Temperature Measurements</Name>
+		<Description1><![CDATA[Control and read temperature sensor measurements. If "Stored Measurement Count" reaches maximum capacity (TBD), each new measurement causes oldest to be removed from list. Changes to "Enable" and "Measurement Interval" resources causes stored measurements to be cleared.]]></Description1>
+		<ObjectID>43002</ObjectID>
+		<ObjectURN></ObjectURN>
+		<LWM2MVersion>1.0</LWM2MVersion>
+		<ObjectVersion />
+		<MultipleInstances>Multiple</MultipleInstances>
+		<Mandatory>Optional</Mandatory>
+		<Resources>
+			<Item ID="0">
+				<Name>Enable</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Boolean</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Enable temperature measurements.]]></Description>
+			</Item>
+			<Item ID="1">
+				<Name>Measurement Interval</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Integer</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units>s</Units>
+				<Description><![CDATA[Measurement interval.]]></Description>
+			</Item>
+			<Item ID="2">
+				<Name>Measurements</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Multiple</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Float</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units>Cel</Units>
+				<Description><![CDATA[List of measurements. First resource being oldest measurement.]]></Description>
+			</Item>
+			<Item ID="3">
+				<Name>Last Measurement Time</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Time</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Last measurement time.]]></Description>
+			</Item>
+			<Item ID="4">
+				<Name>Last Read Measurement Time</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Time</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Writing this resource clears all measurements that were taken before and including this time.]]></Description>
+			</Item>
+			<Item ID="5">
+				<Name>Stored Measurement Count</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Integer</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Number of measurements stored in "Measurements" resource.]]></Description>
+			</Item>
+		</Resources>
+		<Description2 />
+	</Object>
+</LWM2M>
