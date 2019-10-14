@@ -3,11 +3,16 @@ package org.eclipse.leshan.server.demo.mt;
 import java.util.ArrayList;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import redis.clients.jedis.Jedis;
 import redis.clients.util.Pool;
 
 public class RedisMessage {
 
+    private static final Logger LOG = LoggerFactory.getLogger(OnConnectAction.class);
+    
     private Pool<Jedis> mJedisPool = null;
     // Redis key prefixes
     private static final String EP_EVENT_LIST = "EP:EVENT:LIST"; // global event list
@@ -25,7 +30,7 @@ public class RedisMessage {
                 for (final String payload : data.getValue()) {
                     Long res = j.rpush(getEndpointPayloadKey(data.getKey()), payload);
                     if (res == null) {
-                        System.err.println("payload send Error =" + getEndpointPayloadKey(data.getKey()));
+                        LOG.warn("Redis rpush failed for {} : {}", getEndpointPayloadKey(data.getKey()), payload);
                     }
                 }
             } 
@@ -37,7 +42,7 @@ public class RedisMessage {
             for (final String payload : Data) {
                 Long res = j.rpush(getEndpointPayloadKey(endpoint), payload);
                 if (res == null) {
-                    System.err.println("payload send Error =" + getEndpointPayloadKey(endpoint));
+                    LOG.warn("Redis rpush failed for {} : {}", getEndpointPayloadKey(endpoint), payload);
                 }
             }
         }
@@ -47,16 +52,15 @@ public class RedisMessage {
         try (Jedis j = mJedisPool.getResource()) {
             Long res = j.rpush(getEndpointPayloadKey(endpoint), payload);
             if (res == null) {
-                System.err.println("payload send Error =" + getEndpointPayloadKey(endpoint));
+                LOG.warn("Redis rpush failed for {} : {}", getEndpointPayloadKey(endpoint), payload);
             }
         }
     }
-
     public void writeEventList(String endpoint) {
         try (Jedis j = mJedisPool.getResource()) {
             Long res = j.rpush(EP_EVENT_LIST, getEndpointPayloadKey(endpoint));
             if (res == null) {
-                System.err.println("Write error =" + getEndpointPayloadKey(endpoint));
+                LOG.warn("Redis rpush failed for {} : {}", EP_EVENT_LIST, getEndpointPayloadKey(endpoint));
             }
         }
     }
@@ -66,7 +70,7 @@ public class RedisMessage {
             for (Map.Entry<Integer, String> entry : resourceMap.entrySet()) {
                 Long res = j.rpush(EP_EVENT_LIST, getEndpointPayloadKey(entry.getValue()));
                 if (res == null) {
-                    System.err.println("Write error =" + getEndpointPayloadKey(entry.getValue()));
+                    LOG.warn("Redis rpush failed for {} : {}", EP_EVENT_LIST, getEndpointPayloadKey(entry.getValue()));
                 }
             }
         }

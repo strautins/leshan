@@ -22,6 +22,7 @@ import org.eclipse.leshan.core.node.LwM2mObject;
 import org.eclipse.leshan.core.node.LwM2mMultipleResource;
 import org.eclipse.leshan.core.node.LwM2mNode;
 import org.eclipse.leshan.core.node.LwM2mObjectInstance;
+import org.eclipse.leshan.core.node.LwM2mPath;
 import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.node.LwM2mSingleResource;
 import org.eclipse.leshan.core.observation.Observation;
@@ -203,13 +204,13 @@ public class OnConnectAction {
     public void start() {
         this.mLeshanServer.getRegistrationService().addListener(this.registrationListener);
         this.mLeshanServer.getObservationService().addListener(this.observationListener);
-        //this.mLeshanServer.coap().getUnsecuredEndpoint().addInterceptor(this.messageInterceptorAdapter);
+        this.mLeshanServer.coap().getUnsecuredEndpoint().addInterceptor(this.messageInterceptorAdapter);
     }
 
     public void stop() {
         this.mLeshanServer.getRegistrationService().removeListener(this.registrationListener);
         this.mLeshanServer.getObservationService().removeListener(this.observationListener);
-        //this.mLeshanServer.coap().getUnsecuredEndpoint().removeInterceptor(this.messageInterceptorAdapter);
+        this.mLeshanServer.coap().getUnsecuredEndpoint().removeInterceptor(this.messageInterceptorAdapter);
     }
 
     private void readObject(Registration registration, Observation observation, String objLink) throws InterruptedException {
@@ -317,33 +318,27 @@ public class OnConnectAction {
             // if(cResponse.isSuccess()) {
             ReadResponse response = mLeshanServer.send(registration, new ObserveRequest(link), this.mTimeout);
             if (response == null) {
-                System.out.println("!!!!!ObserveRequest response is null TIMEOUT!!!!");
+                LOG.warn("ObserveRequest for {} on {} timeout!",  registration.getEndpoint(), link);
             } else if (response.isSuccess()) {
-                System.out.println("ObserveRequests:" + response.getContent().toString());
+                LOG.warn("ObserveRequest for {} on {} success! : {}",  registration.getEndpoint(), link, response.getContent());
             } else {
-                System.out.println(
-                        "ObserveRequest failed to read:" + response.getCode() + " " + response.getErrorMessage());
+                LOG.warn("ObserveRequest for {} on {} Failed! Error : {} : {}",  registration.getEndpoint(), link, response.getCode(), response.getErrorMessage());
             }
             // } else {
-            // System.out.println("WriteAttributesRequest failed:" + cResponse.getCode() + "
-            // " + cResponse.getErrorMessage());
             // }
-        } catch (InterruptedException e1) {
-            e1.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
     }
 
     private void sendAll(Map<String, ArrayList<String>> data) {
-        System.out.println("Sending all");
         if (this.mThingsboardHttpClient != null) {
             for (Map.Entry<String, ArrayList<String>> entry : data.entrySet()) {
                 send2HttpApi(entry.getValue(), entry.getKey());
             }
         } 
         if (this.mThingsboardMqttClient != null) {
-            System.out.println("Sending MQTT");
             for (Map.Entry<String, ArrayList<String>> entry : data.entrySet()) {
-                System.out.println("before  send2Mqtt"); 
                 send2Mqtt(entry.getValue(), entry.getKey());
             }
         } 
@@ -357,10 +352,9 @@ public class OnConnectAction {
 
     private void send2Mqtt(ArrayList<String> payloadArray, String token) {
         try {
-            System.out.println("before  connectAndPublish"); 
             this.mThingsboardMqttClient.connectAndPublish2(token, payloadArray);
         } catch (URISyntaxException e) {
-            System.out.println("Error sending MQTT: " + token + " / " + payloadArray.toString());
+            e.printStackTrace();
         }
     }
 
@@ -368,10 +362,8 @@ public class OnConnectAction {
         try {
             this.mThingsboardHttpClient.post2ThingsBoard(token, payloadArray);
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         } catch (InterruptedException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }
@@ -379,11 +371,11 @@ public class OnConnectAction {
     private void processData(Registration registration, Map<Integer, String> resourceMap, int objId, String resName,
             Map<String, Map<Long, JSONObject>> payloads) {
         try {
-            System.out.println("ReadRequest on object " + objId + " / " + registration.getEndpoint());
+            LOG.warn("ReadRequest for {} on object {}!",  registration.getEndpoint(), objId);
             ReadResponse response = this.mLeshanServer.send(registration, new ReadRequest(objId), this.mTimeout);
             // set read values
             if (response == null) {
-                System.out.println("Request timeout!" + registration.getEndpoint());
+                LOG.warn("ReadRequest for {} on object {} timeout!",  registration.getEndpoint(), objId);
             } else if (response.isSuccess()) {
                 // if we got object
                 LwM2mObject obj = ((LwM2mObject) response.getContent());
@@ -416,7 +408,7 @@ public class OnConnectAction {
                 }
                 clearObject(registration, resourceMap, obj);
             } else {
-                System.out.println("Failed to read:" + response.getCode() + " " + response.getErrorMessage());
+                LOG.warn("ReadRequest for {} on object {} Failed! Error: {} : {}",  registration.getEndpoint(), objId, response.getCode(), response.getErrorMessage());
             }
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -454,18 +446,17 @@ public class OnConnectAction {
                 // }
                 // );
                 try {
-                    LwM2mResponse resp = this.mLeshanServer.send(registration, request, this.mTimeout);
-                    if (resp == null) {
-                        System.out.println("Write request expired " + registration.getEndpoint());
-                    } else if (!resp.isSuccess()) {
-                        System.out.println("Error on sync write call!" + registration.getEndpoint() + "\n"
-                                + resp.getErrorMessage());
+                    LwM2mResponse response = this.mLeshanServer.send(registration, request, this.mTimeout);
+                    if (response == null) {
+                        LOG.warn("WriteRequest for {} on object {} timeout!",  registration.getEndpoint(), request.getPath().toString());
+                    } else if (!response.isSuccess()) {
+                        LOG.warn("WriteRequest for {} on object {} Failed! Error: {} : {}",  registration.getEndpoint(), request.getPath().toString(), response.getCode(), response.getErrorMessage());
                     }
                 } catch (InterruptedException e) {
-                    System.out.println("InterruptedException Error on sync write call!" + registration.getEndpoint());
+                    e.printStackTrace();
                 }
             } else {
-                System.out.println("FAIL: " + (lmt != null) + "/" + (lrmt != null));
+                LOG.warn("Clear object skipped for {} on object {}/{} due to unfulfilled conditions!",  registration.getEndpoint(), obj, entry.getKey());
             }
         }
     }

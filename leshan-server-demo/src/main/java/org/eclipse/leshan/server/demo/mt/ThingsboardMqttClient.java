@@ -28,7 +28,7 @@ public class ThingsboardMqttClient {
         this.mHost = host;
         this.mPort = port;
     }
-    //not working anymore :(
+    //Something not working :( org.fusesource.mqtt-client
     public void connectAndPublish(final String token, final ArrayList<String> msg) throws URISyntaxException {
         MQTT mqtt = new MQTT();
         mqtt.setHost(this.mHost, this.mPort);
@@ -49,7 +49,6 @@ public class ThingsboardMqttClient {
                 try {
                     final CountDownLatch latch = new CountDownLatch(msg.size());
                     for (final String s : msg) {
-                        //System.out.println("Publishing... " + s);
                         connection.publish(mTopic, s.getBytes(), QoS.AT_LEAST_ONCE, false, new Callback<Void>() {
                             public void onSuccess(Void v) {
                                 latch.countDown();
@@ -78,10 +77,9 @@ public class ThingsboardMqttClient {
                 }
             }
         });
-        
         LOG.warn("Mqtt End at {} : {} : {} : {}", System.currentTimeMillis(), token, this.mHost,  this.mPort);
     }
-    
+    //org.eclipse.paho
     public void connectAndPublish2(final String token, final ArrayList<String> msg) throws URISyntaxException {
         int qos = 2;
         String broker = "tcp://"+ this.mHost + ":" + this.mPort;
@@ -91,24 +89,20 @@ public class ThingsboardMqttClient {
             MqttConnectOptions connOpts = new MqttConnectOptions();
             connOpts.setUserName(token.trim());
             connOpts.setCleanSession(true);
-            System.out.println("Connecting to broker: "+ broker + "/" +  token.trim());
+            
+            LOG.warn("Mqtt connecting to broker {} : {}", broker, token.trim());
             sampleClient.connect(connOpts);
-            System.out.println("Connected");
+            LOG.warn("Mqtt connected to broker {} : {}", broker, token.trim());
             for (final String s : msg) { 
-                System.out.println("Publishing message: " +s );
+                LOG.warn("Mqtt publishing message for  {} : {}", token.trim(), s);
                 MqttMessage message = new MqttMessage(s.getBytes());
                 message.setQos(qos);
                 sampleClient.publish(mTopic, message);
-                System.out.println("Message published");
+                LOG.warn("Mqtt message published for {} : {}", token.trim(), s);
             }
             sampleClient.disconnect();
-            System.out.println("Disconnected");
+            LOG.warn("Mqtt disconnected for {}", token.trim());
         } catch(MqttException me) {
-            System.out.println("reason "+me.getReasonCode());
-            System.out.println("msg "+me.getMessage());
-            System.out.println("loc "+me.getLocalizedMessage());
-            System.out.println("cause "+me.getCause());
-            System.out.println("excep "+me);
             me.printStackTrace();
         }
     }
