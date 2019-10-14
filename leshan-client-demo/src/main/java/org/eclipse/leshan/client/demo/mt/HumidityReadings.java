@@ -1,4 +1,4 @@
-package org.eclipse.leshan.client.utils;
+package org.eclipse.leshan.client.demo.mt;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -22,9 +22,8 @@ import org.eclipse.leshan.core.model.ObjectModel;
 import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.model.ResourceModel.Type;
 
-public class TemperatureReadings extends BaseInstanceEnabler {
-    public static final String TEMPERATURE = "TEMPERATURE";
-    private static final Logger LOG = LoggerFactory.getLogger(TemperatureReadings.class);
+public class HumidityReadings extends BaseInstanceEnabler {
+    private static final Logger LOG = LoggerFactory.getLogger(HumidityReadings.class);
     private static final int R0 = 0;
     private static final int R1 = 1;
     private static final int R2 = 2;
@@ -35,19 +34,17 @@ public class TemperatureReadings extends BaseInstanceEnabler {
     private static final List<Integer> supportedResources = Arrays.asList(R0, R1, R2, R3, R4, R5);
     private final ScheduledExecutorService scheduler;
     private final Random rng = new Random();
-    private double mCurrentValue = 20d;
+    private Long mCurrentValue = 50l;
     private boolean mIsBottom = false;
     private boolean mIsEnable = true;
     private Integer mInterval = 10;
     
-    private List<Double> mMeasurementList = new ArrayList<Double>();
+    private List<Long> mMeasurementList = new ArrayList<Long>();
     private Date mLMT = new Date();
     private Date mLRMT = new Date();
 
-    private AlarmStatus mAlarmStatus;
-
-    public TemperatureReadings() {
-        this.scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Temperature Sensor"));
+    public HumidityReadings() {
+        this.scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Humidity Sensor"));
         scheduleReadings();
     }
     private void scheduleReadings() {
@@ -59,10 +56,6 @@ public class TemperatureReadings extends BaseInstanceEnabler {
         }, mInterval, TimeUnit.SECONDS);
     }
 
-    public void setAlarm(AlarmStatus as) {
-        this.mAlarmStatus = as;
-    }
-
     @Override
     public synchronized ReadResponse read(ServerIdentity identity, int resourceId) {
         switch (resourceId) {
@@ -72,13 +65,13 @@ public class TemperatureReadings extends BaseInstanceEnabler {
             return ReadResponse.success(resourceId, mInterval);
         case R2:
         
-            HashMap<Integer, Double> temperatureMap = new HashMap<Integer, Double>();
+            HashMap<Integer, Long> temperatureMap = new HashMap<Integer, Long>();
             int i = 0;
-            for (double val : this.mMeasurementList) {
+            for (Long val : this.mMeasurementList) {
                 temperatureMap.put(i,val); 
                 i++;
             } 
-            return ReadResponse.success(resourceId, temperatureMap, Type.FLOAT);
+            return ReadResponse.success(resourceId, temperatureMap, Type.INTEGER);
         case R3:
             return ReadResponse.success(resourceId, mLMT);
         case R4:
@@ -127,7 +120,7 @@ public class TemperatureReadings extends BaseInstanceEnabler {
                 return WriteResponse.success();
             } else {
                 return WriteResponse.notFound();
-            }       
+            }
         default:
             return super.write(identity, resourceid, value);
         }
@@ -138,28 +131,26 @@ public class TemperatureReadings extends BaseInstanceEnabler {
         long currTime = (long) (new Date().getTime());  
         long lrmt = (long) (mLRMT.getTime());  
         if(this.mIsEnable && currTime >= lrmt) {
-            float delta = (rng.nextInt(20) - 10) / 10f;
+            //System.out.println("Temperature sensor write!");
+            int delta = rng.nextInt(8) - 4;
             this.mCurrentValue += delta;
-
-            if(this.mCurrentValue  <= 15d || this.mMeasurementList.isEmpty() && delta < 0) {
+            if(this.mCurrentValue  <= 20 || this.mMeasurementList.isEmpty() && delta < 0) {
                 this.mIsBottom = true;
-            } else if(this.mCurrentValue  >= 31d || this.mMeasurementList.isEmpty() && delta < 0) {
+            } else if(this.mCurrentValue  >= 80 || this.mMeasurementList.isEmpty() && delta > 0 ) {
                 this.mIsBottom = false;
             }
-            if(this.mIsBottom ) {
-                this.mCurrentValue += 0.5d;
+            if(this.mIsBottom) {
+                this.mCurrentValue += 1;
             } else {
-                this.mCurrentValue -= 0.5d;
+                this.mCurrentValue -= 1;
             }
-            
             this.mLMT = new Date();
             if(GroupSensors.isFullList(this.mMeasurementList)) {
                 this.mMeasurementList.remove(0);    
             }
-            this.mMeasurementList.add(GroupSensors.getTwoDigitValue(this.mCurrentValue));
+            this.mMeasurementList.add(this.mCurrentValue);
             this.mLMT = new Date();
             fireResourcesChange(R2, R3);
-            this.mAlarmStatus.triggerResourceChange(TEMPERATURE);
         }
     }
     private synchronized void resetMeasurementList(Date dat) {
@@ -181,7 +172,7 @@ public class TemperatureReadings extends BaseInstanceEnabler {
     public List<Integer> getAvailableResourceIds(ObjectModel model) {
         return supportedResources;
     }
-    public Double getCurrentReading() {
-        return GroupSensors.getTwoDigitValue(this.mCurrentValue);
+    public Long getCurrentReading() {
+        return this.mCurrentValue;
     }
 }

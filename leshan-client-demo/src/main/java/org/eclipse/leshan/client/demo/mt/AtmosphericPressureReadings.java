@@ -1,4 +1,4 @@
-package org.eclipse.leshan.client.utils;
+package org.eclipse.leshan.client.demo.mt;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,7 +23,6 @@ import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.model.ResourceModel.Type;
 
 public class AtmosphericPressureReadings extends BaseInstanceEnabler {
-    public static final String ATMOSPHERIC = "ATMOSPHERIC";
     private static final Logger LOG = LoggerFactory.getLogger(AtmosphericPressureReadings.class);
     private static final int R0 = 0;
     private static final int R1 = 1;
@@ -44,8 +43,6 @@ public class AtmosphericPressureReadings extends BaseInstanceEnabler {
     private Date mLMT = new Date();
     private Date mLRMT = new Date();
 
-    private AlarmStatus mAlarmStatus;
-
     public AtmosphericPressureReadings() {
         this.scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Atmospheric Sensor"));
         scheduleReadings();
@@ -57,10 +54,6 @@ public class AtmosphericPressureReadings extends BaseInstanceEnabler {
                 adjustMeasurements();
             }
         }, mInterval, TimeUnit.SECONDS);
-    }
-
-    public void setAlarm(AlarmStatus as) {
-        this.mAlarmStatus = as;
     }
 
     @Override
@@ -160,7 +153,6 @@ public class AtmosphericPressureReadings extends BaseInstanceEnabler {
             this.mMeasurementList.add(GroupSensors.getTwoDigitValue(this.mCurrentValue));
             this.mLMT = new Date();
             fireResourcesChange(R2, R3);
-            this.mAlarmStatus.triggerResourceChange(ATMOSPHERIC);
         }
     }
     private synchronized void resetMeasurementList(Date dat) {

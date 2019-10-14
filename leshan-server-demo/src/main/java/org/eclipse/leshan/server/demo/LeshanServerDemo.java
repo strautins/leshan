@@ -60,6 +60,11 @@ import org.eclipse.leshan.core.node.codec.DefaultLwM2mNodeEncoder;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeDecoder;
 import org.eclipse.leshan.server.californium.LeshanServerBuilder;
 import org.eclipse.leshan.server.californium.impl.LeshanServer;
+import org.eclipse.leshan.server.demo.mt.OnConnectAction;
+import org.eclipse.leshan.server.demo.mt.RedisMessage;
+import org.eclipse.leshan.server.demo.mt.RedisRequestLink;
+import org.eclipse.leshan.server.demo.mt.ThingsboardHttpClient;
+import org.eclipse.leshan.server.demo.mt.ThingsboardMqttClient;
 import org.eclipse.leshan.server.demo.servlet.ClientServlet;
 import org.eclipse.leshan.server.demo.servlet.EventServlet;
 import org.eclipse.leshan.server.demo.servlet.ObjectSpecServlet;
@@ -107,6 +112,8 @@ public class LeshanServerDemo {
                             "3333.xml", "3334.xml", "3335.xml", "3336.xml", "3337.xml", "3338.xml", "3339.xml",
                             "3340.xml", "3341.xml", "3342.xml", "3343.xml", "3344.xml", "3345.xml", "3346.xml",
                             "3347.xml", "3348.xml", "3349.xml", "3350.xml",
+
+                            "43000.xml" , "43001.xml", "43002.xml", "43003.xml", "43004.xml", "43005.xml" , "43006.xml", "43007.xml",
 
                             "Communication_Characteristics-V1_0.xml",
 
@@ -163,6 +170,11 @@ public class LeshanServerDemo {
                 "Set the key store alias to use for server credentials.\nDefault: %s.\n All other alias referencing a certificate will be trusted.",
                 DEFAULT_KEYSTORE_ALIAS));
         options.addOption("ksap", "keypass", true, "Set the key store alias password to use.");
+        /////////
+        options.addOption("nc", "networkConfig", true, "Set Network config file location");
+
+        options.addOption("t", "mqtt", true, "Set mqtt server link");
+        options.addOption("tb", "thingsboard", true, "Set thingsboard api link like:\n123.123.123.123:80");
 
         HelpFormatter formatter = new HelpFormatter();
         formatter.setWidth(120);
@@ -221,6 +233,12 @@ public class LeshanServerDemo {
         // get the Redis hostname:port
         String redisUrl = cl.getOptionValue("r");
 
+        // get the mqtt hostname:port
+        String mqttUrl = cl.getOptionValue("t");
+
+        //get the http hostname:port
+         String httpUrl = cl.getOptionValue("tb");
+
         // Get keystore parameters
         String keyStorePath = cl.getOptionValue("ks");
         String keyStoreType = cl.getOptionValue("kst", KeyStore.getDefaultType());
@@ -231,10 +249,13 @@ public class LeshanServerDemo {
         // Get mDNS publish switch
         Boolean publishDNSSdServices = cl.hasOption("mdns");
 
+         // Get network file path
+         String networkFileName = cl.getOptionValue("nc");
+
         try {
             createAndStartServer(webAddress, webPort, localAddress, localPort, secureLocalAddress, secureLocalPort,
-                    modelsFolderPath, redisUrl, keyStorePath, keyStoreType, keyStorePass, keyStoreAlias,
-                    keyStoreAliasPass, publishDNSSdServices);
+                    modelsFolderPath, redisUrl, mqttUrl, httpUrl, keyStorePath, keyStoreType, keyStorePass, keyStoreAlias,
+                    keyStoreAliasPass, publishDNSSdServices, networkFileName);
         } catch (BindException e) {
             System.err.println(
                     String.format("Web port %s is already used, you could change it using 'webport' option.", webPort));
@@ -245,9 +266,9 @@ public class LeshanServerDemo {
     }
 
     public static void createAndStartServer(String webAddress, int webPort, String localAddress, int localPort,
-            String secureLocalAddress, int secureLocalPort, String modelsFolderPath, String redisUrl,
+            String secureLocalAddress, int secureLocalPort, String modelsFolderPath, String redisUrl, String mqttUrl, String httpUrl,
             String keyStorePath, String keyStoreType, String keyStorePass, String keyStoreAlias,
-            String keyStoreAliasPass, Boolean publishDNSSdServices) throws Exception {
+            String keyStoreAliasPass, Boolean publishDNSSdServices, String networkFileName) throws Exception {
         // Prepare LWM2M server
         LeshanServerBuilder builder = new LeshanServerBuilder();
         builder.setLocalAddress(localAddress, localPort);
@@ -258,7 +279,10 @@ public class LeshanServerDemo {
 
         // Create CoAP Config
         NetworkConfig coapConfig;
-        File configFile = new File(NetworkConfig.DEFAULT_FILE_NAME);
+        if(networkFileName == null) {
+            networkFileName = NetworkConfig.DEFAULT_FILE_NAME;        
+        }
+        File configFile = new File(networkFileName);
         if (configFile.isFile()) {
             coapConfig = new NetworkConfig();
             coapConfig.load(configFile);
@@ -379,8 +403,36 @@ public class LeshanServerDemo {
         // use a magic converter to support bad type send by the UI.
         builder.setEncoder(new DefaultLwM2mNodeEncoder(new MagicLwM2mValueConverter()));
 
+        ThingsboardMqttClient thingsboardMqttClient = null;
+        RedisMessage redisMessage = null; 
+        ThingsboardHttpClient thingsboardHttpClient = null;
+        
+        if(mqttUrl != null) {
+            String[] host = mqttUrl.split(":");
+            if(host.length == 2 && RedisRequestLink.isInt(host[1])) {
+                thingsboardMqttClient = new ThingsboardMqttClient(host[0], Integer.valueOf(host[1]));
+            } else {
+                LOG.warn("Incorrect Thingsboard Mqtt link {}", mqttUrl);     
+            }
+        }
+        if(httpUrl != null) {
+            String[] host = httpUrl.split(":");
+            if(host.length == 2 && RedisRequestLink.isInt(host[1])) {
+                thingsboardHttpClient = new ThingsboardHttpClient(host[0], Integer.valueOf(host[1]));
+            } else {
+                LOG.warn("Incorrect Thingsboard HTTP link {}", httpUrl);     
+            }
+        }
+        if(jedis != null) {
+            redisMessage = new RedisMessage(jedis);
+        }
+        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 11.10.2019 15:00");  
+
         // Create and start LWM2M server
         LeshanServer lwServer = builder.build();
+        //start logic for device read
+        OnConnectAction lwM2mPayload = new OnConnectAction(lwServer, thingsboardMqttClient, thingsboardHttpClient, redisMessage);
+        lwM2mPayload.start();
 
         // Now prepare Jetty
         InetSocketAddress jettyAddr;

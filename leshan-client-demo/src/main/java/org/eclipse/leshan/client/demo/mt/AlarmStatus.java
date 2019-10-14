@@ -1,6 +1,13 @@
-package org.eclipse.leshan.client.utils;
+package org.eclipse.leshan.client.demo.mt;
+
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+import org.eclipse.californium.elements.util.NamedThreadFactory;
 import org.eclipse.leshan.client.request.ServerIdentity;
 import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
 import org.eclipse.leshan.core.response.ExecuteResponse;
@@ -24,9 +31,10 @@ public class AlarmStatus extends BaseInstanceEnabler {
     private static final int R7 = 7;
     private static final int R8 = 8;
 
+
     private static final List<Integer> supportedResources = Arrays.asList(R0, R1, R2, R3, R4, R5, R6, R7, R8);
-    //private final ScheduledExecutorService scheduler;
-    //private Integer mInterval = 10;
+    // private final ScheduledExecutorService scheduler;
+    // private Integer mInterval = 5;
     private Long mAlarmStatus = 0l;
     private Boolean mHushed = false;
     private Boolean mTemperatureAlarm = false;
@@ -38,7 +46,7 @@ public class AlarmStatus extends BaseInstanceEnabler {
     private CoReadings mCoReadings;
 
     public AlarmStatus() {
-        //this.scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Alarm status"));
+        // this.scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Alarm status"));
         // scheduleReadings();
     }
     public void setSensors(Co2Readings co2, HumidityReadings hm, TemperatureReadings t, AtmosphericPressureReadings at, CoReadings co) {
@@ -52,7 +60,8 @@ public class AlarmStatus extends BaseInstanceEnabler {
     //     scheduler.schedule(new Runnable() {
     //         @Override
     //         public void run() {
-    //             adjustMeasurements();
+    //             scheduleReadings();  
+    //             fireResourcesChange(R4, R5, R6, R7, R8);
     //         }
     //     }, mInterval, TimeUnit.SECONDS);
     // }
@@ -91,25 +100,8 @@ public class AlarmStatus extends BaseInstanceEnabler {
     public synchronized WriteResponse write(ServerIdentity identity, int resourceid, LwM2mResource value) {
         return super.write(identity, resourceid, value);
     }
-    // private void adjustMeasurements() {
-    //     scheduleReadings();
-    //     //do stuff here
-    // }
     @Override
     public List<Integer> getAvailableResourceIds(ObjectModel model) {
         return supportedResources;
-    }
-    public synchronized void triggerResourceChange(String event) {
-        if(event.equals(Co2Readings.CO2)) {
-            fireResourcesChange(R5);
-        } else if (event.equals(HumidityReadings.HUMIDITY))  {
-            fireResourcesChange(R7);
-        } else if (event.equals(TemperatureReadings.TEMPERATURE))  {
-            fireResourcesChange(R4);
-        } else if (event.equals(AtmosphericPressureReadings.ATMOSPHERIC))  {
-            fireResourcesChange(R8);
-        } else if (event.equals(CoReadings.CO))  {
-            fireResourcesChange(R6);
-        }
     }
 }

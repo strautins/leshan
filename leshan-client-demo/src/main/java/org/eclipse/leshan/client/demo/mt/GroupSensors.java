@@ -1,4 +1,4 @@
-package org.eclipse.leshan.client.utils;
+package org.eclipse.leshan.client.demo.mt;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -10,6 +10,9 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
@@ -20,6 +23,7 @@ import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
 import org.eclipse.leshan.core.response.ExecuteResponse;
 import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.WriteResponse;
+import org.eclipse.leshan.util.NamedThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.eclipse.leshan.core.model.ObjectModel;
@@ -28,7 +32,7 @@ import org.eclipse.leshan.core.node.LwM2mResource;
 
 public class GroupSensors extends BaseInstanceEnabler {
     private static final Logger LOG = LoggerFactory.getLogger(GroupSensors.class);
-    //private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Group object"));
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Group object"));
     private int mInstanceCount = -1;
     private HashMap<Integer, String> mSerialMap = new HashMap<Integer, String>();
     private ArrayList<TemperatureReadings> mTemperatureList = new ArrayList<TemperatureReadings>();
@@ -40,7 +44,7 @@ public class GroupSensors extends BaseInstanceEnabler {
     private static final List<Integer> supportedResources = Arrays.asList(0, 1);
     private boolean mStatus = true;
     public void setGroupSensors(String... serialNrs) {
-        //scheduleNext();
+        scheduleNext();
         for (String serial : serialNrs) {
             mInstanceCount++;
             this.mSerialMap.put(mInstanceCount, serial); 
@@ -68,24 +72,17 @@ public class GroupSensors extends BaseInstanceEnabler {
             a.setSensors(c, h, t, at, co);
             a.setId(mInstanceCount);
             mAlarmStatusList.add(a);
-
-            t.setAlarm(a);
-            h.setAlarm(a);
-            c.setAlarm(a);
-            at.setAlarm(a);
-            co.setAlarm(a);
         }
     }
-    // private void scheduleNext() {
-    //     scheduler.schedule(new Runnable() {
-    //         @Override
-    //         public void run() {
-    //             scheduleNext();
-    //             LOG.info("Schedule next !!");
-    //             fireResourcesChange(0);
-    //         }
-    //     }, 10, TimeUnit.SECONDS);
-    // }
+    private void scheduleNext() {
+        scheduler.schedule(new Runnable() {
+            @Override
+            public void run() {
+                scheduleNext();
+                fireResourcesChange(0);
+            }
+        }, 5, TimeUnit.SECONDS);
+    }
     public ArrayList<TemperatureReadings> getTemperatureObjReadings() {
         return this.mTemperatureList;
     }

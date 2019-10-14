@@ -1,4 +1,4 @@
-package org.eclipse.leshan.client.utils;
+package org.eclipse.leshan.client.demo.mt;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,7 +23,6 @@ import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.model.ResourceModel.Type;
 
 public class CoReadings extends BaseInstanceEnabler {
-    public static final String CO = "CO";
     private static final Logger LOG = LoggerFactory.getLogger(CoReadings.class);
     private static final int R0 = 0;
     private static final int R1 = 1;
@@ -44,8 +43,6 @@ public class CoReadings extends BaseInstanceEnabler {
     private Date mLMT = new Date();
     private Date mLRMT = new Date();
 
-    private AlarmStatus mAlarmStatus;
-
     public CoReadings() {
         this.scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Co Sensor"));
         scheduleReadings();
@@ -57,9 +54,6 @@ public class CoReadings extends BaseInstanceEnabler {
                 adjustMeasurements();
             }
         }, mInterval, TimeUnit.SECONDS);
-    }
-    public void setAlarm(AlarmStatus as) {
-        this.mAlarmStatus = as;
     }
     @Override
     public synchronized ReadResponse read(ServerIdentity identity, int resourceId) {
@@ -161,7 +155,6 @@ public class CoReadings extends BaseInstanceEnabler {
             this.mMeasurementList.add(this.mCurrentValue);
             this.mLMT = new Date();
             fireResourcesChange(R2, R3);
-            this.mAlarmStatus.triggerResourceChange(CO);
         }
     }
     private synchronized void resetMeasurementList(Date dat) {

@@ -1,4 +1,4 @@
-package org.eclipse.leshan.client.utils;
+package org.eclipse.leshan.client.demo.mt;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -22,9 +22,8 @@ import org.eclipse.leshan.core.model.ObjectModel;
 import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.model.ResourceModel.Type;
 
-public class Co2Readings extends BaseInstanceEnabler {
-    public static final String CO2 = "CO2";
-    private static final Logger LOG = LoggerFactory.getLogger(Co2Readings.class);
+public class TemperatureReadings extends BaseInstanceEnabler {
+    private static final Logger LOG = LoggerFactory.getLogger(TemperatureReadings.class);
     private static final int R0 = 0;
     private static final int R1 = 1;
     private static final int R2 = 2;
@@ -35,18 +34,17 @@ public class Co2Readings extends BaseInstanceEnabler {
     private static final List<Integer> supportedResources = Arrays.asList(R0, R1, R2, R3, R4, R5);
     private final ScheduledExecutorService scheduler;
     private final Random rng = new Random();
-    private Long mCurrentValue = 600l;
+    private double mCurrentValue = 20d;
     private boolean mIsBottom = false;
     private boolean mIsEnable = true;
     private Integer mInterval = 10;
     
-    private List<Long> mMeasurementList = new ArrayList<Long>();
+    private List<Double> mMeasurementList = new ArrayList<Double>();
     private Date mLMT = new Date();
     private Date mLRMT = new Date();
 
-    private AlarmStatus mAlarmStatus;
-    public Co2Readings() {
-        this.scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Co2 Sensor"));
+    public TemperatureReadings() {
+        this.scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Temperature Sensor"));
         scheduleReadings();
     }
     private void scheduleReadings() {
@@ -56,9 +54,6 @@ public class Co2Readings extends BaseInstanceEnabler {
                 adjustMeasurements();
             }
         }, mInterval, TimeUnit.SECONDS);
-    }
-    public void setAlarm(AlarmStatus as) {
-        this.mAlarmStatus = as;
     }
 
     @Override
@@ -70,13 +65,13 @@ public class Co2Readings extends BaseInstanceEnabler {
             return ReadResponse.success(resourceId, mInterval);
         case R2:
         
-            HashMap<Integer, Long> temperatureMap = new HashMap<Integer, Long>();
+            HashMap<Integer, Double> temperatureMap = new HashMap<Integer, Double>();
             int i = 0;
-            for (Long val : this.mMeasurementList) {
+            for (double val : this.mMeasurementList) {
                 temperatureMap.put(i,val); 
                 i++;
             } 
-            return ReadResponse.success(resourceId, temperatureMap, Type.INTEGER);
+            return ReadResponse.success(resourceId, temperatureMap, Type.FLOAT);
         case R3:
             return ReadResponse.success(resourceId, mLMT);
         case R4:
@@ -125,41 +120,42 @@ public class Co2Readings extends BaseInstanceEnabler {
                 return WriteResponse.success();
             } else {
                 return WriteResponse.notFound();
-            }
+            }       
         default:
             return super.write(identity, resourceid, value);
         }
     }
-    
+
     private void adjustMeasurements() {
         scheduleReadings();
         long currTime = (long) (new Date().getTime());  
         long lrmt = (long) (mLRMT.getTime());  
         if(this.mIsEnable && currTime >= lrmt) {
-            //System.out.println("Temperature sensor write!");
-            int delta = rng.nextInt(100) - 50;
+            float delta = (rng.nextInt(20) - 10) / 10f;
             this.mCurrentValue += delta;
-            if(this.mCurrentValue  <= 450 || this.mMeasurementList.isEmpty() && delta < 0) {
+
+            if(this.mCurrentValue  <= 15d || this.mMeasurementList.isEmpty() && delta < 0) {
                 this.mIsBottom = true;
-            } else if(this.mCurrentValue  >= 1800 || this.mMeasurementList.isEmpty() && delta > 0 ) {
+            } else if(this.mCurrentValue  >= 31d || this.mMeasurementList.isEmpty() && delta < 0) {
                 this.mIsBottom = false;
             }
-            if(this.mIsBottom) {
-                this.mCurrentValue += 15;
+            if(this.mIsBottom ) {
+                this.mCurrentValue += 0.5d;
             } else {
-                this.mCurrentValue -= 15;
+                this.mCurrentValue -= 0.5d;
             }
+            
             this.mLMT = new Date();
             if(GroupSensors.isFullList(this.mMeasurementList)) {
                 this.mMeasurementList.remove(0);    
             }
-            this.mMeasurementList.add(this.mCurrentValue);
+            this.mMeasurementList.add(GroupSensors.getTwoDigitValue(this.mCurrentValue));
             this.mLMT = new Date();
             fireResourcesChange(R2, R3);
-            this.mAlarmStatus.triggerResourceChange(CO2);
         }
     }
     private synchronized void resetMeasurementList(Date dat) {
+        //get seconds
         int lmt = (int) (mLMT.getTime()/1000);  
         int st = (int) (dat.getTime()/1000);  
         if(lmt <= st) {
@@ -177,8 +173,7 @@ public class Co2Readings extends BaseInstanceEnabler {
     public List<Integer> getAvailableResourceIds(ObjectModel model) {
         return supportedResources;
     }
-    
-    public Long getCurrentReading() {
-        return this.mCurrentValue;
+    public Double getCurrentReading() {
+        return GroupSensors.getTwoDigitValue(this.mCurrentValue);
     }
 }

@@ -45,13 +45,13 @@ import org.eclipse.leshan.client.californium.LeshanClientBuilder;
 import org.eclipse.leshan.client.object.Server;
 import org.eclipse.leshan.client.resource.LwM2mObjectEnabler;
 import org.eclipse.leshan.client.resource.ObjectsInitializer;
-import org.eclipse.leshan.client.utils.AlarmStatus;
-import org.eclipse.leshan.client.utils.AtmosphericPressureReadings;
-import org.eclipse.leshan.client.utils.Co2Readings;
-import org.eclipse.leshan.client.utils.CoReadings;
-import org.eclipse.leshan.client.utils.GroupSensors;
-import org.eclipse.leshan.client.utils.HumidityReadings;
-import org.eclipse.leshan.client.utils.TemperatureReadings;
+import org.eclipse.leshan.client.demo.mt.AlarmStatus;
+import org.eclipse.leshan.client.demo.mt.AtmosphericPressureReadings;
+import org.eclipse.leshan.client.demo.mt.Co2Readings;
+import org.eclipse.leshan.client.demo.mt.CoReadings;
+import org.eclipse.leshan.client.demo.mt.GroupSensors;
+import org.eclipse.leshan.client.demo.mt.HumidityReadings;
+import org.eclipse.leshan.client.demo.mt.TemperatureReadings;
 import org.eclipse.leshan.core.model.ObjectLoader;
 import org.eclipse.leshan.core.model.ObjectModel;
 import org.eclipse.leshan.core.model.StaticModel;
@@ -65,11 +65,12 @@ public class LeshanClientDemo {
 
     private static final Logger LOG = LoggerFactory.getLogger(LeshanClientDemo.class);
 
-    private final static String[] modelPaths = new String[] { "3303.xml" };
+    private final static String[] modelPaths = new String[] { "3303.xml",
+        "43000.xml" , "43001.xml", "43002.xml", "43003.xml", "43004.xml", "43005.xml" , "43006.xml", "43007.xml", };
 
     private static final int OBJECT_ID_TEMPERATURE_SENSOR = 3303;
     private static final int OBJECT_ID_GROUP_DATA = 43000;
-    private static final int OBJECT_ID_DEVICES = 43001;
+    //private static final int OBJECT_ID_DEVICES = 43001;
     private static final int OBJECT_ID_TEMPERATURE = 43002;
     private static final int OBJECT_ID_HUMIDITY = 43003;
     private static final int OBJECT_ID_PRESSURE = 43004;
@@ -370,19 +371,20 @@ public class LeshanClientDemo {
                 initializer.setInstancesForObject(SERVER, new Server(123, 30, BindingMode.U, false));
             } else {
                 initializer.setInstancesForObject(SECURITY, noSec(serverURI, 123));
-                initializer.setInstancesForObject(SERVER, new Server(123, 30, BindingMode.U, false));
+                initializer.setInstancesForObject(SERVER, new Server(123, 60 * 2, BindingMode.U, false));
             }
         }
         initializer.setInstancesForObject(DEVICE, new MyDevice());
         initializer.setInstancesForObject(LOCATION, locationInstance);
-        initializer.setInstancesForObject(OBJECT_ID_TEMPERATURE_SENSOR, new RandomTemperatureSensor());
+        RandomTemperatureSensor r0 = new RandomTemperatureSensor(); 
+        RandomTemperatureSensor r1 =new RandomTemperatureSensor();
+        initializer.setInstancesForObject(OBJECT_ID_TEMPERATURE_SENSOR, r0, r1);
         
          //>>>//additional sensors
         GroupSensors gs = new GroupSensors();
         gs.setGroupSensors("SN00000000001", "SN00000000002", "SN00000000003", "SN00000000004", "SN00000000005", 
              "SN00000000006", "SN00000000007", "SN00000000008");
         initializer.setInstancesForObject(OBJECT_ID_GROUP_DATA, gs);
-        System.out.println(gs.getTemperatureObjReadings().size());
         initializer.setInstancesForObject(OBJECT_ID_TEMPERATURE, gs.getTemperatureObjReadings().toArray(new TemperatureReadings[gs.getTemperatureObjReadings().size()]));
         initializer.setInstancesForObject(OBJECT_ID_HUMIDITY, gs.getHumidityObjReadings().toArray(new HumidityReadings[gs.getTemperatureObjReadings().size()]));
         initializer.setInstancesForObject(OBJECT_ID_CO2, gs.getCo2ObjReadings().toArray(new Co2Readings[gs.getCo2ObjReadings().size()]));
