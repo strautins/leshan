@@ -205,7 +205,13 @@ public abstract class EventSourceServlet extends HttpServlet {
         }
 
         protected void flush() throws IOException {
-            continuation.getServletResponse().flushBuffer();
+            try {
+                continuation.getServletResponse().flushBuffer();
+            } catch (IOException x) {
+                // The other peer closed the connection
+                close();
+                eventSource.onClose();
+            }
         }
 
         @Override

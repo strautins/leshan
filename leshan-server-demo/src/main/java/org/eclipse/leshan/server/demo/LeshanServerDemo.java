@@ -291,6 +291,7 @@ public class LeshanServerDemo {
             coapConfig.store(configFile);
         }
         builder.setCoapConfig(coapConfig);
+        LOG.warn("CoAP network config: {}", configFile);
 
         // Connect to redis if needed
         Pool<Jedis> jedis = null;
@@ -372,7 +373,8 @@ public class LeshanServerDemo {
                     }
                 });
                 builder.setDtlsConfig(dtlsConfigBuilder);
-
+                
+                builder.createConnectionId();
             } catch (Exception e) {
                 LOG.error("Unable to load embedded X.509 certificate.", e);
                 System.exit(-1);
@@ -426,7 +428,7 @@ public class LeshanServerDemo {
         if(jedis != null) {
             redisMessage = new RedisMessage(jedis);
         }
-        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 11.10.2019 15:00");  
+        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 16.10.2019 11:24");  
 
         // Create and start LWM2M server
         LeshanServer lwServer = builder.build();

@@ -14,6 +14,7 @@ import com.google.gson.GsonBuilder;
 import org.eclipse.californium.core.coap.MessageObserver;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.core.network.Endpoint;
 import org.eclipse.californium.core.network.interceptors.MessageInterceptorAdapter;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.leshan.Link;
@@ -176,12 +177,12 @@ public class OnConnectAction {
     private final ObservationListener observationListener = new ObservationListener() {
         @Override
         public void newObservation(Observation observation, Registration registration) {
-            LOG.warn("NEW Observation () for  {}", observation.getPath().toString(), registration.getEndpoint());  
+            //LOG.warn("NEW Observation () for  {}", observation.getPath().toString(), registration.getEndpoint());  
         }
 
         @Override
         public void cancelled(Observation observation) {
-            LOG.warn("Observation Canceled {}", observation.getPath().toString());
+            //LOG.warn("Observation Canceled {}", observation.getPath().toString());
         }
 
         @Override
@@ -204,13 +205,21 @@ public class OnConnectAction {
     public void start() {
         this.mLeshanServer.getRegistrationService().addListener(this.registrationListener);
         this.mLeshanServer.getObservationService().addListener(this.observationListener);
-        this.mLeshanServer.coap().getUnsecuredEndpoint().addInterceptor(this.messageInterceptorAdapter);
+        //this.mLeshanServer.coap().getUnsecuredEndpoint().addInterceptor(this.messageInterceptorAdapter);
+     
+        //MyCoapMessageTracer coapMessageTracer = new MyCoapMessageTracer();
+        //for (Endpoint endpoint : this.mLeshanServer.coap().getServer().getEndpoints()) {
+        //    endpoint.addInterceptor(coapMessageTracer);
+        //}
     }
 
     public void stop() {
         this.mLeshanServer.getRegistrationService().removeListener(this.registrationListener);
         this.mLeshanServer.getObservationService().removeListener(this.observationListener);
-        this.mLeshanServer.coap().getUnsecuredEndpoint().removeInterceptor(this.messageInterceptorAdapter);
+        //this.mLeshanServer.coap().getUnsecuredEndpoint().removeInterceptor(this.messageInterceptorAdapter);
+        //for (Endpoint endpoint : this.mLeshanServer.coap().getServer().getEndpoints()) {
+        //    endpoint.removeInterceptor(coapMessageTracer);
+        //}
     }
 
     private void readObject(Registration registration, Observation observation, String objLink) throws InterruptedException {
@@ -218,13 +227,13 @@ public class OnConnectAction {
         if (readRes == null) {
             LOG.warn("Read object {} timeout", objLink);
         } else if (readRes.isSuccess()) {
-            LOG.warn("Read object {} Success. {}", objLink, readRes.getContent());
+            //LOG.warn("Read object {} Success. {}", objLink, readRes.getContent());
         } else {
             LOG.warn("Read object {} failed. {}", objLink, readRes.getErrorMessage());
         }
         int i = mLeshanServer.getObservationService().cancelObservations(registration,
                 observation.getPath().toString());
-        LOG.warn("Observation {} canceled = {}",observation.getPath().toString(),  i);
+        //LOG.warn("Observation {} canceled = {}",observation.getPath().toString(),  i);
     }
 
     private void getRecourses(Registration registration, String event, String endpoint) {
@@ -320,7 +329,7 @@ public class OnConnectAction {
             if (response == null) {
                 LOG.warn("ObserveRequest for {} on {} timeout!",  registration.getEndpoint(), link);
             } else if (response.isSuccess()) {
-                LOG.warn("ObserveRequest for {} on {} success! : {}",  registration.getEndpoint(), link, response.getContent());
+                //LOG.warn("ObserveRequest for {} on {} success! : {}",  registration.getEndpoint(), link, response.getContent());
             } else {
                 LOG.warn("ObserveRequest for {} on {} Failed! Error : {} : {}",  registration.getEndpoint(), link, response.getCode(), response.getErrorMessage());
             }
@@ -371,7 +380,7 @@ public class OnConnectAction {
     private void processData(Registration registration, Map<Integer, String> resourceMap, int objId, String resName,
             Map<String, Map<Long, JSONObject>> payloads) {
         try {
-            LOG.warn("ReadRequest for {} on object {}!",  registration.getEndpoint(), objId);
+            //LOG.warn("ReadRequest for {} on object {}!",  registration.getEndpoint(), objId);
             ReadResponse response = this.mLeshanServer.send(registration, new ReadRequest(objId), this.mTimeout);
             // set read values
             if (response == null) {

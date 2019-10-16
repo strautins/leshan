@@ -90,18 +90,18 @@ public class ThingsboardMqttClient {
             connOpts.setUserName(token.trim());
             connOpts.setCleanSession(true);
             
-            LOG.warn("Mqtt connecting to broker {} : {}", broker, token.trim());
+            //LOG.warn("Mqtt connecting to broker {} : {}", broker, token.trim());
             sampleClient.connect(connOpts);
-            LOG.warn("Mqtt connected to broker {} : {}", broker, token.trim());
+            //LOG.warn("Mqtt connected to broker {} : {}", broker, token.trim());
             for (final String s : msg) { 
-                LOG.warn("Mqtt publishing message for  {} : {}", token.trim(), s);
+                //LOG.warn("Mqtt publishing message for  {} : {}", token.trim(), s);
                 MqttMessage message = new MqttMessage(s.getBytes());
                 message.setQos(qos);
                 sampleClient.publish(mTopic, message);
-                LOG.warn("Mqtt message published for {} : {}", token.trim(), s);
+                //LOG.warn("Mqtt message published for {} : {}", token.trim(), s);
             }
             sampleClient.disconnect();
-            LOG.warn("Mqtt disconnected for {}", token.trim());
+            //LOG.warn("Mqtt disconnected for {}", token.trim());
         } catch(MqttException me) {
             me.printStackTrace();
         }

@@ -201,7 +201,7 @@ public class EventServlet extends EventSourceServlet {
     private void cleanCoapListener(String endpoint) {
         // remove the listener if there is no more eventSources for this endpoint
         for (LeshanEventSource eventSource : eventSources) {
-            if (eventSource.getEndpoint() == null || eventSource.getEndpoint().equals(endpoint)) {
+            if (eventSource.getEndpoint() != null  && eventSource.getEndpoint().equals(endpoint)) {
                 return;
             }
         }
@@ -234,8 +234,8 @@ public class EventServlet extends EventSourceServlet {
 
         @Override
         public void onClose() {
-            cleanCoapListener(endpoint);
             eventSources.remove(this);
+            cleanCoapListener(endpoint);
         }
 
         public void sentEvent(String event, String data) {

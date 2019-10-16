@@ -32,6 +32,8 @@ import org.eclipse.californium.elements.UDPConnector;
 import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.CertificateType;
+import org.eclipse.californium.scandium.dtls.MultiNodeConnectionIdGenerator;
+import org.eclipse.californium.scandium.dtls.SingleNodeConnectionIdGenerator;
 import org.eclipse.leshan.LwM2m;
 import org.eclipse.leshan.core.californium.DefaultEndpointFactory;
 import org.eclipse.leshan.core.californium.EndpointFactory;
@@ -280,6 +282,23 @@ public class LeshanServerBuilder {
      */
     public LeshanServerBuilder setCoapConfig(NetworkConfig config) {
         this.coapConfig = config;
+        return this;
+    }
+    /**
+     * Set the Californium/DTLS connectionID
+     */
+    public LeshanServerBuilder createConnectionId() {
+        Integer cidLength = coapConfig.getInt(Keys.DTLS_CONNECTION_ID_LENGTH);
+        Integer cidNode = coapConfig.getInt(Keys.DTLS_CONNECTION_ID_NODE_ID);
+        if (cidLength != null) {
+            if (cidNode != null && cidNode > 1) {
+                LOG.warn("Create MultiNodeConnectionIdGenerator. DTLS_CONNECTION_ID_LENGTH: {},  DTLS_CONNECTION_ID_NODE_ID: {}", cidLength, cidNode);
+                this.dtlsConfigBuilder.setConnectionIdGenerator(new MultiNodeConnectionIdGenerator(cidNode, cidLength));
+            } else {
+                LOG.warn("Create SingleNodeConnectionIdGenerator. DTLS_CONNECTION_ID_LENGTH: {},  DTLS_CONNECTION_ID_NODE_ID: {}", cidLength, cidNode);
+                this.dtlsConfigBuilder.setConnectionIdGenerator(new SingleNodeConnectionIdGenerator(cidLength));
+            }
+        }
         return this;
     }
 
