@@ -20,15 +20,15 @@ import javax.xml.datatype.XMLGregorianCalendar;
 
 import org.eclipse.leshan.client.request.ServerIdentity;
 import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
+import org.eclipse.leshan.core.model.ObjectModel;
+import org.eclipse.leshan.core.model.ResourceModel.Type;
+import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.response.ExecuteResponse;
 import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.WriteResponse;
 import org.eclipse.leshan.util.NamedThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.eclipse.leshan.core.model.ObjectModel;
-import org.eclipse.leshan.core.model.ResourceModel.Type;
-import org.eclipse.leshan.core.node.LwM2mResource;
 
 public class GroupSensors extends BaseInstanceEnabler {
     private static final Logger LOG = LoggerFactory.getLogger(GroupSensors.class);
@@ -42,7 +42,9 @@ public class GroupSensors extends BaseInstanceEnabler {
     private ArrayList<AtmosphericPressureReadings> mAtmosphericList = new ArrayList<AtmosphericPressureReadings>();
     private ArrayList<CoReadings> mCoList = new ArrayList<CoReadings>();
     private static final List<Integer> supportedResources = Arrays.asList(0, 1);
-    private boolean mStatus = true;
+    private boolean mR4 = false;
+    private boolean mR5 = false;
+    private boolean mR6 = false;
     public void setGroupSensors(String... serialNrs) {
         scheduleNext();
         for (String serial : serialNrs) {
@@ -106,9 +108,15 @@ public class GroupSensors extends BaseInstanceEnabler {
         LOG.info("Read on Device Resource " + resourceid);
         switch (resourceid) {
         case 0:
-            return ReadResponse.success(resourceid, this.mStatus);
+            return ReadResponse.success(resourceid, (this.mR4 || this.mR5 || this.mR6));
         case 1:
             return ReadResponse.success(resourceid, mSerialMap, Type.STRING);
+        case 4:
+            return ReadResponse.success(resourceid, this.mR4);
+        case 5:
+            return ReadResponse.success(resourceid, this.mR5);
+        case 6:
+            return ReadResponse.success(resourceid, this.mR6);
         default:
             return super.read(identity, resourceid);
         }
@@ -128,9 +136,25 @@ public class GroupSensors extends BaseInstanceEnabler {
         //LOG.info("Write on Device Resource " + resourceid + " value " + value);
         switch (resourceid) {
         case 0:
+            //NOT FOUND
+            return super.write(identity, resourceid, value);
+        case 4:
             if(isBoolean(value.getValue().toString())) {
-                this.mStatus = Boolean.parseBoolean(value.getValue().toString());
-                fireResourcesChange(resourceid);
+                this.mR4 = Boolean.parseBoolean(value.getValue().toString());
+                return WriteResponse.success();
+            } else {
+                return WriteResponse.notFound();
+            }
+        case 5:
+            if(isBoolean(value.getValue().toString())) {
+                this.mR5 = Boolean.parseBoolean(value.getValue().toString());
+                return WriteResponse.success();
+            } else {
+                return WriteResponse.notFound();
+            }
+        case 6:
+            if(isBoolean(value.getValue().toString())) {
+                this.mR6 = Boolean.parseBoolean(value.getValue().toString());
                 return WriteResponse.success();
             } else {
                 return WriteResponse.notFound();

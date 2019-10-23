@@ -7,6 +7,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -14,16 +15,15 @@ import com.google.gson.GsonBuilder;
 import org.eclipse.californium.core.coap.MessageObserver;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
-import org.eclipse.californium.core.network.Endpoint;
 import org.eclipse.californium.core.network.interceptors.MessageInterceptorAdapter;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.leshan.Link;
-
-import org.eclipse.leshan.core.node.LwM2mObject;
+import org.eclipse.leshan.core.model.ResourceModel;
+import org.eclipse.leshan.core.model.ResourceModel.Type;
 import org.eclipse.leshan.core.node.LwM2mMultipleResource;
 import org.eclipse.leshan.core.node.LwM2mNode;
+import org.eclipse.leshan.core.node.LwM2mObject;
 import org.eclipse.leshan.core.node.LwM2mObjectInstance;
-import org.eclipse.leshan.core.node.LwM2mPath;
 import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.node.LwM2mSingleResource;
 import org.eclipse.leshan.core.observation.Observation;
@@ -44,8 +44,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.eclipse.leshan.core.model.ResourceModel;
-import org.eclipse.leshan.core.model.ResourceModel.Type;
 
 public class OnConnectAction {
 
@@ -238,6 +236,13 @@ public class OnConnectAction {
 
     private void getRecourses(Registration registration, String event, String endpoint) {
         LOG.warn("Online {} with {}",  registration.getEndpoint(), event);
+        //todo check observations
+        Set<Observation> observ = mLeshanServer.getObservationService().getObservations(registration);
+        for (Observation s : observ) {
+               LOG.warn("Observations for {} / {} : {}", registration.getEndpoint(), event,  s.toString());
+        }
+
+
         if (event.equals(EVENT_REGISTRATION) || event.equals(EVENT_UPDATED)) {
             if (registration.getObjectLinks() != null) {
                 boolean isMainObj = false;

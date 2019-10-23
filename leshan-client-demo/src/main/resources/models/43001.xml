@@ -63,7 +63,7 @@
 			<Item ID="5">
 				<Name>Battery Level</Name>
 				<Operations>R</Operations>
-				<MultipleInstances>Multiple</MultipleInstances>
+				<MultipleInstances>Single</MultipleInstances>
 				<Mandatory>Mandatory</Mandatory>
 				<Type>Float</Type>
 				<RangeEnumeration></RangeEnumeration>
@@ -83,12 +83,22 @@
 			<Item ID="7">
 				<Name>Output State</Name>
 				<Operations>RW</Operations>
-				<MultipleInstances>Multiple</MultipleInstances>
+				<MultipleInstances>Single</MultipleInstances>
 				<Mandatory>Optional</Mandatory>
 				<Type>Boolean</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
 				<Description><![CDATA[Set, read digital output logic state.]]></Description>
+			</Item>
+			<Item ID="8">
+				<Name>Detach</Name>
+				<Operations>E</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type></Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Detach device from group]]></Description>
 			</Item>
 		</Resources>
 		<Description2><![CDATA[]]></Description2>

@@ -11,15 +11,14 @@
 		<Mandatory>Mandatory</Mandatory>
 		<Resources>
 			<Item ID="0">
-				<Name>Status</Name>
-				<Operations>RW</Operations>
+				<Name>Attention required</Name>
+				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
 				<Mandatory>Mandatory</Mandatory>
 				<Type>Boolean</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
-				<Description><![CDATA[True value indicates changes to group - one or multiple devices attached or removed from group.
-Resource should be set to false after it is read.]]></Description>
+				<Description><![CDATA[Logic OR from Mapping changed, Alarm triggered, Devices info changed.]]></Description>
 			</Item>
 			<Item ID="1">
 				<Name>Mapping</Name>
@@ -50,6 +49,37 @@ Resource should be set to false after it is read.]]></Description>
 				<RangeEnumeration>3..120</RangeEnumeration>
 				<Units>s</Units>
 				<Description><![CDATA[Alarm test duration.]]></Description>
+			</Item>
+			<Item ID="4">
+				<Name>Mapping changed</Name>
+					<Operations>RW</Operations>
+					<MultipleInstances>Single</MultipleInstances>
+					<Mandatory>Mandatory</Mandatory>
+					<Type>Boolean</Type>
+					<RangeEnumeration></RangeEnumeration>
+					<Units></Units>
+					<Description><![CDATA[True value indicates changes to group - one or multiple devices attached or removed from group.
+	Resource should be set to false after it is read.]]></Description>
+			</Item>
+			<Item ID="5">
+				<Name>Alarm triggered</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Boolean</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[True value indicates Alarm to one or multiple devices in group. If true, you have to read Alarm descriptive object. Resource should be set to false after actions taken.]]></Description>
+			</Item>
+			<Item ID="6">
+				<Name>Devices info changed</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Boolean</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[True value indicates reachability problems or undesired battery levels to one or multiple devices. If true, you have to read Devices descriptive object. Resource should be set to false after actions taken.]]></Description>
 			</Item>
 		</Resources>
 		<Description2 />
