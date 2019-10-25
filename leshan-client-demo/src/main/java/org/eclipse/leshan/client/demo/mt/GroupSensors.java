@@ -32,6 +32,13 @@ import org.slf4j.LoggerFactory;
 
 public class GroupSensors extends BaseInstanceEnabler {
     private static final Logger LOG = LoggerFactory.getLogger(GroupSensors.class);
+    private static final int mR0 = 0;
+    private static final int mR1 = 1;
+    private static final int mR2 = 2;
+    private static final int mR3 = 3;
+    private static final int mR4 = 4;
+    private static final int mR5 = 5;
+
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Group object"));
     private int mInstanceCount = -1;
     private HashMap<Integer, String> mSerialMap = new HashMap<Integer, String>();
@@ -41,10 +48,13 @@ public class GroupSensors extends BaseInstanceEnabler {
     private ArrayList<Co2Readings> mCo2List = new ArrayList<Co2Readings>();
     private ArrayList<AtmosphericPressureReadings> mAtmosphericList = new ArrayList<AtmosphericPressureReadings>();
     private ArrayList<CoReadings> mCoList = new ArrayList<CoReadings>();
-    private static final List<Integer> supportedResources = Arrays.asList(0, 1);
-    private boolean mR4 = false;
-    private boolean mR5 = false;
-    private boolean mR6 = false;
+    private ArrayList<Devices> mDevicesList = new ArrayList<Devices>();
+    private static final List<Integer> supportedResources = Arrays.asList(mR0, mR1, mR2, mR3, mR4, mR5);
+    /**Alarm triggered */
+    private boolean mR1Value = false;
+    /**device info changed */
+    private boolean mR2Value = false;
+    private long mR5Value = 30;
     public void setGroupSensors(String... serialNrs) {
         scheduleNext();
         for (String serial : serialNrs) {
@@ -74,6 +84,11 @@ public class GroupSensors extends BaseInstanceEnabler {
             a.setSensors(c, h, t, at, co);
             a.setId(mInstanceCount);
             mAlarmStatusList.add(a);
+
+            Devices d = new Devices();
+            d.setSerialNumber(serial);
+            d.setId(mInstanceCount);
+            mDevicesList.add(d);
         }
     }
     private void scheduleNext() {
@@ -103,20 +118,20 @@ public class GroupSensors extends BaseInstanceEnabler {
     public ArrayList<CoReadings> getCoReadings() {
         return this.mCoList;
     }
+    public ArrayList<Devices> getDevices() {
+        return this.mDevicesList;
+    }
     @Override
     public ReadResponse read(ServerIdentity identity, int resourceid) {
-        LOG.info("Read on Device Resource " + resourceid);
         switch (resourceid) {
-        case 0:
-            return ReadResponse.success(resourceid, (this.mR4 || this.mR5 || this.mR6));
-        case 1:
-            return ReadResponse.success(resourceid, mSerialMap, Type.STRING);
-        case 4:
-            return ReadResponse.success(resourceid, this.mR4);
-        case 5:
-            return ReadResponse.success(resourceid, this.mR5);
-        case 6:
-            return ReadResponse.success(resourceid, this.mR6);
+        case mR0:
+            return ReadResponse.success(resourceid, (this.mR1Value || this.mR2Value));
+        case mR1:
+            return ReadResponse.success(resourceid, this.mR1Value);
+        case mR2:
+            return ReadResponse.success(resourceid, this.mR2Value);
+        case mR5:
+            return ReadResponse.success(resourceid, this.mR5Value);
         default:
             return super.read(identity, resourceid);
         }
@@ -135,26 +150,26 @@ public class GroupSensors extends BaseInstanceEnabler {
     public synchronized WriteResponse write(ServerIdentity identity, int resourceid, LwM2mResource value) {
         //LOG.info("Write on Device Resource " + resourceid + " value " + value);
         switch (resourceid) {
-        case 0:
+        case mR0:
             //NOT FOUND
             return super.write(identity, resourceid, value);
-        case 4:
+        case mR1:
             if(isBoolean(value.getValue().toString())) {
-                this.mR4 = Boolean.parseBoolean(value.getValue().toString());
+                this.mR1Value = Boolean.parseBoolean(value.getValue().toString());
                 return WriteResponse.success();
             } else {
                 return WriteResponse.notFound();
             }
-        case 5:
+        case mR2:
             if(isBoolean(value.getValue().toString())) {
-                this.mR5 = Boolean.parseBoolean(value.getValue().toString());
+                this.mR2Value = Boolean.parseBoolean(value.getValue().toString());
                 return WriteResponse.success();
             } else {
                 return WriteResponse.notFound();
             }
         case 6:
-            if(isBoolean(value.getValue().toString())) {
-                this.mR6 = Boolean.parseBoolean(value.getValue().toString());
+            if(isInt(value.getValue().toString())) {
+                this.mR5Value = Integer.parseInt(value.getValue().toString());
                 return WriteResponse.success();
             } else {
                 return WriteResponse.notFound();

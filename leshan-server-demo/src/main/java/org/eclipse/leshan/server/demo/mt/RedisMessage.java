@@ -15,10 +15,11 @@ public class RedisMessage {
     
     private Pool<Jedis> mJedisPool = null;
     // Redis key prefixes
-    private static final String EP_EVENT_LIST = "EP:EVENT:LIST"; // global event list
-    private static final String PAYLOAD_EP = "PAYLOAD:EP:"; // (Endpoint => payload linkedlist)
-    private static final String REQUEST_EP = "REQUEST:EP:"; // (Endpoint => request hashmap)
-    private static final String RESPONSE_EP = "RESPONSE:EP:"; // (Endpoint => response hashmap)
+    private static final String EP_EVENT_LIST = "EP:EVENT:LIST"; /** global event list */
+    private static final String PAYLOAD_EP = "PAYLOAD:EP:"; /** Endpoint => payload linkedlist */
+    private static final String REQUEST_EP = "REQUEST:EP:"; /**Endpoint => request hashmap  */
+    private static final String RESPONSE_EP = "RESPONSE:EP:"; /**Endpoint => response hashmap  */
+    private static final String EP_INFO = "EP:INFO:"; /**key:value */
     
     public RedisMessage(Pool<Jedis> jedisPool) {
         this.mJedisPool = jedisPool;
@@ -84,12 +85,28 @@ public class RedisMessage {
     private String getEndpointResponseKey(String endpoint) {
         return RESPONSE_EP + endpoint;
     }
+    private String getEndpointInfoKey(String endpoint) {
+        return EP_INFO + endpoint;
+    }
     public Map<String, String> getEndpointRequests(String endpoint) {
         Map<String, String> payLoadMap = null;
         try (Jedis jedis = mJedisPool.getResource()) {
             payLoadMap = jedis.hgetAll(getEndpointRequestKey(endpoint));
         }
         return payLoadMap;
+    }
+    public String getEndpointInfo(String endpoint) {
+        String payLoad = null;
+        try (Jedis jedis = mJedisPool.getResource()) {
+            payLoad = jedis.get(getEndpointInfoKey(endpoint));
+        }
+        return payLoad;
+    }
+    public void setEndpointInfo(String endpoint,  String payLoad) {
+        try (Jedis jedis = mJedisPool.getResource()) {
+            String s = jedis.set(getEndpointInfoKey(endpoint), payLoad);
+            LOG.warn("Send info {}", s);
+        }
     }
     public void sendResponse(String endpoint, Map<String, String> responseList) {
         try (Jedis jedis = mJedisPool.getResource()) {

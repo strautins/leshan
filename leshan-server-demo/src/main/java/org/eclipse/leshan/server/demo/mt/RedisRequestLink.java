@@ -90,6 +90,11 @@ public class RedisRequestLink {
             ifNotNull(this.mInstanceId, "/") +
             ifNotNull(this.mResourceId, "/");
     }
+    public static String getLink(Integer objectId, Integer instanceId, Integer resourceId) {
+        return objectId + 
+            ifNotNull(instanceId, "/") +
+            ifNotNull(resourceId, "/");
+    }
     public Object getValue() {
         return this.mValue;
     }
@@ -119,6 +124,9 @@ public class RedisRequestLink {
     }
     public static int countChar(String string, String b) {
         return string.length() - string.replace(b, "").length();
+    }
+    public static String ifNotNull(Integer value, String prefix) {
+        return ifNotNull(value.toString(),prefix);
     }
     public static String ifNotNull(String string, String prefix) {
         return string != null ? (prefix + string) : "";

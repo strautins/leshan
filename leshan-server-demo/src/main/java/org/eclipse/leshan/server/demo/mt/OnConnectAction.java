@@ -6,9 +6,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
+import com.eclipsesource.json.JsonObject;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -24,15 +28,18 @@ import org.eclipse.leshan.core.node.LwM2mMultipleResource;
 import org.eclipse.leshan.core.node.LwM2mNode;
 import org.eclipse.leshan.core.node.LwM2mObject;
 import org.eclipse.leshan.core.node.LwM2mObjectInstance;
+import org.eclipse.leshan.core.node.LwM2mPath;
 import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.node.LwM2mSingleResource;
 import org.eclipse.leshan.core.observation.Observation;
 import org.eclipse.leshan.core.request.ObserveRequest;
 import org.eclipse.leshan.core.request.ReadRequest;
 import org.eclipse.leshan.core.request.WriteRequest;
+import org.eclipse.leshan.core.response.ErrorCallback;
 import org.eclipse.leshan.core.response.LwM2mResponse;
 import org.eclipse.leshan.core.response.ObserveResponse;
 import org.eclipse.leshan.core.response.ReadResponse;
+import org.eclipse.leshan.core.response.ResponseCallback;
 import org.eclipse.leshan.core.response.WriteResponse;
 import org.eclipse.leshan.server.californium.impl.LeshanServer;
 import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeSerializer;
@@ -55,6 +62,51 @@ public class OnConnectAction {
 
     private static final String EVENT_REGISTRATION = "REGISTRATION";
 
+    private static final String JSON_MAPPING_KEY = "mapping";
+
+    private static final Integer OBJECT_ID_DEVICES = 43001;
+    private static final String PATH_DEVICES = "/43001/";
+    private static final String NAME_DEVICES = "devices";
+
+
+    private static final int OBJECT_ID_GROUP = 43000;
+    private static final String PATH_GROUP = "/43000/";
+    private static final String NAME_GROUP = "group";
+    private static final String PATH_GROUP_ATTENTION_REQUIRED = "43000/0/0";
+    private static final String PATH_GROUP_ALARM_TRIGGERED = "43000/0/1";
+    private static final String PATH_GROUP_DEVICES_INFO_CHANGED = "43000/0/2";
+
+    private static final int OBJECT_ID_TEMPERATURE = 43002;
+    private static final String PATH_TEMPERATURE = "/43002/";
+    private static final String NAME_TEMPERATURE = "temperature";
+    private static final int OBJECT_ID_HUMIDITY = 43003;
+    private static final String PATH_HUMIDITY = "/43003/";
+    private static final String NAME_HUMIDITY = "humidity";
+    private static final int OBJECT_ID_CO2 = 43006;
+    private static final String PATH_CO2 = "/43006/";
+    private static final String NAME_CO2 = "co2";
+    private static final int OBJECT_ID_CO = 43007;
+    private static final String PATH_CO = "/43007/";
+    private static final String NAME_CO = "co";
+    private static final int OBJECT_ID_ATMOSPHERIC = 43004;
+    private static final String PATH_ATMOSPHERIC = "/43004/";
+    private static final String NAME_ATMOSPHERIC = "atmospheric";
+
+    private static final int OBJECT_ID_ALERT = 43005;
+    private static final String PATH_ALERT = "/43005/";
+    private static final String NAME_ALERT = "alert";
+
+    private static final int RESOURCE_ID_SERIAL_NUMBER = 2;
+    private static final int RESOURCE_ID_PULSE = 1;
+    private static final int RESOURCE_ID_RESOURCE_MAP = 2;
+    private static final int RESOURCE_ID_SERIAL_LMT = 3;
+    private static final int RESOURCE_ID_SERIAL_LRMT = 4;
+
+    private static final int RESOURCE_ID_ALARM_TRIGGERED = 1;
+    private static final int RESOURCE_ID_DEVICES_INFO_CHANGED = 2;
+
+    private static final String NAME_NONE = "none";
+
     private final LeshanServer mLeshanServer;
     private final ThingsboardMqttClient mThingsboardMqttClient;
     private final ThingsboardHttpClient mThingsboardHttpClient;
@@ -63,8 +115,8 @@ public class OnConnectAction {
 
     private final Gson gson;
 
-    public OnConnectAction(LeshanServer leshanServer, ThingsboardMqttClient lwM2mMqttClient, ThingsboardHttpClient thingsboardHttpClient, RedisMessage redisMessage)
-            throws URISyntaxException {
+    public OnConnectAction(LeshanServer leshanServer, ThingsboardMqttClient lwM2mMqttClient,
+            ThingsboardHttpClient thingsboardHttpClient, RedisMessage redisMessage) throws URISyntaxException {
         this.mLeshanServer = leshanServer;
         this.mThingsboardMqttClient = lwM2mMqttClient;
         this.mRedisMessage = redisMessage;
@@ -155,19 +207,19 @@ public class OnConnectAction {
         @Override
         public void registered(Registration registration, Registration previousReg,
                 Collection<Observation> previousObservations) {
-            getRecourses(registration, EVENT_REGISTRATION, registration.getEndpoint());
+            getResources(registration, EVENT_REGISTRATION);
         }
 
         @Override
         public void updated(RegistrationUpdate update, Registration updatedRegistration,
                 Registration previousRegistration) {
-            getRecourses(updatedRegistration, EVENT_UPDATED, updatedRegistration.getEndpoint());
+            getResources(updatedRegistration, EVENT_UPDATED);
         }
 
         @Override
         public void unregistered(Registration registration, Collection<Observation> observations, boolean expired,
                 Registration newReg) {
-            getRecourses(registration, EVENT_DEREGISTRATION, registration.getEndpoint());
+            getResources(registration, EVENT_DEREGISTRATION);
         }
 
     };
@@ -175,21 +227,22 @@ public class OnConnectAction {
     private final ObservationListener observationListener = new ObservationListener() {
         @Override
         public void newObservation(Observation observation, Registration registration) {
-            //LOG.warn("NEW Observation () for  {}", observation.getPath().toString(), registration.getEndpoint());  
+            // LOG.warn("NEW Observation () for {}", observation.getPath().toString(),
+            // registration.getEndpoint());
         }
 
         @Override
         public void cancelled(Observation observation) {
-            //LOG.warn("Observation Canceled {}", observation.getPath().toString());
+            // LOG.warn("Observation Canceled {}", observation.getPath().toString());
         }
 
         @Override
         public void onResponse(Observation observation, Registration registration, ObserveResponse response) {
-            if (registration != null && observation.getPath().toString().equals("/43000")) {
-                try {
-                    readObject(registration, observation, "43005");
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+            if (registration != null && observation.getPath().toString().equals(PATH_GROUP)) {
+                LwM2mNode object = readRequest(registration, PATH_ALERT);
+                if (object != null && object instanceof LwM2mObject) {
+                    int i = mLeshanServer.getObservationService().cancelObservations(registration,
+                    observation.getPath().toString());
                 }
             }
         }
@@ -203,45 +256,55 @@ public class OnConnectAction {
     public void start() {
         this.mLeshanServer.getRegistrationService().addListener(this.registrationListener);
         this.mLeshanServer.getObservationService().addListener(this.observationListener);
-        //this.mLeshanServer.coap().getUnsecuredEndpoint().addInterceptor(this.messageInterceptorAdapter);
-     
-        //MyCoapMessageTracer coapMessageTracer = new MyCoapMessageTracer();
-        //for (Endpoint endpoint : this.mLeshanServer.coap().getServer().getEndpoints()) {
-        //    endpoint.addInterceptor(coapMessageTracer);
-        //}
+        // this.mLeshanServer.coap().getUnsecuredEndpoint().addInterceptor(this.messageInterceptorAdapter);
+
+        // MyCoapMessageTracer coapMessageTracer = new MyCoapMessageTracer();
+        // for (Endpoint endpoint :
+        // this.mLeshanServer.coap().getServer().getEndpoints()) {
+        // endpoint.addInterceptor(coapMessageTracer);
+        // }
     }
 
     public void stop() {
         this.mLeshanServer.getRegistrationService().removeListener(this.registrationListener);
         this.mLeshanServer.getObservationService().removeListener(this.observationListener);
-        //this.mLeshanServer.coap().getUnsecuredEndpoint().removeInterceptor(this.messageInterceptorAdapter);
-        //for (Endpoint endpoint : this.mLeshanServer.coap().getServer().getEndpoints()) {
-        //    endpoint.removeInterceptor(coapMessageTracer);
-        //}
+        // this.mLeshanServer.coap().getUnsecuredEndpoint().removeInterceptor(this.messageInterceptorAdapter);
+        // for (Endpoint endpoint :
+        // this.mLeshanServer.coap().getServer().getEndpoints()) {
+        // endpoint.removeInterceptor(coapMessageTracer);
+        // }
+    }
+    private String getSensorName(Integer objectId) {
+        String result = null;
+        switch(objectId) {
+            case OBJECT_ID_TEMPERATURE:
+                result = NAME_TEMPERATURE;
+                break;
+            case OBJECT_ID_HUMIDITY:
+                result = NAME_HUMIDITY;
+                break;
+            case OBJECT_ID_ATMOSPHERIC:
+                result = NAME_ATMOSPHERIC;
+                break;
+             case OBJECT_ID_CO:
+                result = NAME_CO;
+                break;
+            case OBJECT_ID_CO2:
+                result = NAME_CO2;
+                break;
+            default:
+                result = NAME_NONE;
+        }      
+        return result;
     }
 
-    private void readObject(Registration registration, Observation observation, String objLink) throws InterruptedException {
-        ReadResponse readRes = this.mLeshanServer.send(registration, new ReadRequest(objLink), this.mTimeout);
-        if (readRes == null) {
-            LOG.warn("Read object {} timeout", objLink);
-        } else if (readRes.isSuccess()) {
-            //LOG.warn("Read object {} Success. {}", objLink, readRes.getContent());
-        } else {
-            LOG.warn("Read object {} failed. {}", objLink, readRes.getErrorMessage());
-        }
-        int i = mLeshanServer.getObservationService().cancelObservations(registration,
-                observation.getPath().toString());
-        //LOG.warn("Observation {} canceled = {}",observation.getPath().toString(),  i);
-    }
-
-    private void getRecourses(Registration registration, String event, String endpoint) {
-        LOG.warn("Online {} with {}",  registration.getEndpoint(), event);
-        //todo check observations
+    private void getResources(Registration registration, String event) {
+        LOG.warn("Online {} with {}", registration.getEndpoint(), event);
+        // todo check observations
         Set<Observation> observ = mLeshanServer.getObservationService().getObservations(registration);
         for (Observation s : observ) {
-               LOG.warn("Observations for {} / {} : {}", registration.getEndpoint(), event,  s.toString());
+            LOG.warn("Observations for {} / {} : {}", registration.getEndpoint(), event, s.toString());
         }
-
 
         if (event.equals(EVENT_REGISTRATION) || event.equals(EVENT_UPDATED)) {
             if (registration.getObjectLinks() != null) {
@@ -251,74 +314,116 @@ public class OnConnectAction {
                 boolean isTemperature = false;
                 boolean isCo = false;
                 boolean isAtmospheric = false;
-                boolean isAlertStatus = false;
+                boolean isAlertObject = false;
                 for (Link i : registration.getObjectLinks()) {
-                    if (i.getUrl().contains("/43000/0")) {
+                    if (i.getUrl().contains(PATH_GROUP)) {
                         isMainObj = true;
-                    } else if (i.getUrl().contains("/43002/")) {
+                    } else if (i.getUrl().contains(PATH_TEMPERATURE)) {
                         isTemperature = true;
-                    } else if (i.getUrl().contains("/43003/")) {
+                    } else if (i.getUrl().contains(PATH_HUMIDITY)) {
                         isHumidity = true;
-                    } else if (i.getUrl().contains("/43006/")) {
+                    } else if (i.getUrl().contains(PATH_CO2)) {
                         isCo2 = true;
-                    } else if (i.getUrl().contains("/43007/")) {
+                    } else if (i.getUrl().contains(PATH_CO)) {
                         isCo = true;
-                    } else if (i.getUrl().contains("/43004/")) {
+                    } else if (i.getUrl().contains(PATH_TEMPERATURE)) {
                         isAtmospheric = true;
-                    } else if (i.getUrl().contains("/43005/")) {
-                        isAlertStatus = true;
+                    } else if (i.getUrl().contains(PATH_ALERT)) {
+                        isAlertObject = true;
                     }
                 }
                 if (isMainObj) {
-                    try {
-                        ReadResponse response = this.mLeshanServer.send(registration, new ReadRequest(43000),
-                                this.mTimeout);
-                        if (response == null) {
-                            LOG.warn("Main object call timeout for {}",  registration.getEndpoint());
-                        } else if (response.isSuccess()) {
-                            LwM2mObjectInstance inst = ((LwM2mObject) response.getContent()).getInstance(0);
-                            Map<Integer, LwM2mResource> resources = inst.getResources();
-                            LwM2mMultipleResource resource = (LwM2mMultipleResource) resources.get(1);
-                            if (resource.getType().equals(Type.STRING)) {
-                                @SuppressWarnings("unchecked")
-                                Map<Integer, String> resourceMap = (Map<Integer, String>) resource.getValues();
-                                Map<String, Map<Long, JSONObject>> payloads = new HashMap<String, Map<Long, JSONObject>>();
-                                if (isTemperature) {
-                                    processData(registration, resourceMap, 43002, "temperature", payloads);
-                                }
-                                if (isHumidity) {
-                                    processData(registration, resourceMap, 43003, "humidity", payloads);
-                                }
-                                if (isCo2) {
-                                    processData(registration, resourceMap, 43006, "co2", payloads);
-                                }
-                                if (isCo) {
-                                    processData(registration, resourceMap, 43007, "co", payloads);
-                                }
-                                if (isAtmospheric) {
-                                    processData(registration, resourceMap, 43004, "atmospheric", payloads);
-                                }
-                                if (isAlertStatus) {
-                                    observeRequest(registration, "43000");
-                                }
-                                Map<String, ArrayList<String>> result = serializePayloadAll(payloads);
-                                sendAll(result);
-                                //collecting request from redis
-                                if(this.mRedisMessage != null) {
-                                    processRedisRequests(registration, resourceMap);
-                                }
-                            } else {
-                                LOG.warn("Main object {} datatype error {}",  registration.getEndpoint(), resource.getType());
-                            }
-                        } else {
-                            LOG.warn("Failed to read Main object for {} Error code {} Error Message {}",  registration.getEndpoint(), response.getCode(), response.getErrorMessage());
+                    Boolean isAttentionRequired = readBooleanResource(registration, PATH_GROUP_ATTENTION_REQUIRED);
+                    if (isAttentionRequired == null) {
+                        // error occurred getting flag from device;
+                    } else {
+                        JSONObject endpointInfo = null;
+                        Map<Integer, String> serialMapping = null;
+                        if(mRedisMessage != null) {
+                            endpointInfo = getRedisEndpointInfo(registration.getEndpoint());    
+                            serialMapping = getFromJsonSerialMapping(endpointInfo);
                         }
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
+                        //if attention required or serial ,mapping is missing
+                        if (isAttentionRequired || serialMapping == null) {
+                            Boolean isAlarmTriggered = readBooleanResource(registration, PATH_GROUP_ALARM_TRIGGERED);
+                            Boolean isDevicesInfoChanged = readBooleanResource(registration, PATH_GROUP_ATTENTION_REQUIRED);
+                            if (isDevicesInfoChanged != null && isDevicesInfoChanged || serialMapping == null) {
+                                serialMapping = getEndpointSerialMapping(registration, PATH_DEVICES);
+                                if(mRedisMessage != null) {
+                                    endpointInfo = addToJsonSerialMapping(endpointInfo, serialMapping);
+                                    setRedisEndpointInfo(registration.getEndpoint(), endpointInfo);
+                                }
+                                //clear flag aware of changes
+                                if(isDevicesInfoChanged) {
+                                    WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, OBJECT_ID_GROUP, 0,
+                                        LwM2mSingleResource.newBooleanResource(RESOURCE_ID_DEVICES_INFO_CHANGED, false));
+                                    Boolean result = writeRequest(registration, request);
+                                    if(!result) {
+                                        LOG.warn("writeRequest for {} on {} failed!", registration.getEndpoint(), request.getPath().toString());
+                                    }
+                                }
+                            }
+                            if (isAlarmTriggered != null && isAlarmTriggered && isAlertObject) {
+                                // todo alarm stuff here read or observe it!
+
+                                
+                                if(isAlarmTriggered) {
+                                    WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, OBJECT_ID_GROUP, 0,
+                                        LwM2mSingleResource.newBooleanResource(RESOURCE_ID_ALARM_TRIGGERED, false));
+                                    Boolean result = writeRequest(registration, request);
+                                    if(!result) {
+                                        LOG.warn("writeRequest for {} on {} failed!", registration.getEndpoint(), request.getPath().toString());
+                                    }
+                                }
+                            }
+                        }
+
+                        if (serialMapping != null) {
+                            //collection for payloads
+                            Map<String, Map<Long, JSONObject>> payloads = new HashMap<String, Map<Long, JSONObject>>();
+
+                            if (isTemperature) {
+                                processData(registration, serialMapping, PATH_TEMPERATURE, payloads);
+                            }
+                            if (isHumidity) {
+                                processData(registration, serialMapping, PATH_HUMIDITY, payloads);
+                            }
+                            if (isCo2) {
+                                processData(registration, serialMapping, PATH_CO2, payloads);
+                            }
+                            if (isCo) {
+                                processData(registration, serialMapping, PATH_CO, payloads);
+                            }
+                            if (isAtmospheric) {
+                                processData(registration, serialMapping, PATH_ATMOSPHERIC, payloads);
+                            }
+
+                            Map<String, ArrayList<String>> result = serializePayloadAll(payloads);
+                            sendAll(result);
+                            // collecting request from redis
+                            if (this.mRedisMessage != null) {
+                                processRedisRequests(registration, serialMapping);
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+
+    private Boolean readBooleanResource(Registration registration, String resourceLink) {
+        Boolean value = null;
+        LwM2mNode object = readRequest(registration, resourceLink);
+        if (object != null && object instanceof LwM2mSingleResource) {
+            LwM2mSingleResource res = (LwM2mSingleResource) object;
+            if (res.getType().equals(Type.BOOLEAN)) {
+                value = (boolean) res.getValue();
+            } else {
+                LOG.warn("Unknown  ({}) resource type {}; expected BOOLEAN. EP: {}", resourceLink, res.getType(),
+                        registration.getEndpoint());
+            }
+        }
+        return value;
     }
 
     private void observeRequest(Registration registration, String link) {
@@ -332,11 +437,13 @@ public class OnConnectAction {
             // if(cResponse.isSuccess()) {
             ReadResponse response = mLeshanServer.send(registration, new ObserveRequest(link), this.mTimeout);
             if (response == null) {
-                LOG.warn("ObserveRequest for {} on {} timeout!",  registration.getEndpoint(), link);
+                LOG.warn("ObserveRequest for {} on {} timeout!", registration.getEndpoint(), link);
             } else if (response.isSuccess()) {
-                //LOG.warn("ObserveRequest for {} on {} success! : {}",  registration.getEndpoint(), link, response.getContent());
+                // LOG.warn("ObserveRequest for {} on {} success! : {}",
+                // registration.getEndpoint(), link, response.getContent());
             } else {
-                LOG.warn("ObserveRequest for {} on {} Failed! Error : {} : {}",  registration.getEndpoint(), link, response.getCode(), response.getErrorMessage());
+                LOG.warn("ObserveRequest for {} on {} Failed! Error : {} : {}", registration.getEndpoint(), link,
+                        response.getCode(), response.getErrorMessage());
             }
             // } else {
             // }
@@ -350,18 +457,18 @@ public class OnConnectAction {
             for (Map.Entry<String, ArrayList<String>> entry : data.entrySet()) {
                 send2HttpApi(entry.getValue(), entry.getKey());
             }
-        } 
+        }
         if (this.mThingsboardMqttClient != null) {
             for (Map.Entry<String, ArrayList<String>> entry : data.entrySet()) {
                 send2Mqtt(entry.getValue(), entry.getKey());
             }
-        } 
-        if (this.mRedisMessage != null) {
-            this.mRedisMessage.sendPayload(data);
-            for (Map.Entry<String, ArrayList<String>> entry : data.entrySet()) {
-                this.mRedisMessage.writeEventList(entry.getKey());
-            }
         }
+        // if (this.mRedisMessage != null) {
+        // this.mRedisMessage.sendPayload(data);
+        // for (Map.Entry<String, ArrayList<String>> entry : data.entrySet()) {
+        // this.mRedisMessage.writeEventList(entry.getKey());
+        // }
+        // }
     }
 
     private void send2Mqtt(ArrayList<String> payloadArray, String token) {
@@ -382,117 +489,271 @@ public class OnConnectAction {
         }
     }
 
-    private void processData(Registration registration, Map<Integer, String> resourceMap, int objId, String resName,
-            Map<String, Map<Long, JSONObject>> payloads) {
+    private LwM2mNode readRequest(Registration registration, String resourceLink) {
+        LwM2mNode object = null;
         try {
-            //LOG.warn("ReadRequest for {} on object {}!",  registration.getEndpoint(), objId);
-            ReadResponse response = this.mLeshanServer.send(registration, new ReadRequest(objId), this.mTimeout);
+            ReadResponse response = this.mLeshanServer.send(registration, new ReadRequest(resourceLink), this.mTimeout);
             // set read values
             if (response == null) {
-                LOG.warn("ReadRequest for {} on object {} timeout!",  registration.getEndpoint(), objId);
+                LOG.warn("ReadRequest for {} on resource {} timeout!", registration.getEndpoint(), resourceLink);
             } else if (response.isSuccess()) {
-                // if we got object
-                LwM2mObject obj = ((LwM2mObject) response.getContent());
-                // for over instance/ serials
-                for (Map.Entry<Integer, String> entry : resourceMap.entrySet()) {
-                    LwM2mObjectInstance inst = obj.getInstance(entry.getKey());
-                    Long pulse = getIntegerResource(inst, 1);
-                    Map<Integer, Object> resMap = getResourceMap(inst, 2);
-                    Date lmt = getDateResource(inst, 3);
-                    if (lmt != null && resMap != null && pulse != null && resMap.size() > 0) {
-                        Long defTime = lmt.getTime();
-                        Map<Long, JSONObject> payloadMap = payloads.get(entry.getValue());
-                        if (payloadMap == null) {
-                            payloadMap = new HashMap<Long, JSONObject>();
-                            payloads.put(entry.getValue(), payloadMap);
-                        }
-                        for (Map.Entry<Integer, Object> resEntry : resMap.entrySet()) {
-                            Long calcTime = (defTime - (((resMap.size() - 1) - resEntry.getKey()) * 1000 * pulse));
-                            JSONObject payloadObj = payloadMap.get(calcTime);
-                            if (payloadObj == null) {
-                                payloadObj = new JSONObject("{\"" + resName + "\":" + resEntry.getValue() + "}");
-                                payloadMap.put(calcTime, payloadObj);
-                            } else {
-                                payloadObj.put(resName, resEntry.getValue());
-                            }
-                            // String payload = "{\"ts\":" + calcTime +",\"values\":{\"temperature\":" +
-                            // resEntry.getValue() + ", \"co2\":"+ co2 +"}}";
-                        }
-                    }
-                }
-                clearObject(registration, resourceMap, obj);
+                object = response.getContent();
             } else {
-                LOG.warn("ReadRequest for {} on object {} Failed! Error: {} : {}",  registration.getEndpoint(), objId, response.getCode(), response.getErrorMessage());
+                LOG.warn("ReadRequest for {} on object {} Failed! Error: {} : {}", registration.getEndpoint(),
+                        resourceLink, response.getCode(), response.getErrorMessage());
             }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+        return object;
     }
 
-    private void clearObject(Registration registration, Map<Integer, String> resourceMap, LwM2mObject obj) {
-        for (Map.Entry<Integer, String> entry : resourceMap.entrySet()) {
-            LwM2mObjectInstance inst = obj.getInstance(entry.getKey());
-            Date lmt = getDateResource(inst, 3);
-            Date lrmt = getDateResource(inst, 4);
-            if (lmt != null && (lrmt == null || lrmt != null && lmt.getTime() >= lrmt.getTime())) {
-                WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, obj.getId(), entry.getKey(),
-                        LwM2mSingleResource.newDateResource(4, lmt));
-                // final String clearingObj = obj.getId() + "/" + entry.getKey();
-                // System.out.println("Clearing obj/instance: " + clearingObj);
-                // this.mLeshanServer.send(registration, request, this.mTimeout,
-                // new ResponseCallback<WriteResponse>() {
-                // @Override
-                // public void onResponse(WriteResponse response) {
-                // if(!response.isSuccess()) {
-                // System.out.println("ResponseCallback Something wrong = " + clearingObj + "/"
-                // + response.getErrorMessage());
-                // } else {
-                // System.out.println("ResponseCallback isSuccess " + clearingObj + "/" +
-                // response.getCoapResponse().toString());
-                // }
-                // }
-                // },
-                // new ErrorCallback() {
-                // @Override
-                // public void onError(Exception e) {
-                // System.out.println("ErrorCallback = " + clearingObj + "/" + e.getMessage());
-                // }
-                // }
-                // );
-                try {
-                    LwM2mResponse response = this.mLeshanServer.send(registration, request, this.mTimeout);
-                    if (response == null) {
-                        LOG.warn("WriteRequest for {} on object {} timeout!",  registration.getEndpoint(), request.getPath().toString());
-                    } else if (!response.isSuccess()) {
-                        LOG.warn("WriteRequest for {} on object {} Failed! Error: {} : {}",  registration.getEndpoint(), request.getPath().toString(), response.getCode(), response.getErrorMessage());
-                    }
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            } else {
-                LOG.warn("Clear object skipped for {} on object {}/{} due to unfulfilled conditions!",  registration.getEndpoint(), obj, entry.getKey());
+    private Boolean writeRequest(Registration registration, WriteRequest request) {
+        Boolean result = null;
+        try {
+            LwM2mResponse response = this.mLeshanServer.send(registration, request, this.mTimeout);
+            if (response == null) {
+                result = false;
+                LOG.warn("WriteRequest for {} on resource {} timeout!", registration.getEndpoint(),
+                        request.getPath().toString());
+            } else if (response.isSuccess()) {
+                result = true;
+            } else if (!response.isSuccess()) {
+                result = false;
+                LOG.warn("WriteRequest for {} on resource {} Failed! Error: {} : {}", registration.getEndpoint(),
+                        request.getPath().toString(), response.getCode(), response.getErrorMessage());
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    private Map<Integer, String> getEndpointSerialMapping(Registration registration, String resourceLink) {
+        Map<Integer, String> mapping = null;
+        LwM2mNode object = readRequest(registration, resourceLink);
+        if (object != null && object instanceof LwM2mObject) {
+            mapping = new HashMap<Integer, String>();
+            for (Map.Entry<Integer, LwM2mObjectInstance> entry : ((LwM2mObject) object).getInstances().entrySet()) {
+                mapping.put(entry.getKey(), getStringResource(entry.getValue(), RESOURCE_ID_SERIAL_NUMBER));
             }
         }
+        return mapping;
+    }
+    private JSONObject getRedisEndpointInfo(String endpoint) {
+        JSONObject endpointInfo = null;
+        String info = mRedisMessage.getEndpointInfo(endpoint);
+        LOG.warn("get mapping ({}) : {}", info, endpoint);
+        if (info != null) {
+            endpointInfo = new JSONObject(info);
+        }
+        return endpointInfo;
+    }
+    
+    private JSONObject addToJsonSerialMapping(JSONObject endpointInfo, Map<Integer, String> serialMapping) {
+        JSONObject map = new JSONObject();
+        for (Map.Entry<Integer, String> entry : serialMapping.entrySet()) {
+            map.put(entry.getKey().toString(), entry.getValue());
+        }
+        if(endpointInfo == null) {
+            endpointInfo = new JSONObject();    
+        }
+        endpointInfo.put(JSON_MAPPING_KEY, map);
+        return endpointInfo;
+    }
+    private void setRedisEndpointInfo(String endpoint, JSONObject endpointInfo) {
+        LOG.warn("Push mapping ({}) : {}", endpointInfo.toString(), endpoint);
+        mRedisMessage.setEndpointInfo(endpoint, endpointInfo.toString());
+    }
+
+    private Map<Integer, String> getFromJsonSerialMapping(JSONObject endpointInfo) {
+        Map<Integer, String> endpointMapping = null;
+        if (endpointInfo != null) {
+            endpointMapping = new HashMap<Integer, String>();
+            JSONObject map = endpointInfo.getJSONObject(JSON_MAPPING_KEY);
+            Iterator<String> keys = map.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                endpointMapping.put(Integer.valueOf(key), map.get(key).toString());
+            }        
+        }
+        return endpointMapping;
+    }
+
+    private String getSerialNumber(Registration registration, Map<Integer, String> deviceMapping, int instanceId) {
+        String result = null;
+        result = deviceMapping.get(instanceId);
+        if (result == null) { // 99.9% unreachable code!
+            Map<Integer, String> newDeviceMapping = getEndpointSerialMapping(registration, PATH_DEVICES);
+            if (newDeviceMapping != null && newDeviceMapping.get(instanceId) != null) {
+                result = newDeviceMapping.get(instanceId);
+                deviceMapping.clear();
+                deviceMapping.putAll(newDeviceMapping);    
+                if(mRedisMessage != null) { 
+                    JSONObject endpointInfo = getRedisEndpointInfo(registration.getEndpoint());
+                    addToJsonSerialMapping(endpointInfo, deviceMapping);
+                    setRedisEndpointInfo(registration.getEndpoint(), endpointInfo);
+                }
+            }
+        }
+        return result;
+    }
+
+    private void processData(Registration registration, Map<Integer, String> deviceMapping, String resourceLink,
+            Map<String, Map<Long, JSONObject>> payloads) {
+        LwM2mNode object = readRequest(registration, resourceLink);
+        if (object != null && object instanceof LwM2mObject) {
+            LwM2mObject obj = (LwM2mObject) object;
+            String sensorName = getSensorName(obj.getId());
+            for (Map.Entry<Integer, LwM2mObjectInstance> entry : obj.getInstances().entrySet()) {
+                Long pulse = getIntegerResource(entry.getValue(), RESOURCE_ID_PULSE);
+                Map<Integer, Object> resourceMap = getResourceMap(entry.getValue(), RESOURCE_ID_RESOURCE_MAP);
+                Date lmt = getDateResource(entry.getValue(), RESOURCE_ID_SERIAL_LMT);
+                String serialNumber = getSerialNumber(registration, deviceMapping, entry.getKey());
+                if (serialNumber != null && lmt != null && resourceMap != null && pulse != null
+                        && resourceMap.size() > 0) {
+                    createPayload(serialNumber, lmt, resourceMap, sensorName, pulse, payloads);
+                    clearInstanceAsync(registration, obj.getId(), entry.getValue());
+                } else {
+                    LOG.warn(
+                        "CreatePayload Skipped for {}. SensorName: {}; serialNumber: {}; Last measurement time is {} null; resourceMap is {} null; pulse is {} null; resourceMap.size(): {};",
+                        registration.getEndpoint(), sensorName, serialNumber, (lmt == null ? "" : "not"), (resourceMap == null ? "" : "not"), (pulse == null ? "" : "not"),
+                        (resourceMap != null ? resourceMap.size() : "Null"));
+                }
+            }
+            //clearObjectAsync(registration, obj);
+        }
+    }
+
+    private void createPayload(String serialNumber, Date lmt, Map<Integer, Object> resourceMap, String resName,
+            Long pulse, Map<String, Map<Long, JSONObject>> payloads) {
+        Long defTime = lmt.getTime();
+        Map<Long, JSONObject> payloadMap = payloads.get(serialNumber);
+        if (payloadMap == null) {
+            payloadMap = new HashMap<Long, JSONObject>();
+            payloads.put(serialNumber, payloadMap);
+        }
+        for (Map.Entry<Integer, Object> resEntry : resourceMap.entrySet()) {
+            Long calcTime = (defTime - (((resourceMap.size() - 1) - resEntry.getKey()) * 1000 * pulse));
+            JSONObject payloadObj = payloadMap.get(calcTime);
+            if (payloadObj == null) {
+                payloadObj = new JSONObject("{\"" + resName + "\":" + resEntry.getValue() + "}");
+                payloadMap.put(calcTime, payloadObj);
+            } else {
+                payloadObj.put(resName, resEntry.getValue());
+            }
+            // String payload = "{\"ts\":" + calcTime +",\"values\":{\"temperature\":" +
+            // resEntry.getValue() + ", \"co2\":"+ co2 +"}}";
+        }
+    }
+
+    private void clearObjectAsync(Registration registration, LwM2mObject object) {
+        final CountDownLatch latch = new CountDownLatch(object.getInstances().size());
+        for (Map.Entry<Integer, LwM2mObjectInstance> entry : object.getInstances().entrySet()) {
+            Date lmt = getDateResource(entry.getValue(), RESOURCE_ID_SERIAL_LMT);
+            if (lmt != null) {
+                WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, object.getId(), entry.getKey(),
+                        LwM2mSingleResource.newDateResource(RESOURCE_ID_SERIAL_LRMT, lmt));
+                final String debug = registration.getEndpoint() + ":" + object.getId() + " / " + request.getPath().toString();
+                this.mLeshanServer.send(registration, request, this.mTimeout, new ResponseCallback<WriteResponse>() {
+                    @Override
+                    public void onResponse(WriteResponse response) {
+                        latch.countDown();
+                        LOG.warn("onResponse  {} : {} ", response.isSuccess(), debug);
+                    }
+                }, new ErrorCallback() {
+                    @Override
+                    public void onError(Exception e) {
+                        LOG.warn("onError {} : {}", debug, e.getMessage());
+                    }
+                });
+            } else {
+                latch.countDown();
+                LOG.warn("Clear object skipped for {} on object {}/{} because last measurement time is null",
+                        registration.getEndpoint(), object.getId(), entry.getKey());
+            }
+
+        }
+        LOG.warn("latch.await for {} : {}", registration.getEndpoint(), object.getId());
+        try {
+            Boolean result = latch.await(this.mTimeout, TimeUnit.MILLISECONDS);
+            if(!result) {
+                LOG.warn("latch.await ended with timeout for {} : {}", registration.getEndpoint(), object.getId());     
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        LOG.warn("latch.await ended for {} : {}", registration.getEndpoint(), object.getId());
+    }
+
+    private void clearInstanceAsync(Registration registration, Integer objectId, LwM2mObjectInstance inst) {
+        Date lmt = getDateResource(inst, RESOURCE_ID_SERIAL_LMT);
+        if (lmt != null) {
+            WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, objectId, inst.getId(),
+                    LwM2mSingleResource.newDateResource(RESOURCE_ID_SERIAL_LRMT, lmt));
+            final String debug = registration.getEndpoint() + ":" + objectId + " / " + request.getPath().toString();
+            this.mLeshanServer.send(registration, request, this.mTimeout, new ResponseCallback<WriteResponse>() {
+                @Override
+                public void onResponse(WriteResponse response) {
+                    if(!response.isSuccess()) {
+                        LOG.warn("onResponse  {} : {} ", response.isSuccess(), debug);
+                    }
+                }
+            }, new ErrorCallback() {
+                @Override
+                public void onError(Exception e) {
+                    LOG.warn("onError {} : {}", debug, e.getMessage());
+                }
+            });
+        } else {
+            LOG.warn("Clear object skipped for {} on object {}/{} because last measurement time is null",
+                    registration.getEndpoint(), objectId, inst.getId());
+        }
+    }
+    private Boolean clearInstance(Registration registration, Integer objectId, LwM2mObjectInstance inst) {
+        Boolean result = false;
+        Date lmt = getDateResource(inst, RESOURCE_ID_SERIAL_LMT);
+        if (lmt != null) {
+            WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, objectId, inst.getId(),
+                    LwM2mSingleResource.newDateResource(RESOURCE_ID_SERIAL_LRMT, lmt));
+            result = writeRequest(registration, request);
+        } else {
+            LOG.warn("Clear object skipped for {} on object {}/{} because last measurement time is null",
+            registration.getEndpoint(), objectId, inst.getId());
+        }
+        return result;
+    }
+    private String getStringResource(LwM2mObjectInstance instObj, int res) {
+        String result = null;
+        if (instObj.getResource(res) instanceof LwM2mSingleResource) {
+            LwM2mSingleResource lmtRes = (LwM2mSingleResource) instObj.getResource(res);
+            if (lmtRes.getType().equals(Type.STRING)) {
+                result = (String) lmtRes.getValue();
+            }
+        }
+        return result;
     }
 
     private Date getDateResource(LwM2mObjectInstance instObj, int res) {
+        Date result = null;
         if (instObj.getResource(res) instanceof LwM2mSingleResource) {
             LwM2mSingleResource lmtRes = (LwM2mSingleResource) instObj.getResource(res);
             if (lmtRes.getType().equals(Type.TIME)) {
-                return (Date) lmtRes.getValue();
+                result = (Date) lmtRes.getValue();
             }
         }
-        return null;
+        return result;
     }
 
     private Long getIntegerResource(LwM2mObjectInstance instObj, int res) {
+        Long result = null;
         if (instObj.getResource(res) instanceof LwM2mSingleResource) {
             LwM2mSingleResource lmtRes = (LwM2mSingleResource) instObj.getResource(res);
             if (lmtRes.getType().equals(Type.INTEGER)) {
-                return (Long) lmtRes.getValue();
+                result = (Long) lmtRes.getValue();
             }
         }
-        return null;
+        return result;
     }
 
     private Map<Integer, Object> getResourceMap(LwM2mObjectInstance instObj, int inst) {

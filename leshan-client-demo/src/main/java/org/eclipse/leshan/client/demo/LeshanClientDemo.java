@@ -49,6 +49,7 @@ import org.eclipse.leshan.client.demo.mt.AlarmStatus;
 import org.eclipse.leshan.client.demo.mt.AtmosphericPressureReadings;
 import org.eclipse.leshan.client.demo.mt.Co2Readings;
 import org.eclipse.leshan.client.demo.mt.CoReadings;
+import org.eclipse.leshan.client.demo.mt.Devices;
 import org.eclipse.leshan.client.demo.mt.GroupSensors;
 import org.eclipse.leshan.client.demo.mt.HumidityReadings;
 import org.eclipse.leshan.client.demo.mt.TemperatureReadings;
@@ -70,7 +71,7 @@ public class LeshanClientDemo {
 
     private static final int OBJECT_ID_TEMPERATURE_SENSOR = 3303;
     private static final int OBJECT_ID_GROUP_DATA = 43000;
-    //private static final int OBJECT_ID_DEVICES = 43001;
+    private static final int OBJECT_ID_DEVICES = 43001;
     private static final int OBJECT_ID_TEMPERATURE = 43002;
     private static final int OBJECT_ID_HUMIDITY = 43003;
     private static final int OBJECT_ID_PRESSURE = 43004;
@@ -360,7 +361,7 @@ public class LeshanClientDemo {
         } else {
             if (pskIdentity != null) {
                 initializer.setInstancesForObject(SECURITY, psk(serverURI, 123, pskIdentity, pskKey));
-                initializer.setInstancesForObject(SERVER, new Server(123, 30, BindingMode.U, false));
+                initializer.setInstancesForObject(SERVER, new Server(123, 30 * 1, BindingMode.U, false));
             } else if (clientPublicKey != null) {
                 initializer.setInstancesForObject(SECURITY, rpk(serverURI, 123, clientPublicKey.getEncoded(),
                         clientPrivateKey.getEncoded(), serverPublicKey.getEncoded()));
@@ -382,7 +383,7 @@ public class LeshanClientDemo {
         
          //>>>//additional sensors
         GroupSensors gs = new GroupSensors();
-        gs.setGroupSensors("SN00000000001", "SN00000000002", "SN00000000003", "SN00000000004");
+        gs.setGroupSensors("SN00000000001", "SN00000000002", "SN00000000003", "SN00000000004", "SN00000000005", "SN00000000006");
         initializer.setInstancesForObject(OBJECT_ID_GROUP_DATA, gs);
         initializer.setInstancesForObject(OBJECT_ID_TEMPERATURE, gs.getTemperatureObjReadings().toArray(new TemperatureReadings[gs.getTemperatureObjReadings().size()]));
         initializer.setInstancesForObject(OBJECT_ID_HUMIDITY, gs.getHumidityObjReadings().toArray(new HumidityReadings[gs.getTemperatureObjReadings().size()]));
@@ -390,6 +391,7 @@ public class LeshanClientDemo {
         initializer.setInstancesForObject(OBJECT_ID_SMOKE, gs.getAlarmReadings().toArray(new AlarmStatus[gs.getAlarmReadings().size()]));
         initializer.setInstancesForObject(OBJECT_ID_PRESSURE, gs.getAtmosphericReadings().toArray(new AtmosphericPressureReadings[gs.getAtmosphericReadings().size()]));
         initializer.setInstancesForObject(OBJECT_ID_CO, gs.getCoReadings().toArray(new CoReadings[gs.getCoReadings().size()]));
+        initializer.setInstancesForObject(OBJECT_ID_DEVICES, gs.getDevices().toArray(new Devices[gs.getDevices().size()]));
         List<LwM2mObjectEnabler> enablers = initializer.createAll();
         //<<<//additional sensors
         // Create CoAP Config

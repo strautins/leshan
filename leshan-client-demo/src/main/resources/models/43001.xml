@@ -31,6 +31,16 @@
 				<Description><![CDATA[Software version.]]></Description>
 			</Item>
 			<Item ID="2">
+				<Name>Serial Number</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>String</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Device Serial Number]]></Description>
+			</Item>
+			<Item ID="3">
 				<Name>Reachable</Name>
 				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -40,7 +50,7 @@
 				<Units></Units>
 				<Description><![CDATA[Resource indicates whether device is reachable.]]></Description>
 			</Item>			
-			<Item ID="3">
+			<Item ID="4">
 				<Name>Last Active Time</Name>
 				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -50,7 +60,7 @@
 				<Units></Units>
 				<Description><![CDATA[Last time device was reachable.]]></Description>
 			</Item>
-			<Item ID="4">
+			<Item ID="5">
 				<Name>Battery Status</Name>
 				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -60,7 +70,7 @@
 				<Units></Units>
 				<Description><![CDATA[Number indicating battery status: 0 - normal, 1 - low, 2 - critical.]]></Description>
 			</Item>
-			<Item ID="5">
+			<Item ID="6">
 				<Name>Battery Level</Name>
 				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -70,7 +80,7 @@
 				<Units>V</Units>
 				<Description><![CDATA[Last measured voltage for each battery.]]></Description>
 			</Item>
-			<Item ID="6">
+			<Item ID="7">
 				<Name>Reboot</Name>
 				<Operations>E</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -80,7 +90,7 @@
 				<Units></Units>
 				<Description><![CDATA[Reboot device.]]></Description>
 			</Item>
-			<Item ID="7">
+			<Item ID="8">
 				<Name>Output State</Name>
 				<Operations>RW</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -90,7 +100,7 @@
 				<Units></Units>
 				<Description><![CDATA[Set, read digital output logic state.]]></Description>
 			</Item>
-			<Item ID="8">
+			<Item ID="9">
 				<Name>Detach</Name>
 				<Operations>E</Operations>
 				<MultipleInstances>Single</MultipleInstances>
