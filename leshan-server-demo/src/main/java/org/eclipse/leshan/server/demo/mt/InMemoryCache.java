@@ -12,6 +12,7 @@ public class InMemoryCache implements EndpointCache {
     private static final Map<String, String> mEndpointStorage = new ConcurrentHashMap<String,String>();
     
     public InMemoryCache() {
+        LOG.warn("Created InMemoryCache at {}", System.currentTimeMillis());
     }
 
     @Override

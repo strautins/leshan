@@ -167,7 +167,7 @@ public class GroupSensors extends BaseInstanceEnabler {
             } else {
                 return WriteResponse.notFound();
             }
-        case 6:
+        case mR5:
             if(isInt(value.getValue().toString())) {
                 this.mR5Value = Integer.parseInt(value.getValue().toString());
                 return WriteResponse.success();
