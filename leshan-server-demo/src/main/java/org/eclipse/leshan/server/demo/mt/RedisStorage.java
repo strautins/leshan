@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
 import redis.clients.util.Pool;
 
-public class RedisMessage {
+public class RedisStorage implements EndpointCache {
 
     private static final Logger LOG = LoggerFactory.getLogger(OnConnectAction.class);
     
@@ -21,7 +21,7 @@ public class RedisMessage {
     private static final String RESPONSE_EP = "RESPONSE:EP:"; /**Endpoint => response hashmap  */
     private static final String EP_INFO = "EP:INFO:"; /**key:value */
     
-    public RedisMessage(Pool<Jedis> jedisPool) {
+    public RedisStorage(Pool<Jedis> jedisPool) {
         this.mJedisPool = jedisPool;
     }
 
@@ -95,14 +95,17 @@ public class RedisMessage {
         }
         return payLoadMap;
     }
-    public String getEndpointInfo(String endpoint) {
+    @Override
+    public String getEndpointCache(String endpoint) {
         String payLoad = null;
         try (Jedis jedis = mJedisPool.getResource()) {
             payLoad = jedis.get(getEndpointInfoKey(endpoint));
         }
         return payLoad;
     }
-    public void setEndpointInfo(String endpoint,  String payLoad) {
+
+    @Override
+    public void setEndpointCache(String endpoint,  String payLoad) {
         try (Jedis jedis = mJedisPool.getResource()) {
             String s = jedis.set(getEndpointInfoKey(endpoint), payLoad);
             LOG.warn("Send info {}", s);

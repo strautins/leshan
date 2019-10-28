@@ -61,8 +61,8 @@ import org.eclipse.leshan.core.node.codec.LwM2mNodeDecoder;
 import org.eclipse.leshan.server.californium.LeshanServerBuilder;
 import org.eclipse.leshan.server.californium.impl.LeshanServer;
 import org.eclipse.leshan.server.demo.mt.OnConnectAction;
-import org.eclipse.leshan.server.demo.mt.RedisMessage;
 import org.eclipse.leshan.server.demo.mt.RedisRequestLink;
+import org.eclipse.leshan.server.demo.mt.RedisStorage;
 import org.eclipse.leshan.server.demo.mt.ThingsboardHttpClient;
 import org.eclipse.leshan.server.demo.mt.ThingsboardMqttClient;
 import org.eclipse.leshan.server.demo.servlet.ClientServlet;
@@ -249,8 +249,8 @@ public class LeshanServerDemo {
         // Get mDNS publish switch
         Boolean publishDNSSdServices = cl.hasOption("mdns");
 
-         // Get network file path
-         String networkFileName = cl.getOptionValue("nc");
+        // Get network file path
+        String networkFileName = cl.getOptionValue("nc");
 
         try {
             createAndStartServer(webAddress, webPort, localAddress, localPort, secureLocalAddress, secureLocalPort,
@@ -406,7 +406,7 @@ public class LeshanServerDemo {
         builder.setEncoder(new DefaultLwM2mNodeEncoder(new MagicLwM2mValueConverter()));
 
         ThingsboardMqttClient thingsboardMqttClient = null;
-        RedisMessage redisMessage = null; 
+        RedisStorage redisStorage = null; 
         ThingsboardHttpClient thingsboardHttpClient = null;
         
         if(mqttUrl != null) {
@@ -426,14 +426,14 @@ public class LeshanServerDemo {
             }
         }
         if(jedis != null) {
-            redisMessage = new RedisMessage(jedis);
+            redisStorage = new RedisStorage(jedis);
         }
         LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 16.10.2019 11:24");  
 
         // Create and start LWM2M server
         LeshanServer lwServer = builder.build();
         //start logic for device read
-        OnConnectAction lwM2mPayload = new OnConnectAction(lwServer, thingsboardMqttClient, thingsboardHttpClient, redisMessage);
+        OnConnectAction lwM2mPayload = new OnConnectAction(lwServer, thingsboardMqttClient, thingsboardHttpClient, redisStorage);
         lwM2mPayload.start();
 
         // Now prepare Jetty
