@@ -16,55 +16,51 @@ public class RedisRequestLink {
     private JSONObject mRequest;
     private JSONObject mResponse;
     public RedisRequestLink(String link, String info) {
-        int linkSepCount = countChar(link, ":");
-        if(linkSepCount == 0 || linkSepCount > 3) {
-            mError = new JSONObject();
-            mError.put("error", "Incorrect link separator count! " + linkSepCount);
+        //R:43000:0:1
+        String[] links = link.split(":");
+        if(links.length >= 0 && (R + W + E).contains(links[0].toUpperCase())) {
+            this.mAction = links[0].toUpperCase();
         } else {
-            //R:43000:0:1
-            String[] links = link.split(":");
-            for (String s : links) {
-                if(this.mAction == null) {
-                    if((R + W + E).contains(s)) {    
-                        this.mAction = s.toUpperCase();
-                    } else {
-                        mError = new JSONObject();
-                        mError.put("error", "Action unknown " + s);
-                        break;
-                    }
-                } else if (this.mObjectId == null) {
-                    this.mObjectId = s;
-                } else if (this.mInstanceId == null) {
-                    this.mInstanceId = s;
-                } else {
-                    this.mResourceId = s;
-                }
-            }
-            if(!isError()) {
-                try {
-                    mRequest = new JSONObject(info);
-                    Iterator<String> keys = mRequest.keys();
-                    while(keys.hasNext()) {
-                        switch (keys.next()) {
-                            case "values":
-                                mValue = mRequest.get("values");
-                                break;
-                            case "value":
-                                mValue = mRequest.get("value");
-                                break;
-                        }
-                    } 
-                } catch (Exception e) {
-                    mError = new JSONObject();
-                    mError.put("error", "JSON parse ERROR:" + info + " / " + e.getMessage());
-                    //todo return with json parse error
-                } 
-            }
+            mError = new JSONObject();
+            mError.put("error", "Action unknown " +  links[0].toUpperCase());
+        }
+        if(links.length >= 1) {
+            this.mObjectId = links[1];
+        }
+        if(links.length >= 2) {
+            this.mInstanceId = links[2];
+        }
+        if(links.length == 3) {
+            this.mResourceId = links[3];
+        }else if(links.length > 3) {
+            mError = new JSONObject();
+            mError.put("error", "Incorrect link separator count! " + links.length);
+        }
 
-            if(!isError() && isWrite() && this.mResourceId == null) {
+        if(!isError()) {
+            try {
+                mRequest = new JSONObject(info);
+                Iterator<String> keys = mRequest.keys();
+                while(keys.hasNext()) {
+                    switch (keys.next()) {
+                        case "values":
+                            mValue = mRequest.get("values");
+                            break;
+                        case "value":
+                            mValue = mRequest.get("value");
+                            break;
+                    }
+                } 
+            } catch (Exception e) {
                 mError = new JSONObject();
-                mError.put("error", "In Write operation full link missing! " + info);   
-            }
+                mError.put("error", "JSON parse ERROR:" + info + " / " + e.getMessage());
+                //todo return with json parse error
+            } 
+        }
+
+        if(!isError() && isWrite() && this.mResourceId == null) {
+            mError = new JSONObject();
+            mError.put("error", "In Write operation full link missing! " + info);   
         }
     }
     public boolean isRead() {
@@ -90,11 +86,6 @@ public class RedisRequestLink {
             ifNotNull(this.mInstanceId, "/") +
             ifNotNull(this.mResourceId, "/");
     }
-    public static String getLink(Integer objectId, Integer instanceId, Integer resourceId) {
-        return objectId + 
-            ifNotNull(instanceId, "/") +
-            ifNotNull(resourceId, "/");
-    }
     public Object getValue() {
         return this.mValue;
     }
@@ -102,8 +93,7 @@ public class RedisRequestLink {
         return this.mError != null;
     }
     public void setResponse(String response) {
-        mResponse = new JSONObject(response);
-        mResponse.put("tim", System.currentTimeMillis());
+        setResponse(new JSONObject(response));
     }
     public void setResponse(JSONObject response) {
         mResponse = response;
@@ -122,12 +112,9 @@ public class RedisRequestLink {
     public static int boolToInt(Boolean b) {
         return b ? 1 : 0;
     }
-    public static int countChar(String string, String b) {
-        return string.length() - string.replace(b, "").length();
-    }
-    public static String ifNotNull(Integer value, String prefix) {
-        return ifNotNull(value.toString(),prefix);
-    }
+    // public static int countChar(String string, String b) {
+    //     return string.length() - string.replace(b, "").length();
+    // }
     public static String ifNotNull(String string, String prefix) {
         return string != null ? (prefix + string) : "";
     }
