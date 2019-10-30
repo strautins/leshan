@@ -191,6 +191,14 @@ public class GroupSensors extends BaseInstanceEnabler {
         }
         return true;
     }
+    public static boolean isLong(String strNum) {
+        try {
+            Long.parseLong(strNum);
+        } catch (NumberFormatException | NullPointerException nfe) {
+            return false;
+        }
+        return true;
+    }
     public static boolean isBoolean(String strNum) {
         try {
             Boolean.parseBoolean(strNum);
@@ -199,26 +207,29 @@ public class GroupSensors extends BaseInstanceEnabler {
         }
         return true;
     }
-    public static Date getDate(LwM2mResource value) {
-        if(GroupSensors.isInt(value.getValue().toString())) {
+    public static Date getDate(String value) {
+        if(GroupSensors.isLong(value)) {
             // let's assume we received the millisecond since 1970/1/1
-            return new Date(Integer.parseInt(value.getValue().toString()));
+            return new Date(Long.parseLong(value)); 
         } else {
             // let's assume we received an ISO 8601 format date
             try {
                 DatatypeFactory datatypeFactory = DatatypeFactory.newInstance();
-                XMLGregorianCalendar cal = datatypeFactory.newXMLGregorianCalendar(value.getValue().toString());
+                XMLGregorianCalendar cal = datatypeFactory.newXMLGregorianCalendar(value);
                 return cal.toGregorianCalendar().getTime();
             } catch (DatatypeConfigurationException | IllegalArgumentException e) {
                 //Fri Aug 16 12:17:00 EEST 2019
                 SimpleDateFormat sdf = new SimpleDateFormat("EEE MMM dd HH:mm:ss Z yyyy", new Locale("us"));
                 try {
-                    return (Date) sdf.parse(value.getValue().toString());
+                    return (Date) sdf.parse(value);
                 } catch (ParseException e1) {
                     return null;
 				}
             }
         }
+    }
+    public static Date getDate(LwM2mResource value) {
+       return getDate(value.getValue().toString());
     }
     
     public static double getTwoDigitValue(double value) {

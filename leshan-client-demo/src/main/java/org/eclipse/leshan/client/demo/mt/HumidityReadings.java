@@ -29,9 +29,8 @@ public class HumidityReadings extends BaseInstanceEnabler {
     private static final int R2 = 2;
     private static final int R3 = 3;
     private static final int R4 = 4;
-    private static final int R5 = 5;
 
-    private static final List<Integer> supportedResources = Arrays.asList(R0, R1, R2, R3, R4, R5);
+    private static final List<Integer> supportedResources = Arrays.asList(R0, R1, R2, R3, R4);
     private final ScheduledExecutorService scheduler;
     private final Random rng = new Random();
     private Long mCurrentValue = 50l;
@@ -41,7 +40,6 @@ public class HumidityReadings extends BaseInstanceEnabler {
     
     private List<Long> mMeasurementList = new ArrayList<Long>();
     private Date mLMT = new Date();
-    private Date mLRMT = new Date();
 
     public HumidityReadings() {
         this.scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Humidity Sensor"));
@@ -74,10 +72,6 @@ public class HumidityReadings extends BaseInstanceEnabler {
             return ReadResponse.success(resourceId, temperatureMap, Type.INTEGER);
         case R3:
             return ReadResponse.success(resourceId, mLMT);
-        case R4:
-            return ReadResponse.success(resourceId, mLRMT);
-        case R5:
-            return ReadResponse.success(resourceId, mMeasurementList.size());
         default:
             return super.read(identity, resourceId);
         }
@@ -85,7 +79,19 @@ public class HumidityReadings extends BaseInstanceEnabler {
 
     @Override
     public synchronized ExecuteResponse execute(ServerIdentity identity, int resourceId, String params) {
-        return super.execute(identity, resourceId, params);
+        switch (resourceId) {
+            case R4:
+                Date d = null;
+                if(params == null) {
+                    d = new Date();     
+                } else { 
+                    d = GroupSensors.getDate(params);
+                }
+                resetMeasurementList(d);
+                return ExecuteResponse.success();
+            default:
+                return super.execute(identity, resourceId, params);
+        }
     }
 
     @Override
@@ -113,14 +119,6 @@ public class HumidityReadings extends BaseInstanceEnabler {
             } else {
                 return WriteResponse.notFound();
             }
-        case R4:
-            if(value.getType().equals(Type.TIME)) {
-                Date d = GroupSensors.getDate(value);
-                resetMeasurementList(d);
-                return WriteResponse.success();
-            } else {
-                return WriteResponse.notFound();
-            }
         default:
             return super.write(identity, resourceid, value);
         }
@@ -128,9 +126,7 @@ public class HumidityReadings extends BaseInstanceEnabler {
 
     private void adjustMeasurements() {
         scheduleReadings();
-        long currTime = (long) (new Date().getTime());  
-        long lrmt = (long) (mLRMT.getTime());  
-        if(this.mIsEnable && currTime >= lrmt) {
+        if(this.mIsEnable) {
             //System.out.println("Temperature sensor write!");
             int delta = rng.nextInt(8) - 4;
             this.mCurrentValue += delta;
@@ -164,7 +160,6 @@ public class HumidityReadings extends BaseInstanceEnabler {
             int recLeft = left / this.mInterval; 
             mMeasurementList.subList(0, (mMeasurementList.size() - recLeft)).clear();
         }
-        this.mLRMT = dat;
         fireResourcesChange(R2, R4);
     }
 

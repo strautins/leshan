@@ -427,7 +427,7 @@ public class LeshanServerDemo {
         if(jedis != null) {
             redisStorage = new RedisStorage(jedis);
         }
-        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 28.10.2019 14:54");  
+        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 29.10.2019 09:50");  
 
         // Create and start LWM2M server
         LeshanServer lwServer = builder.build();

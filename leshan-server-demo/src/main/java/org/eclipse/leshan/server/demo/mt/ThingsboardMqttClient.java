@@ -81,6 +81,7 @@ public class ThingsboardMqttClient {
     // }
     //org.eclipse.paho
     public void connectAndPublish(final String token, final ArrayList<String> msg) throws URISyntaxException {
+        LOG.warn("MQTT Publish for {} at {}; Payloads: {}", token, System.currentTimeMillis(), String.join("; ", msg));
         int qos = 2;
         String broker = "tcp://"+ this.mHost + ":" + this.mPort;
         MemoryPersistence persistence = new MemoryPersistence();
@@ -103,7 +104,7 @@ public class ThingsboardMqttClient {
             sampleClient.disconnect();
             //LOG.warn("Mqtt disconnected for {}", token.trim());
         } catch(MqttException me) {
-            me.printStackTrace();
+            LOG.warn("Error on MqttClient for device {} : {}", token.trim(), me.getMessage());
         }
     }
 }

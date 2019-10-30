@@ -361,7 +361,7 @@ public class LeshanClientDemo {
         } else {
             if (pskIdentity != null) {
                 initializer.setInstancesForObject(SECURITY, psk(serverURI, 123, pskIdentity, pskKey));
-                initializer.setInstancesForObject(SERVER, new Server(123, 30 * 1, BindingMode.U, false));
+                initializer.setInstancesForObject(SERVER, new Server(123, 30 * 1, BindingMode.UQ, false));
             } else if (clientPublicKey != null) {
                 initializer.setInstancesForObject(SECURITY, rpk(serverURI, 123, clientPublicKey.getEncoded(),
                         clientPrivateKey.getEncoded(), serverPublicKey.getEncoded()));
@@ -383,7 +383,7 @@ public class LeshanClientDemo {
         
          //>>>//additional sensors
         GroupSensors gs = new GroupSensors();
-        gs.setGroupSensors("SN00000000001", "SN00000000002", "SN00000000003", "SN00000000004", "SN00000000005", "SN00000000006","SN00000000007","SN00000000008");
+        gs.setGroupSensors("SN00000000001", "SN00000000002", "SN00000000003", "SN00000000004", "SN00000000005", "SN00000000006","SN00000000007","SN00000000008","SN00000000009");
         initializer.setInstancesForObject(OBJECT_ID_GROUP_DATA, gs);
         initializer.setInstancesForObject(OBJECT_ID_TEMPERATURE, gs.getTemperatureObjReadings().toArray(new TemperatureReadings[gs.getTemperatureObjReadings().size()]));
         initializer.setInstancesForObject(OBJECT_ID_HUMIDITY, gs.getHumidityObjReadings().toArray(new HumidityReadings[gs.getTemperatureObjReadings().size()]));
