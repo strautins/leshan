@@ -11,26 +11,6 @@
 		<Mandatory>Optional</Mandatory>
 		<Resources>
 			<Item ID="0">
-				<Name>Enable</Name>
-				<Operations>RW</Operations>
-				<MultipleInstances>Single</MultipleInstances>
-				<Mandatory>Mandatory</Mandatory>
-				<Type>Boolean</Type>
-				<RangeEnumeration></RangeEnumeration>
-				<Units></Units>
-				<Description><![CDATA[Enable pressure measurements.]]></Description>
-			</Item>
-			<Item ID="1">
-				<Name>Measurement Interval</Name>
-				<Operations>RW</Operations>
-				<MultipleInstances>Single</MultipleInstances>
-				<Mandatory>Mandatory</Mandatory>
-				<Type>Integer</Type>
-				<RangeEnumeration></RangeEnumeration>
-				<Units>s</Units>
-				<Description><![CDATA[Measurement interval.]]></Description>
-			</Item>
-			<Item ID="2">
 				<Name>Measurements</Name>
 				<Operations>R</Operations>
 				<MultipleInstances>Multiple</MultipleInstances>
@@ -40,7 +20,7 @@
 				<Units>Pa</Units>
 				<Description><![CDATA[List of measurements. First resource being oldest measurement.]]></Description>
 			</Item>
-			<Item ID="3">
+			<Item ID="1">
 				<Name>Last Measurement Time</Name>
 				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -50,7 +30,7 @@
 				<Units></Units>
 				<Description><![CDATA[Last measurement time.]]></Description>
 			</Item>
-			<Item ID="4">
+			<Item ID="2">
 				<Name>Clear Measurements</Name>
 				<Operations>E</Operations>
 				<MultipleInstances>Single</MultipleInstances>

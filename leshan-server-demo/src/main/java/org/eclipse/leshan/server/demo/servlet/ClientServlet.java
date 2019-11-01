@@ -30,6 +30,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.leshan.core.node.LwM2mNode;
 import org.eclipse.leshan.core.node.LwM2mObjectInstance;
+import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.node.LwM2mSingleResource;
 import org.eclipse.leshan.core.node.codec.CodecException;
 import org.eclipse.leshan.core.attributes.AttributeSet;
@@ -59,6 +60,8 @@ import org.eclipse.leshan.core.response.WriteResponse;
 import org.eclipse.leshan.core.response.WriteAttributesResponse;
 
 import org.eclipse.leshan.server.LwM2mServer;
+import org.eclipse.leshan.server.demo.mt.OnConnectAction;
+import org.eclipse.leshan.server.demo.mt.EndpointCache;
 import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeDeserializer;
 import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeSerializer;
 import org.eclipse.leshan.server.demo.servlet.json.RegistrationSerializer;
@@ -86,10 +89,13 @@ public class ClientServlet extends HttpServlet {
 
     private final LwM2mServer server;
 
+    private final OnConnectAction mOnConnectAction;
+
     private final Gson gson;
 
-    public ClientServlet(LwM2mServer server) {
+    public ClientServlet(LwM2mServer server, OnConnectAction onConnectAction) {
         this.server = server;
+        this.mOnConnectAction = onConnectAction;
 
         GsonBuilder gsonBuilder = new GsonBuilder();
         gsonBuilder.registerTypeHierarchyAdapter(Registration.class,
@@ -177,6 +183,7 @@ public class ClientServlet extends HttpServlet {
                 // create & process request
                 ReadRequest request = new ReadRequest(contentFormat, target);
                 ReadResponse cResponse = server.send(registration, request, TIMEOUT);
+            
                 processDeviceResponse(req, resp, cResponse);
             } else {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -251,6 +258,7 @@ public class ClientServlet extends HttpServlet {
                     LwM2mNode node = extractLwM2mNode(target, req);
                     WriteRequest request = new WriteRequest(Mode.REPLACE, contentFormat, target, node);
                     WriteResponse cResponse = server.send(registration, request, TIMEOUT);
+                    processEndpointCacheUpdate(registration, request, cResponse);
                     processDeviceResponse(req, resp, cResponse);
                 }
             } else {
@@ -385,6 +393,22 @@ public class ClientServlet extends HttpServlet {
         } catch (RuntimeException | InterruptedException e) {
             handleException(e, resp);
         }
+    }
+    private void processEndpointCacheUpdate(Registration registration, WriteRequest request, WriteResponse cResponse) {
+        if((cResponse.isSuccess() 
+                && request.getPath().getObjectId() == OnConnectAction.OBJECT_ID_DEVICES)
+                && (request.getNode().getId() == OnConnectAction.RESOURCE_ID_CO2_INTERVAL
+                || request.getNode().getId() == OnConnectAction.RESOURCE_ID_CO_INTERVAL
+                || request.getNode().getId() == OnConnectAction.RESOURCE_ID_HUMIDITY_INTERVAL
+                || request.getNode().getId() == OnConnectAction.RESOURCE_ID_PRESSURE_INTERVAL
+                || request.getNode().getId() == OnConnectAction.RESOURCE_ID_TEMPERATURE_INTERVAL)) {
+            EndpointCache ep = this.mOnConnectAction.getSimpleCache().getEndpointCache(registration.getEndpoint());
+            if(ep != null) {
+                ep.setInterval(request.getPath().getObjectInstanceId(), request.getNode().getId(), Long.parseLong(((LwM2mResource)request.getNode()).getValue().toString()));
+                this.mOnConnectAction.getSimpleCache().setEndpointCache(registration.getEndpoint(), ep);
+            }
+        }
+        
     }
 
     private void processDeviceResponse(HttpServletRequest req, HttpServletResponse resp, LwM2mResponse cResponse)

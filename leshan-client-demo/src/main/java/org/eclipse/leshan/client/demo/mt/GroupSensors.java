@@ -87,6 +87,11 @@ public class GroupSensors extends BaseInstanceEnabler {
 
             Devices d = new Devices();
             d.setSerialNumber(serial);
+            d.setTemperature(t);
+            d.setHumidity(h);
+            d.setCo(co);
+            d.setCo2(c);
+            d.setPressure(at);
             d.setId(mInstanceCount);
             mDevicesList.add(d);
         }

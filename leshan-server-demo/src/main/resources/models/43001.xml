@@ -61,6 +61,16 @@
 				<Description><![CDATA[Last time device was reachable.]]></Description>
 			</Item>
 			<Item ID="5">
+				<Name>Bluetooth Signal Strength</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>Integer</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Bluetooth signal strength in decibels.]]></Description>
+			</Item>
+			<Item ID="6">
 				<Name>Battery Status</Name>
 				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -70,7 +80,7 @@
 				<Units></Units>
 				<Description><![CDATA[Number indicating battery status: 0 - normal, 1 - low, 2 - critical.]]></Description>
 			</Item>
-			<Item ID="6">
+			<Item ID="7">
 				<Name>Battery Level</Name>
 				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -80,7 +90,7 @@
 				<Units>V</Units>
 				<Description><![CDATA[Last measured voltage for each battery.]]></Description>
 			</Item>
-			<Item ID="7">
+			<Item ID="8">
 				<Name>Reboot</Name>
 				<Operations>E</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -90,17 +100,17 @@
 				<Units></Units>
 				<Description><![CDATA[Reboot device.]]></Description>
 			</Item>
-			<Item ID="8">
+			<Item ID="9">
 				<Name>Output State</Name>
 				<Operations>RW</Operations>
-				<MultipleInstances>Single</MultipleInstances>
+				<MultipleInstances>Multiple</MultipleInstances>
 				<Mandatory>Optional</Mandatory>
 				<Type>Boolean</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
 				<Description><![CDATA[Set, read digital output logic state.]]></Description>
 			</Item>
-			<Item ID="9">
+			<Item ID="10">
 				<Name>Detach</Name>
 				<Operations>E</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -109,6 +119,106 @@
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
 				<Description><![CDATA[Detach device from group]]></Description>
+			</Item>
+			<Item ID="11">
+				<Name>Temperature Enable</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Boolean</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Enable temperature measurements.]]></Description>
+			</Item>
+			<Item ID="12">
+				<Name>Temperature Measurement Interval</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Integer</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units>s</Units>
+				<Description><![CDATA[Measurement interval.]]></Description>
+			</Item>
+			<Item ID="13">
+				<Name>Humidity Enable</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Boolean</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Enable humidity measurements.]]></Description>
+			</Item>
+			<Item ID="14">
+				<Name>Humidity Measurement Interval</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Integer</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units>s</Units>
+				<Description><![CDATA[Measurement interval.]]></Description>
+			</Item>
+			<Item ID="15">
+				<Name>Pressure Enable</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>Boolean</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Enable pressure measurements.]]></Description>
+			</Item>
+			<Item ID="16">
+				<Name>Pressure Measurement Interval</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>Integer</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units>s</Units>
+				<Description><![CDATA[Measurement interval.]]></Description>
+			</Item>
+			<Item ID="17">
+				<Name>CO2 Enable</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>Boolean</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Enable CO2 measurements.]]></Description>
+			</Item>
+			<Item ID="18">
+				<Name>CO2 Measurement Interval</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>Integer</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units>s</Units>
+				<Description><![CDATA[Measurement interval.]]></Description>
+			</Item>
+			<Item ID="19">
+				<Name>CO Enable</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>Boolean</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Enable CO measurements.]]></Description>
+			</Item>
+			<Item ID="20">
+				<Name>CO Measurement Interval</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>Integer</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units>s</Units>
+				<Description><![CDATA[Measurement interval.]]></Description>
 			</Item>
 		</Resources>
 		<Description2><![CDATA[]]></Description2>

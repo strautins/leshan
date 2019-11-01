@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
 import redis.clients.util.Pool;
 
-public class RedisStorage implements EndpointCache {
+public class RedisStorage implements SimpleCache {
 
     private static final Logger LOG = LoggerFactory.getLogger(OnConnectAction.class);
     
@@ -96,19 +96,28 @@ public class RedisStorage implements EndpointCache {
         return payLoadMap;
     }
     @Override
-    public String getEndpointCache(String endpoint) {
-        String payLoad = null;
+    public EndpointCache getEndpointCache(String endpoint) {
+        EndpointCache payLoad = null;
         try (Jedis jedis = mJedisPool.getResource()) {
-            payLoad = jedis.get(getEndpointInfoKey(endpoint));
+            String epc = jedis.get(getEndpointInfoKey(endpoint));
+            if(epc != null) {
+                payLoad = new EndpointCache(endpoint, epc);        
+            }
         }
         return payLoad;
     }
 
     @Override
-    public void setEndpointCache(String endpoint,  String payLoad) {
+    public void setEndpointCache(String endpoint,  EndpointCache endpointCache) {
         try (Jedis jedis = mJedisPool.getResource()) {
-            String s = jedis.set(getEndpointInfoKey(endpoint), payLoad);
-            LOG.warn("Send info {}", s);
+            jedis.set(getEndpointInfoKey(endpoint), endpointCache.toPayload());
+        }
+    }
+    @Override
+    public Boolean delEndpointCache(String endpoint) {
+        try (Jedis jedis = mJedisPool.getResource()) {
+            Long s = jedis.del(getEndpointInfoKey(endpoint));
+            return s == 0 ? false : true;
         }
     }
     public void sendResponse(String endpoint, Map<String, String> responseList) {

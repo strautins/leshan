@@ -6,7 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class InMemoryCache implements EndpointCache {
+public class InMemoryCache implements SimpleCache {
 
     private static final Logger LOG = LoggerFactory.getLogger(OnConnectAction.class);
     private static final Map<String, String> mEndpointStorage = new ConcurrentHashMap<String,String>();
@@ -16,14 +16,21 @@ public class InMemoryCache implements EndpointCache {
     }
 
     @Override
-    public String getEndpointCache(String endpoint) {
-        return mEndpointStorage.get(endpoint);
+    public EndpointCache getEndpointCache(String endpoint) {
+        String epc = mEndpointStorage.get(endpoint);
+        if(epc != null) {
+            return new EndpointCache(endpoint, epc);    
+        }
+        return null;
     }
 
     @Override
-    public void setEndpointCache(String endpoint, String payLoad) {
-        mEndpointStorage.put(endpoint, payLoad);
-
+    public void setEndpointCache(String endpoint, EndpointCache endpointCache) {
+        mEndpointStorage.put(endpoint, endpointCache.toPayload());
     }
-    //todo add cleaner for old data?
+    @Override
+    public Boolean delEndpointCache(String endpoint) {
+        String s = mEndpointStorage.remove(endpoint);
+        return s == null ? false : true;
+    }
 }

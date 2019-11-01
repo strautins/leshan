@@ -427,7 +427,7 @@ public class LeshanServerDemo {
         if(jedis != null) {
             redisStorage = new RedisStorage(jedis);
         }
-        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 29.10.2019 09:50");  
+        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 31.10.2019 15:50");  
 
         // Create and start LWM2M server
         LeshanServer lwServer = builder.build();
@@ -454,7 +454,7 @@ public class LeshanServerDemo {
         ServletHolder eventServletHolder = new ServletHolder(eventServlet);
         root.addServlet(eventServletHolder, "/event/*");
 
-        ServletHolder clientServletHolder = new ServletHolder(new ClientServlet(lwServer));
+        ServletHolder clientServletHolder = new ServletHolder(new ClientServlet(lwServer, lwM2mPayload));
         root.addServlet(clientServletHolder, "/api/clients/*");
 
         ServletHolder securityServletHolder = new ServletHolder(new SecurityServlet(securityStore, serverCertificate));
