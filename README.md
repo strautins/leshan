@@ -1,3 +1,27 @@
+Simulation of demo device for leshan demo server
+
+Steps:
+1) Clone repository on your machine
+2) Compile with maven in home directory path/leshan/: mvn clean install -DskipTests  
+   In project folder target should be created jar files.
+
+3) launch server: java -jar .\leshan-server-demo\target\leshan-server-demo-1.0.0-SNAPSHOT-jar-with-dependencies.jar "-lp" 5683 "-slp" 5684 "-wp" 8883 "-t" "localhost:1883" "-r" "redis://localhost:6379"  
+   -lp local coap port
+   -slp secure local port  
+   -wp web port  
+   -r redis, optional for development, scheduling etc.  
+   -t mqtt port is for thingsboard publish data 
+4) Add "New security configuration" for device to server  
+   open web interface localhost:8883 or http://[server ip]:8883 navigate to security and add psk security for endpoint
+
+5) Launch client: .\leshan-client-demo\target\leshan-client-demo-1.0.0-SNAPSHOT-jar-with-dependencies.jar -u "[server ip]:5684" -n "endpoint" -i "identity" -p "313334323336333436333436"  
+   -u server with port  
+   -n client endpoint  
+   -i psk Identity  
+   -p psk key  
+6) Launch client without security skipping step 4: .\leshan-client-demo\target\leshan-client-demo-1.0.0-SNAPSHOT-jar-with-dependencies.jar -u "0.0.0.0:5683" -n "endpointwithoutsecurity"
+   
+
 [Build Status](https://hudson.eclipse.org/leshan/)
 
 ![Leshan](https://eclipse.org/leshan/img/multicolor-leshan.png)

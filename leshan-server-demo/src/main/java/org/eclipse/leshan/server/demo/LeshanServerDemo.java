@@ -289,6 +289,8 @@ public class LeshanServerDemo {
         } else {
             coapConfig = LeshanServerBuilder.createDefaultNetworkConfig();
             coapConfig.store(configFile);
+            //with default network config fails reads
+            coapConfig.set(NetworkConfig.Keys.PROTOCOL_STAGE_THREAD_COUNT, 4);
         }
         builder.setCoapConfig(coapConfig);
 
@@ -427,7 +429,7 @@ public class LeshanServerDemo {
         if(jedis != null) {
             redisStorage = new RedisStorage(jedis);
         }
-        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 04.11.2019 11:49");  
+        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 08.11.2019 12:44:49");  
 
         // Create and start LWM2M server
         LeshanServer lwServer = builder.build();
