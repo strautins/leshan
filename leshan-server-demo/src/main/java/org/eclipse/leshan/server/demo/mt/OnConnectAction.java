@@ -250,19 +250,19 @@ public class OnConnectAction {
         @Override
         public void registered(Registration registration, Registration previousReg,
                 Collection<Observation> previousObservations) {
-            getResources(registration, EVENT_REGISTRATION);
+            wrapperGetResources(registration, EVENT_REGISTRATION);
         }
 
         @Override
         public void updated(RegistrationUpdate update, Registration updatedRegistration,
                 Registration previousRegistration) {
-            getResources(updatedRegistration, EVENT_UPDATED);
+            wrapperGetResources(updatedRegistration, EVENT_UPDATED);
         }
 
         @Override
         public void unregistered(Registration registration, Collection<Observation> observations, boolean expired,
                 Registration newReg) {
-            getResources(registration, EVENT_DEREGISTRATION);
+            wrapperGetResources(registration, EVENT_DEREGISTRATION);
         }
 
     };
@@ -298,7 +298,7 @@ public class OnConnectAction {
 
     public void start() {
         this.mLeshanServer.getRegistrationService().addListener(this.registrationListener);
-        this.mLeshanServer.getObservationService().addListener(this.observationListener);
+        // this.mLeshanServer.getObservationService().addListener(this.observationListener);
         // this.mLeshanServer.coap().getUnsecuredEndpoint().addInterceptor(this.messageInterceptorAdapter);
 
         // MyCoapMessageTracer coapMessageTracer = new MyCoapMessageTracer();
@@ -310,7 +310,7 @@ public class OnConnectAction {
 
     public void stop() {
         this.mLeshanServer.getRegistrationService().removeListener(this.registrationListener);
-        this.mLeshanServer.getObservationService().removeListener(this.observationListener);
+        // this.mLeshanServer.getObservationService().removeListener(this.observationListener);
         // this.mLeshanServer.coap().getUnsecuredEndpoint().removeInterceptor(this.messageInterceptorAdapter);
         // for (Endpoint endpoint :
         // this.mLeshanServer.coap().getServer().getEndpoints()) {
@@ -346,132 +346,146 @@ public class OnConnectAction {
         return result;
     }
 
-    private void getResources(Registration registration, String event) {
-        LOG.warn("Online {} with {}", registration.getEndpoint(), event);
-        // todo check observations
-        Set<Observation> observ = mLeshanServer.getObservationService().getObservations(registration);
-        for (Observation s : observ) {
-            LOG.warn("Observations for {} / {} : {}", registration.getEndpoint(), event, s.toString());
-        }
-
-        if (event.equals(EVENT_REGISTRATION) || event.equals(EVENT_UPDATED)) {
-            if (registration.getObjectLinks() != null) {
-                boolean isMainObj = false;
-                boolean isDevices = false;
-                boolean isHumidity = false;
-                boolean isCo2 = false;
-                boolean isTemperature = false;
-                boolean isCo = false;
-                boolean isAtmospheric = false;
-                boolean isAlertObject = false;
-                for (Link i : registration.getObjectLinks()) {
-                    if (i.getUrl().contains(PATH_GROUP)) {
-                        isMainObj = true;
-                    } else if (i.getUrl().contains(PATH_TEMPERATURE)) {
-                        isTemperature = true;
-                    } else if (i.getUrl().contains(PATH_HUMIDITY)) {
-                        isHumidity = true;
-                    } else if (i.getUrl().contains(PATH_CO2)) {
-                        isCo2 = true;
-                    } else if (i.getUrl().contains(PATH_CO)) {
-                        isCo = true;
-                    } else if (i.getUrl().contains(PATH_PRESSURE)) {
-                        isAtmospheric = true;
-                    } else if (i.getUrl().contains(PATH_ALARM)) {
-                        isAlertObject = true;
-                    } else if (i.getUrl().contains(PATH_DEVICES)) {
-                        isDevices = true;
-                    }
+    private void wrapperGetResources(Registration registration, String event) {
+        if (this.mSimpleCache.lock(registration.getEndpoint())) {
+            try {
+                LOG.warn("Lock acquired for {} with {}; Thread: {}", registration.getEndpoint(), event,
+                        Thread.currentThread().getName());
+                if(registration.getObjectLinks() != null) {
+                    splitEvent(registration, event);
                 }
-                //testing
-                if (isDevices) {
-                    ResourceModel resourceModel = this.mLeshanServer.getModelProvider().getObjectModel(registration)
-                        .getObjectModel(43001).resources.get(9);
-                    LOG.warn("what the heaven for {} ", resourceModel.toString());
-                    multiWriteRequest(registration);
-                }
-                if (isMainObj) {
-                    Boolean isAttentionRequired = readBooleanResource(registration, PATH_GROUP_ATTENTION_REQUIRED);
-                    if (isAttentionRequired == null) {
-                        // error occurred while getting flag from device;
-                    } else {
-                        // collection for payloads to thingsboard!
-                        
-                        EndpointCache endpointCache = null;
-                        if(event.equals(EVENT_REGISTRATION)) {
-                            endpointCache = null;    
-                        } else {
-                            endpointCache = mSimpleCache.getEndpointCache(registration.getEndpoint());
-                        }
-
-                        // if attention required or serial ,mapping is missing
-                        if (isAttentionRequired || endpointCache == null) {
-                            Boolean isAlarmTriggered = false;
-                            Boolean isDevicesInfoChanged = false;
-                            if (isAttentionRequired) {
-                                isAlarmTriggered = readBooleanResource(registration, PATH_GROUP_ALARM_TRIGGERED);
-                                isDevicesInfoChanged = readBooleanResource(registration,
-                                        PATH_GROUP_DEVICES_INFO_CHANGED);
-                            }
-                            if (isDevicesInfoChanged != null && isDevicesInfoChanged || endpointCache == null) {
-                                // clear flag aware of changes
-                                if (isDevicesInfoChanged) {
-                                    WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, OBJECT_ID_GROUP,
-                                            0, LwM2mSingleResource.newBooleanResource(RESOURCE_ID_DEVICES_INFO_CHANGED,
-                                                    false));
-                                    writeRequest(registration, request);
-                                }
-                                // read devices object, get mapping collect payloads for battery, reachability,
-                                // last activity time
-                                LwM2mNode devicesObject = readRequest(registration, PATH_DEVICES);
-                                endpointCache = new EndpointCache(registration.getEndpoint(), devicesObject);
-                                endpointCache.createDevicesPayload(devicesObject);
-                                // push mapping to cache
-                                mSimpleCache.setEndpointCache(registration.getEndpoint(), endpointCache);
-                            }
-
-                            if (isAlarmTriggered != null && isAlarmTriggered && isAlertObject) {
-                                if (isAlarmTriggered) {
-                                    WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, OBJECT_ID_GROUP,
-                                            0,
-                                            LwM2mSingleResource.newBooleanResource(RESOURCE_ID_ALARM_TRIGGERED, false));
-                                    writeRequest(registration, request);
-                                }
-                                // todo maybe observe all object check changes!
-                                LwM2mNode alarmObject = readRequest(registration, PATH_ALARM);
-                                endpointCache.createAlarmPayload(alarmObject);
-                            }
-                        }
-
-                        if (endpointCache != null) {
-                            if (isTemperature) {
-                                processData(registration, endpointCache, PATH_TEMPERATURE);
-                            }
-                            if (isHumidity) {
-                                processData(registration, endpointCache, PATH_HUMIDITY);
-                            }
-                            if (isCo2) {
-                                processData(registration, endpointCache, PATH_CO2);
-                            }
-                            if (isCo) {
-                                processData(registration, endpointCache, PATH_CO);
-                            }
-                            if (isAtmospheric) {
-                                processData(registration, endpointCache, PATH_PRESSURE);
-                            }
-                            sendAll(endpointCache.serializePayloadAll());
-                        }
-
-                    }
-                }
-                // collecting request from redis
-                if (this.mRedisStorage != null) {
-                    processRedisRequests(registration);
-                }
+            } finally {
+                this.mSimpleCache.unlock(registration.getEndpoint());
+                LOG.warn("Unlock for {} with {}; Thread: {}", registration.getEndpoint(), event, Thread.currentThread().getName());    
             }
         } else {
+            LOG.warn("Lock not acquired {} with {};", registration.getEndpoint(), event);    
+        }
+    }
+    private void splitEvent(Registration registration, String event) {
+        if (event.equals(EVENT_REGISTRATION) || event.equals(EVENT_UPDATED)) {
+            getResources(registration, event);
+        }  else {
             Boolean remove = mSimpleCache.delEndpointCache(registration.getEndpoint());
             LOG.warn("Remove Cache for {} : {}", registration.getEndpoint(), remove);
+        }
+
+    }
+    private void getResources(Registration registration, String event) {
+        // todo check observations
+        // Set<Observation> observ = mLeshanServer.getObservationService().getObservations(registration);
+        // for (Observation s : observ) {
+        //     LOG.warn("Observations for {} / {} : {}", registration.getEndpoint(), event, s.toString());
+        // }
+        boolean isMainObj = false;
+        boolean isDevices = false;
+        boolean isHumidity = false;
+        boolean isCo2 = false;
+        boolean isTemperature = false;
+        boolean isCo = false;
+        boolean isAtmospheric = false;
+        boolean isAlertObject = false;
+        for (Link i : registration.getObjectLinks()) {
+            if (i.getUrl().contains(PATH_GROUP)) {
+                isMainObj = true;
+            } else if (i.getUrl().contains(PATH_TEMPERATURE)) {
+                isTemperature = true;
+            } else if (i.getUrl().contains(PATH_HUMIDITY)) {
+                isHumidity = true;
+            } else if (i.getUrl().contains(PATH_CO2)) {
+                isCo2 = true;
+            } else if (i.getUrl().contains(PATH_CO)) {
+                isCo = true;
+            } else if (i.getUrl().contains(PATH_PRESSURE)) {
+                isAtmospheric = true;
+            } else if (i.getUrl().contains(PATH_ALARM)) {
+                isAlertObject = true;
+            } else if (i.getUrl().contains(PATH_DEVICES)) {
+                isDevices = true;
+            }
+        }
+        //testing
+        // if (isDevices) {
+        //     ResourceModel resourceModel = this.mLeshanServer.getModelProvider().getObjectModel(registration)
+        //         .getObjectModel(43001).resources.get(9);
+        //     LOG.warn("what the heaven for {} ", resourceModel.toString());
+        //     multiWriteRequest(registration);
+        // }
+        if (isMainObj && isDevices) {
+            Boolean isAttentionRequired = readBooleanResource(registration, PATH_GROUP_ATTENTION_REQUIRED);
+            if (isAttentionRequired == null) {
+                // error occurred while getting flag from device;
+            } else {
+                EndpointCache endpointCache = null;
+                if(event.equals(EVENT_REGISTRATION)) {
+                    endpointCache = null;    
+                } else {
+                    endpointCache = mSimpleCache.getEndpointCache(registration.getEndpoint());
+                }
+
+                // if attention required or serial ,mapping is missing
+                if (isAttentionRequired || endpointCache == null) {
+                    Boolean isAlarmTriggered = false;
+                    Boolean isDevicesInfoChanged = false;
+                    if (isAttentionRequired) {
+                        isAlarmTriggered = readBooleanResource(registration, PATH_GROUP_ALARM_TRIGGERED);
+                        isDevicesInfoChanged = readBooleanResource(registration,
+                                PATH_GROUP_DEVICES_INFO_CHANGED);
+                    }
+                    if (isDevicesInfoChanged != null && isDevicesInfoChanged || endpointCache == null) {
+                        // clear flag aware of changes
+                        if (isDevicesInfoChanged) {
+                            WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, OBJECT_ID_GROUP,
+                                    0, LwM2mSingleResource.newBooleanResource(RESOURCE_ID_DEVICES_INFO_CHANGED,
+                                            false));
+                            writeRequest(registration, request);
+                        }
+                        // read devices object, get mapping collect payloads for battery, reachability,
+                        // last activity time
+                        LwM2mNode devicesObject = readRequest(registration, PATH_DEVICES);
+                        endpointCache = new EndpointCache(registration.getEndpoint(), devicesObject);
+                        endpointCache.createDevicesPayload(devicesObject);
+                        // push mapping to cache
+                        mSimpleCache.setEndpointCache(registration.getEndpoint(), endpointCache);
+                    }
+
+                    if (isAlarmTriggered != null && isAlarmTriggered && isAlertObject) {
+                        if (isAlarmTriggered) {
+                            WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, OBJECT_ID_GROUP,
+                                    0,
+                                    LwM2mSingleResource.newBooleanResource(RESOURCE_ID_ALARM_TRIGGERED, false));
+                            writeRequest(registration, request);
+                        }
+                        // todo maybe observe all object check changes!
+                        LwM2mNode alarmObject = readRequest(registration, PATH_ALARM);
+                        endpointCache.createAlarmPayload(alarmObject);
+                    }
+                }
+
+                if (endpointCache != null) {
+                    if (isTemperature) {
+                        processData(registration, endpointCache, PATH_TEMPERATURE);
+                    }
+                    if (isHumidity) {
+                        processData(registration, endpointCache, PATH_HUMIDITY);
+                    }
+                    if (isCo2) {
+                        processData(registration, endpointCache, PATH_CO2);
+                    }
+                    if (isCo) {
+                        processData(registration, endpointCache, PATH_CO);
+                    }
+                    if (isAtmospheric) {
+                        processData(registration, endpointCache, PATH_PRESSURE);
+                    }
+                    sendAll(endpointCache.serializePayloadAll());
+                }
+
+            }
+        }
+        // collecting request from redis
+        if (this.mRedisStorage != null) {
+            processRedisRequests(registration);
         }
     }
 

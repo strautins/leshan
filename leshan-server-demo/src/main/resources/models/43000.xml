@@ -6,7 +6,7 @@
 		<ObjectID>43000</ObjectID>
 		<ObjectURN></ObjectURN>
 		<LWM2MVersion>1.0</LWM2MVersion>
-		<ObjectVersion />
+		<ObjectVersion>1.0</ObjectVersion>
 		<MultipleInstances>Single</MultipleInstances>
 		<Mandatory>Mandatory</Mandatory>
 		<Resources>

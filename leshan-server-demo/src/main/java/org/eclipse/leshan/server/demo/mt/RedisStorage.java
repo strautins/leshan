@@ -19,7 +19,11 @@ public class RedisStorage implements SimpleCache {
     private static final String PAYLOAD_EP = "PAYLOAD:EP:"; /** Endpoint => payload linkedlist */
     private static final String REQUEST_EP = "REQUEST:EP:"; /**Endpoint => request hashmap  */
     private static final String RESPONSE_EP = "RESPONSE:EP:"; /**Endpoint => response hashmap  */
-    private static final String EP_INFO = "EP:INFO:"; /**key:value */
+    private static final String EP_INFO = "EP:INFO:"; /** key:value */
+    private static final String EP_LOCK = "EP:LOCK:"; /** key:value */
+
+    private static final String NX_OPTION = "NX"; // set the key if it does not already exist
+    private static final String PX_OPTION = "PX"; // expire time in millisecond
     
     public RedisStorage(Pool<Jedis> jedisPool) {
         this.mJedisPool = jedisPool;
@@ -88,6 +92,9 @@ public class RedisStorage implements SimpleCache {
     private String getEndpointInfoKey(String endpoint) {
         return EP_INFO + endpoint;
     }
+    private String getLockKey(String endpoint) {
+        return EP_LOCK + endpoint;
+    }
     public Map<String, String> getEndpointRequests(String endpoint) {
         Map<String, String> payLoadMap = null;
         try (Jedis jedis = mJedisPool.getResource()) {
@@ -118,6 +125,30 @@ public class RedisStorage implements SimpleCache {
         try (Jedis jedis = mJedisPool.getResource()) {
             Long s = jedis.del(getEndpointInfoKey(endpoint));
             return s == 0 ? false : true;
+        }
+    }
+
+    @Override
+    public Boolean lock(String endpoint) {
+        try (Jedis jedis = mJedisPool.getResource()) {
+            String result = jedis.set(getLockKey(endpoint), Thread.currentThread().getName(), NX_OPTION);
+            if("OK".equals(result)) {
+                return true;
+            } else {
+                LOG.warn("Redis LOCKED for {} : {}", endpoint, result);
+            }
+        }
+        return false;
+    }
+    @Override
+    public void unlock(String endpoint) {
+        try (Jedis jedis = mJedisPool.getResource()) {
+            String value = jedis.get(getLockKey(endpoint));
+            if(value != null && Thread.currentThread().getName().equals(value)){   
+                jedis.del(getLockKey(endpoint));
+            } else {
+                LOG.warn("Redis UNLOCK failed {} : {}", endpoint, value);   
+            }
         }
     }
     public void sendResponse(String endpoint, Map<String, String> responseList) {

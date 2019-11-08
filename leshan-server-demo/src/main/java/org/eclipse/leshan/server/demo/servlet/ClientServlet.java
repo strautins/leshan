@@ -241,25 +241,34 @@ public class ClientServlet extends HttpServlet {
             String target = StringUtils.removeStart(req.getPathInfo(), "/" + clientEndpoint);
             Registration registration = server.getRegistrationService().getByEndpoint(clientEndpoint);
             if (registration != null) {
-                if(path.length >= 3 && "attributes".equals(path[path.length - 1])){
-                    // create & process request WriteAttributes request
-                    target = StringUtils.removeEnd(target, path[path.length - 1]);
-                    AttributeSet attributes = AttributeSet.parse(req.getQueryString());
-                    WriteAttributesRequest request = new WriteAttributesRequest(target, attributes);
-                    WriteAttributesResponse cResponse = server.send(registration, request, TIMEOUT);
-                    processDeviceResponse(req, resp, cResponse);
+                if(this.mOnConnectAction.getSimpleCache().lock(registration.getEndpoint())) {
+                    try {
+                        if(path.length >= 3 && "attributes".equals(path[path.length - 1])){
+                            // create & process request WriteAttributes request
+                            target = StringUtils.removeEnd(target, path[path.length - 1]);
+                            AttributeSet attributes = AttributeSet.parse(req.getQueryString());
+                            WriteAttributesRequest request = new WriteAttributesRequest(target, attributes);
+                            WriteAttributesResponse cResponse = server.send(registration, request, TIMEOUT);
+                            processDeviceResponse(req, resp, cResponse);
+                        } else {
+                            // get content format
+                            String contentFormatParam = req.getParameter(FORMAT_PARAM);
+                            ContentFormat contentFormat = contentFormatParam != null
+                                    ? ContentFormat.fromName(contentFormatParam.toUpperCase())
+                                    : null;
+                            // create & process request
+                            LwM2mNode node = extractLwM2mNode(target, req);
+                            WriteRequest request = new WriteRequest(Mode.REPLACE, contentFormat, target, node);
+                            WriteResponse cResponse = server.send(registration, request, TIMEOUT);
+                            processEndpointCacheUpdate(registration, request, cResponse);
+                            processDeviceResponse(req, resp, cResponse);
+                        }
+                    } finally {
+                        this.mOnConnectAction.getSimpleCache().unlock(registration.getEndpoint());  
+                    }
                 } else {
-                    // get content format
-                    String contentFormatParam = req.getParameter(FORMAT_PARAM);
-                    ContentFormat contentFormat = contentFormatParam != null
-                            ? ContentFormat.fromName(contentFormatParam.toUpperCase())
-                            : null;
-                    // create & process request
-                    LwM2mNode node = extractLwM2mNode(target, req);
-                    WriteRequest request = new WriteRequest(Mode.REPLACE, contentFormat, target, node);
-                    WriteResponse cResponse = server.send(registration, request, TIMEOUT);
-                    processEndpointCacheUpdate(registration, request, cResponse);
-                    processDeviceResponse(req, resp, cResponse);
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    resp.getWriter().format("Locked client with id '%s'", clientEndpoint).flush();
                 }
             } else {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);

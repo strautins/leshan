@@ -8,4 +8,8 @@ public interface SimpleCache {
 
     Boolean delEndpointCache(String endpoint);
 
+    Boolean lock(String endpoint);
+    
+    void unlock(String endpoint);
+
 }

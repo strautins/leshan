@@ -5,9 +5,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.locks.Lock;
-
-import com.google.common.util.concurrent.Striped;
 
 import org.eclipse.leshan.core.node.LwM2mNode;
 import org.eclipse.leshan.core.node.LwM2mObject;
@@ -93,6 +90,7 @@ public class EndpointCache {
             sensorInterval.put(entry.getKey(), instanceInterval);
         }
     }
+
     public Long getIntervalKey(int instance, int key) {
         try {
             return sensorInterval.get(instance).get(key);        
@@ -100,6 +98,7 @@ public class EndpointCache {
             return null;
         }
     }
+    
     public String getSerial(int instance) {
         try {
             return serialMapping.get(instance);        
@@ -107,10 +106,12 @@ public class EndpointCache {
             return null;
         }
     }
+
     public void setInterval(int instance, int resourceId, Long value) {
         int objectId = getObjectId(resourceId);
         sensorInterval.get(instance).put(objectId, value);
     }
+
     private int getObjectId(int resourceId) {
         int result = 0;
         switch (resourceId) {
@@ -150,7 +151,7 @@ public class EndpointCache {
         }
         return new JSONObject().put(JSON_MAPPING_KEY, SerialCache).put(JSON_INTERVAL_KEY, IntervalCache).toString();
     }
-    /**For payloads */
+    /** For payloads */
     public void createDevicesPayload(LwM2mNode devicesObject) {
         if (devicesObject != null && devicesObject instanceof LwM2mObject) {
             for (Map.Entry<Integer, LwM2mObjectInstance> entry : ((LwM2mObject) devicesObject).getInstances()
@@ -222,7 +223,7 @@ public class EndpointCache {
             payloads.put(serialNumber, payloadMap);
         }
         for (Map.Entry<Integer, Object> resEntry : resourceMap.entrySet()) {
-            Long calcTime = (defTime - (((resourceMap.size() - 1) - resEntry.getKey()) * 1000 * pulse));
+            Long calcTime = defTime - ((resourceMap.size() - 1 - resEntry.getKey()) * 1000 * pulse);
             JSONObject payloadObj = payloadMap.get(calcTime);
             if (payloadObj == null) {
                 payloadObj = new JSONObject("{\"" + resName + "\":" + resEntry.getValue() + "}");
@@ -253,19 +254,5 @@ public class EndpointCache {
             array.put(superObj);
         }
         return array.toString();
-    }
-    public Boolean lock() {
-        // Striped<Lock> locks = Striped.lock(stripes);
-        // Lock l = locks.get(string);
-        // l.lock();
-        // try {
-        // // do stuff 
-        // } finally {
-        //     l.unlock();
-        // }
-        return false;
-    }
-    public Boolean unlock() {
-        return false;
     }
 }

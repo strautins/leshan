@@ -334,7 +334,7 @@ public class LeshanClientDemo {
             PublicKey serverPublicKey, X509Certificate clientCertificate, X509Certificate serverCertificate,
             Float latitude, Float longitude, float scaleFactor) throws CertificateEncodingException {
 
-        locationInstance = new MyLocation(latitude, longitude, scaleFactor);
+        locationInstance = new MyLocation((float)56.946285, (float)524.105078, scaleFactor);
 
         // Initialize model
         List<ObjectModel> models = ObjectLoader.loadDefault();
@@ -361,7 +361,7 @@ public class LeshanClientDemo {
         } else {
             if (pskIdentity != null) {
                 initializer.setInstancesForObject(SECURITY, psk(serverURI, 123, pskIdentity, pskKey));
-                initializer.setInstancesForObject(SERVER, new Server(123, 30 * 4, BindingMode.UQ, false));
+                initializer.setInstancesForObject(SERVER, new Server(123, 30 * 10, BindingMode.UQ, false));
             } else if (clientPublicKey != null) {
                 initializer.setInstancesForObject(SECURITY, rpk(serverURI, 123, clientPublicKey.getEncoded(),
                         clientPrivateKey.getEncoded(), serverPublicKey.getEncoded()));
