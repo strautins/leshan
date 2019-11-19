@@ -44,11 +44,8 @@ import org.eclipse.leshan.core.node.codec.LwM2mNodeDecoder;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeEncoder;
 import org.eclipse.leshan.core.observation.Observation;
 import org.eclipse.leshan.core.request.exception.ClientSleepingException;
-import org.eclipse.leshan.server.LwM2mServer;
-import org.eclipse.leshan.server.californium.impl.InMemoryRegistrationStore;
-import org.eclipse.leshan.server.californium.impl.LeshanServer;
-import org.eclipse.leshan.server.californium.impl.LwM2mPskStore;
-import org.eclipse.leshan.server.impl.InMemorySecurityStore;
+import org.eclipse.leshan.server.californium.registration.CaliforniumRegistrationStore;
+import org.eclipse.leshan.server.californium.registration.InMemoryRegistrationStore;
 import org.eclipse.leshan.server.model.LwM2mModelProvider;
 import org.eclipse.leshan.server.model.StandardModelProvider;
 import org.eclipse.leshan.server.queue.ClientAwakeTimeProvider;
@@ -59,6 +56,7 @@ import org.eclipse.leshan.server.registration.RegistrationIdProvider;
 import org.eclipse.leshan.server.registration.RegistrationStore;
 import org.eclipse.leshan.server.security.Authorizer;
 import org.eclipse.leshan.server.security.DefaultAuthorizer;
+import org.eclipse.leshan.server.security.InMemorySecurityStore;
 import org.eclipse.leshan.server.security.SecurityInfo;
 import org.eclipse.leshan.server.security.SecurityStore;
 import org.slf4j.Logger;
@@ -67,7 +65,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Class helping you to build and configure a Californium based Leshan Lightweight M2M server. Usage: create it, call
  * the different setters for changing the configuration and then call the {@link #build()} method for creating the
- * {@link LwM2mServer} ready to operate.
+ * {@link LeshanServer} ready to operate.
  */
 public class LeshanServerBuilder {
 
@@ -386,6 +384,14 @@ public class LeshanServerBuilder {
         return networkConfig;
     }
 
+    /**
+     * Create the {@link LeshanServer}.
+     * <p>
+     * Next step will be to start it : {@link LeshanServer#start()}.
+     * 
+     * @return the LWM2M server.
+     * @throws IllegalStateException if builder configuration is not consistent.
+     */
     public LeshanServer build() {
         if (localAddress == null)
             localAddress = new InetSocketAddress(LwM2m.DEFAULT_COAP_PORT);
@@ -414,7 +420,7 @@ public class LeshanServerBuilder {
         if (registrationIdProvider == null)
             registrationIdProvider = new RandomStringRegistrationIdProvider();
         if (endpointFactory == null) {
-            endpointFactory = new DefaultEndpointFactory();
+            endpointFactory = new DefaultEndpointFactory("LWM2M Server");
         }
 
         // handle dtlsConfig
@@ -536,7 +542,7 @@ public class LeshanServerBuilder {
                     "All CoAP enpoints are deactivated, at least one endpoint should be activated");
         }
 
-        return new LeshanServer(unsecuredEndpoint, securedEndpoint, registrationStore, securityStore, authorizer,
+        return createServer(unsecuredEndpoint, securedEndpoint, registrationStore, securityStore, authorizer,
                 modelProvider, encoder, decoder, coapConfig, noQueueMode, awakeTimeProvider, registrationIdProvider);
     }
 
@@ -546,5 +552,36 @@ public class LeshanServerBuilder {
     protected boolean shouldTryToCreateSecureEndpoint() {
         return dtlsConfigBuilder != null || certificateChain != null || privateKey != null || publicKey != null
                 || securityStore != null || trustedCertificates != null;
+    }
+
+    /**
+     * Create the <code>LeshanServer</code>.
+     * <p>
+     * You can extend <code>LeshanServerBuilder</code> and override this method to create a new builder which will be
+     * able to build an extended <code>LeshanServer</code>.
+     * 
+     * @param unsecuredEndpoint CoAP endpoint used for <code>coap://<code> communication.
+     * @param securedEndpoint CoAP endpoint used for <code>coaps://<code> communication.
+     * @param registrationStore the {@link Registration} store.
+     * @param securityStore the {@link SecurityInfo} store.
+     * @param authorizer define which devices is allow to register on this server.
+     * @param modelProvider provides the objects description for each client.
+     * @param decoder decoder used to decode response payload.
+     * @param encoder encode used to encode request payload.
+     * @param coapConfig the CoAP {@link NetworkConfig}.
+     * @param noQueueMode true to disable presenceService.
+     * @param awakeTimeProvider to set the client awake time if queue mode is used.
+     * @param registrationIdProvider to provide registrationId using for location-path option values on response of
+     *        Register operation.
+     * 
+     * @return the LWM2M server
+     */
+    protected LeshanServer createServer(CoapEndpoint unsecuredEndpoint, CoapEndpoint securedEndpoint,
+            CaliforniumRegistrationStore registrationStore, SecurityStore securityStore, Authorizer authorizer,
+            LwM2mModelProvider modelProvider, LwM2mNodeEncoder encoder, LwM2mNodeDecoder decoder,
+            NetworkConfig coapConfig, boolean noQueueMode, ClientAwakeTimeProvider awakeTimeProvider,
+            RegistrationIdProvider registrationIdProvider) {
+        return new LeshanServer(unsecuredEndpoint, securedEndpoint, registrationStore, securityStore, authorizer,
+                modelProvider, encoder, decoder, coapConfig, noQueueMode, awakeTimeProvider, registrationIdProvider);
     }
 }

@@ -41,7 +41,7 @@ import org.eclipse.leshan.core.response.ObserveResponse;
 import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.ResponseCallback;
 import org.eclipse.leshan.core.response.WriteResponse;
-import org.eclipse.leshan.server.californium.impl.LeshanServer;
+import org.eclipse.leshan.server.californium.LeshanServer;
 import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeSerializer;
 import org.eclipse.leshan.server.observation.ObservationListener;
 import org.eclipse.leshan.server.registration.Registration;
@@ -175,16 +175,11 @@ public class OnConnectAction {
     private final MessageInterceptorAdapter messageInterceptorAdapter = new MessageInterceptorAdapter() {
         @Override
         public void sendRequest(final Request request) {
-            request.setTimestamp(System.currentTimeMillis());
+            request.setNanoTimestamp(System.currentTimeMillis());
             request.addMessageObserver(new MessageObserver() {
                 @Override
                 public void onTimeout() {
                     LOG.warn("timeout at {} : {}", System.currentTimeMillis(), request);
-                }
-
-                @Override
-                public void onSent() {
-                    LOG.warn("sent at {} : {}", System.currentTimeMillis(), request);
                 }
 
                 @Override
@@ -240,6 +235,11 @@ public class OnConnectAction {
                 @Override
                 public void onAcknowledgement() {
                     LOG.warn("acknowledged at {} : {}", System.currentTimeMillis(), request);
+                }
+
+                @Override
+                public void onSent(boolean retransmission) {
+                    LOG.warn("sent at {} : {} : {}", System.currentTimeMillis(), request, retransmission);
                 }
             });
         };

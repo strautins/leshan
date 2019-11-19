@@ -17,7 +17,6 @@
  *******************************************************************************/
 package org.eclipse.leshan.server.registration;
 
-import java.net.InetSocketAddress;
 import java.util.Date;
 
 import org.eclipse.leshan.core.request.DeregisterRequest;
@@ -28,7 +27,6 @@ import org.eclipse.leshan.core.response.DeregisterResponse;
 import org.eclipse.leshan.core.response.RegisterResponse;
 import org.eclipse.leshan.core.response.SendableResponse;
 import org.eclipse.leshan.core.response.UpdateResponse;
-import org.eclipse.leshan.server.impl.RegistrationServiceImpl;
 import org.eclipse.leshan.server.security.Authorizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,12 +50,10 @@ public class RegistrationHandler {
         this.registrationIdProvider = registrationIdProvider;
     }
 
-    public SendableResponse<RegisterResponse> register(Identity sender, RegisterRequest registerRequest,
-            InetSocketAddress serverEndpoint) {
+    public SendableResponse<RegisterResponse> register(Identity sender, RegisterRequest registerRequest) {
 
         Registration.Builder builder = new Registration.Builder(
-                registrationIdProvider.getRegistrationId(registerRequest), registerRequest.getEndpointName(), sender,
-                serverEndpoint);
+                registrationIdProvider.getRegistrationId(registerRequest), registerRequest.getEndpointName(), sender);
 
         builder.lwM2mVersion(registerRequest.getLwVersion()).lifeTimeInSec(registerRequest.getLifetime())
                 .bindingMode(registerRequest.getBindingMode()).objectLinks(registerRequest.getObjectLinks())

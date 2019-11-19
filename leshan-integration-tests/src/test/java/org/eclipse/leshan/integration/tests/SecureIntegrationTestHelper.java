@@ -39,6 +39,8 @@ import java.security.spec.ECPublicKeySpec;
 import java.security.spec.KeySpec;
 import java.util.List;
 
+import javax.crypto.SecretKey;
+
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.observe.ObservationStore;
@@ -57,9 +59,9 @@ import org.eclipse.leshan.client.resource.ObjectsInitializer;
 import org.eclipse.leshan.core.californium.EndpointFactory;
 import org.eclipse.leshan.core.request.BindingMode;
 import org.eclipse.leshan.server.californium.LeshanServerBuilder;
-import org.eclipse.leshan.server.impl.InMemorySecurityStore;
 import org.eclipse.leshan.server.security.DefaultAuthorizer;
 import org.eclipse.leshan.server.security.EditableSecurityStore;
+import org.eclipse.leshan.server.security.InMemorySecurityStore;
 import org.eclipse.leshan.server.security.SecurityChecker;
 import org.eclipse.leshan.server.security.SecurityStore;
 import org.eclipse.leshan.util.Hex;
@@ -220,7 +222,7 @@ public class SecureIntegrationTestHelper extends IntegrationTestHelper {
                 Builder dtlsConfigBuilder = new Builder(dtlsConfig);
                 if (dtlsConfig.getPskStore() != null) {
                     PskPublicInformation identity = dtlsConfig.getPskStore().getIdentity(null);
-                    byte[] key = dtlsConfig.getPskStore().getKey(identity);
+                    SecretKey key = dtlsConfig.getPskStore().getKey(identity);
                     singlePSKStore = new SinglePSKStore(identity, key);
                     dtlsConfigBuilder.setPskStore(singlePSKStore);
                 }
