@@ -113,7 +113,7 @@ public class LeshanServerDemo {
                             "3340.xml", "3341.xml", "3342.xml", "3343.xml", "3344.xml", "3345.xml", "3346.xml",
                             "3347.xml", "3348.xml", "3349.xml", "3350.xml",
 
-                            "43000.xml" , "43001.xml", "43002.xml", "43003.xml", "43004.xml", "43005.xml" , "43006.xml", "43007.xml",
+                            "33755.xml" , "33756.xml", "33757.xml", "33758.xml", "33759.xml", "33760.xml" , "33761.xml", "33762.xml",
 
                             "Communication_Characteristics-V1_0.xml",
 
@@ -429,7 +429,7 @@ public class LeshanServerDemo {
         if(jedis != null) {
             redisStorage = new RedisStorage(jedis);
         }
-        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 08.11.2019 12:44:49");  
+        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 19.11.2019 13:35:49");  
 
         // Create and start LWM2M server
         LeshanServer lwServer = builder.build();

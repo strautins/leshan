@@ -62,36 +62,36 @@ public class OnConnectAction {
 
     private static final String EVENT_REGISTRATION = "REGISTRATION";
 
-    private static final String PATH_DEVICES = "/43001/";
-    public static final int OBJECT_ID_DEVICES = 43001;
+    private static final String PATH_DEVICES = "/33756/";
+    public static final int OBJECT_ID_DEVICES = 33756;
 
-    protected static final int OBJECT_ID_GROUP = 43000;
-    private static final String PATH_GROUP = "/43000/";
-    private static final String PATH_GROUP_ATTENTION_REQUIRED = "43000/0/0";
-    private static final String PATH_GROUP_ALARM_TRIGGERED = "43000/0/1";
-    private static final String PATH_GROUP_DEVICES_INFO_CHANGED = "43000/0/2";
+    protected static final int OBJECT_ID_GROUP = 33755;
+    private static final String PATH_GROUP = "/33755/";
+    private static final String PATH_GROUP_ATTENTION_REQUIRED = "33755/0/0";
+    private static final String PATH_GROUP_ALARM_TRIGGERED = "33755/0/1";
+    private static final String PATH_GROUP_DEVICES_INFO_CHANGED = "33755/0/2";
     /** Sensor object temperature */
-    protected static final int OBJECT_ID_TEMPERATURE = 43002;
-    private static final String PATH_TEMPERATURE = "/43002/";
+    protected static final int OBJECT_ID_TEMPERATURE = 33758;
+    private static final String PATH_TEMPERATURE = "/33758/";
     private static final String NAME_TEMPERATURE = "temperature";
     /** Sensor object humidity */
-    protected static final int OBJECT_ID_HUMIDITY = 43003;
-    private static final String PATH_HUMIDITY = "/43003/";
+    protected static final int OBJECT_ID_HUMIDITY = 33759;
+    private static final String PATH_HUMIDITY = "/33759/";
     private static final String NAME_HUMIDITY = "humidity";
     /** Sensor object co2 */
-    protected static final int OBJECT_ID_CO2 = 43006;
-    private static final String PATH_CO2 = "/43006/";
+    protected static final int OBJECT_ID_CO2 = 33761;
+    private static final String PATH_CO2 = "/33761/";
     private static final String NAME_CO2 = "co2";
     /** Sensor object co */
-    protected static final int OBJECT_ID_CO = 43007;
-    private static final String PATH_CO = "/43007/";
+    protected static final int OBJECT_ID_CO = 33762;
+    private static final String PATH_CO = "/33762/";
     private static final String NAME_CO = "co";
     /** Sensor object atmospheric */
-    protected static final int OBJECT_ID_PRESSURE = 43004;
-    private static final String PATH_PRESSURE = "/43004/";
+    protected static final int OBJECT_ID_PRESSURE = 33760;
+    private static final String PATH_PRESSURE = "/33760/";
     private static final String NAME_PRESSURE = "atmospheric";
     /** Alarm object path */
-    private static final String PATH_ALARM = "/43005/";
+    private static final String PATH_ALARM = "/33757/";
     /** Devices resource names */
     protected static final String NAME_BATTERY = "battery";
     protected static final String NAME_BATTERY_LEVEL = "battery_level";
@@ -118,7 +118,7 @@ public class OnConnectAction {
 
     /** Sensor object resource ID */
     protected static final int RESOURCE_ID_RESOURCE_MAP = 0;
-    protected static final int RESOURCE_ID_LMT = 1;
+    protected static final int RESOURCE_ID_FMT = 1;
     protected static final int RESOURCE_ID_CLEAR_MEASUREMENTS = 2;
     /** Alarm resource names */
     protected static final String NAME_SMOKE_ALARM = "smoke_alarm";
@@ -407,7 +407,7 @@ public class OnConnectAction {
         //testing
         // if (isDevices) {
         //     ResourceModel resourceModel = this.mLeshanServer.getModelProvider().getObjectModel(registration)
-        //         .getObjectModel(43001).resources.get(9);
+        //         .getObjectModel(OBJECT_ID_DEVICES).resources.get(9);
         //     LOG.warn("what the heaven for {} ", resourceModel.toString());
         //     multiWriteRequest(registration);
         // }
@@ -494,7 +494,7 @@ public class OnConnectAction {
             //// leshan client WriteAttributesRequest failed:INTERNAL_SERVER_ERROR not
             //// implemented
             // AttributeSet attributes = AttributeSet.parse("pmin=10&pmax=30");
-            // WriteAttributesRequest write = new WriteAttributesRequest(43000, attributes);
+            // WriteAttributesRequest write = new WriteAttributesRequest(OBJECT_ID_GROUP, attributes);
             // WriteAttributesResponse cResponse = this.mLeshanServer.send(registration,
             //// write, this.mTimeout);
             // if(cResponse.isSuccess()) {
@@ -548,7 +548,7 @@ public class OnConnectAction {
         values.put(1, false);
         values.put(5, true);
         
-        WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, 43001, 0,
+        WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, OBJECT_ID_DEVICES, 0,
         LwM2mMultipleResource.newBooleanResource(9, values));
         boolean result = writeRequest(registration, request);
         LOG.warn("MultipleWrite is {}", result);
@@ -602,14 +602,14 @@ public class OnConnectAction {
             for (Map.Entry<Integer, LwM2mObjectInstance> entry : obj.getInstances().entrySet()) {
                 Long pulse = endpointCache.getIntervalKey(entry.getKey(), object.getId());
                 Map<Integer, Object> resourceMap = getResourceMap(entry.getValue(), RESOURCE_ID_RESOURCE_MAP);
-                Date lmt = getDateResource(entry.getValue(), RESOURCE_ID_LMT);
+                Date lmt = getDateResource(entry.getValue(), RESOURCE_ID_FMT);
                 String serialNumber = endpointCache.getSerial(entry.getKey());
                 if (serialNumber != null && lmt != null && resourceMap != null && pulse != null
                         && resourceMap.size() > 0) {
                     LOG.warn("CreatePayload for {}. SensorName: {}; serialNumber: {}; Last measurement time: {}; pulse: {}; resourceMap.size(): {};",
                                 registration.getEndpoint(), sensorName, serialNumber, lmt.getTime(), pulse, resourceMap.size());        
                     endpointCache.createPayload(serialNumber, lmt, resourceMap, sensorName, pulse);
-                    clearInstanceAsync(registration, obj.getId(), entry.getValue());
+                    clearInstanceAsync(registration, obj.getId(), entry.getValue(), (resourceMap.size() * pulse * 1000));
                 } else {
                     LOG.warn(
                             "CreatePayload Skipped for {}. SensorName: {}; serialNumber: {}; Last measurement time is {} null; resourceMap is {} null; pulse is {} null; resourceMap.size(): {};",
@@ -622,9 +622,10 @@ public class OnConnectAction {
         }
     }
 
-    private void clearInstanceAsync(Registration registration, Integer objectId, LwM2mObjectInstance inst) {
-        Date lmt = getDateResource(inst, RESOURCE_ID_LMT);
-        if (lmt != null) {
+    private void clearInstanceAsync(Registration registration, Integer objectId, LwM2mObjectInstance inst, long addTime) {
+        Date fmt = getDateResource(inst, RESOURCE_ID_FMT);
+        if (fmt != null) {
+            Date lmt = new Date(fmt.getTime()  + addTime);
             ExecuteRequest request = new ExecuteRequest(objectId, inst.getId(), RESOURCE_ID_CLEAR_MEASUREMENTS,
                     String.valueOf(lmt.getTime()));
             final String debug = registration.getEndpoint() + "; on" + request.getPath().toString();

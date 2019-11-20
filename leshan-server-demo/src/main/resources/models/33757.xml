@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LWM2M xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.openmobilealliance.org/tech/profiles/LWM2M.xsd">
+	<Object ObjectType="MODefinition">
+		<Name>Smoke Sensor Status</Name>
+		<Description1><![CDATA[Object holds smoke sensor status information.]]></Description1>
+		<ObjectID>33757</ObjectID>
+		<ObjectURN></ObjectURN>
+		<LWM2MVersion>1.0</LWM2MVersion>
+		<ObjectVersion>1.0</ObjectVersion>
+		<MultipleInstances>Multiple</MultipleInstances>
+		<Mandatory>Mandatory</Mandatory>
+		<Resources>
+			<Item ID="0">
+				<Name>Smoke Alarm</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Integer</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Resource holds status information: 0 - idle, 1 - warning, 2 - alarm.]]></Description>
+			</Item>
+			<Item ID="1">
+				<Name>Hushed</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Boolean</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Shows if hush is currently active.]]></Description>
+			</Item>
+			<Item ID="2">
+				<Name>Temperature Alarm</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Boolean</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Temperature alarm status information.]]></Description>
+			</Item>
+			<Item ID="3">
+				<Name>CO Alarm</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>Boolean</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[CO alarm status information]]></Description>
+			</Item>
+			<Item ID="4">
+				<Name>Temperature</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Float</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units>Cel</Units>
+				<Description><![CDATA[Current temperature.]]></Description>
+			</Item>
+			<Item ID="5">
+				<Name>CO2</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>Integer</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Current CO2 level ppm.]]></Description>
+			</Item>
+			<Item ID="6">
+				<Name>CO</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>Integer</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Current CO level ppm.]]></Description>
+			</Item>
+			<Item ID="7">
+				<Name>Humidity</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>Integer</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units>%RH</Units>
+				<Description><![CDATA[Current relative humidity.]]></Description>
+			</Item>
+			<Item ID="8">
+				<Name>Pressure</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>Float</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units>Pa</Units>
+				<Description><![CDATA[Current atmospheric pressure.]]></Description>
+			</Item>
+		</Resources>
+		<Description2 />
+	</Object>
+</LWM2M>

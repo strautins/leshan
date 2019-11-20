@@ -67,17 +67,17 @@ public class LeshanClientDemo {
     private static final Logger LOG = LoggerFactory.getLogger(LeshanClientDemo.class);
 
     private final static String[] modelPaths = new String[] { "3303.xml",
-        "43000.xml" , "43001.xml", "43002.xml", "43003.xml", "43004.xml", "43005.xml" , "43006.xml", "43007.xml", };
+        "33755.xml" , "33756.xml", "33757.xml", "33758.xml", "33759.xml", "33760.xml" , "33761.xml", "33762.xml"};
 
     private static final int OBJECT_ID_TEMPERATURE_SENSOR = 3303;
-    private static final int OBJECT_ID_GROUP_DATA = 43000;
-    private static final int OBJECT_ID_DEVICES = 43001;
-    private static final int OBJECT_ID_TEMPERATURE = 43002;
-    private static final int OBJECT_ID_HUMIDITY = 43003;
-    private static final int OBJECT_ID_PRESSURE = 43004;
-    private static final int OBJECT_ID_SMOKE  = 43005;
-    private static final int OBJECT_ID_CO2 = 43006;
-    private static final int OBJECT_ID_CO = 43007;
+    private static final int OBJECT_ID_GROUP_DATA = 33755;
+    private static final int OBJECT_ID_DEVICES = 33756;
+    private static final int OBJECT_ID_TEMPERATURE = 33758;
+    private static final int OBJECT_ID_HUMIDITY = 33759;
+    private static final int OBJECT_ID_PRESSURE = 33760;
+    private static final int OBJECT_ID_SMOKE  = 33757;
+    private static final int OBJECT_ID_CO2 = 33761;
+    private static final int OBJECT_ID_CO = 33762;
     private final static String DEFAULT_ENDPOINT = "LeshanClientDemo";
     private final static String USAGE = "java -jar leshan-client-demo.jar [OPTION]\n\n";
 
@@ -361,7 +361,7 @@ public class LeshanClientDemo {
         } else {
             if (pskIdentity != null) {
                 initializer.setInstancesForObject(SECURITY, psk(serverURI, 123, pskIdentity, pskKey));
-                initializer.setInstancesForObject(SERVER, new Server(123, 30 * 10, BindingMode.UQ, false));
+                initializer.setInstancesForObject(SERVER, new Server(123, 30 * 6, BindingMode.U, false));
             } else if (clientPublicKey != null) {
                 initializer.setInstancesForObject(SECURITY, rpk(serverURI, 123, clientPublicKey.getEncoded(),
                         clientPrivateKey.getEncoded(), serverPublicKey.getEncoded()));
@@ -372,7 +372,7 @@ public class LeshanClientDemo {
                 initializer.setInstancesForObject(SERVER, new Server(123, 30, BindingMode.U, false));
             } else {
                 initializer.setInstancesForObject(SECURITY, noSec(serverURI, 123));
-                initializer.setInstancesForObject(SERVER, new Server(123, 60 * 2, BindingMode.U, false));
+                initializer.setInstancesForObject(SERVER, new Server(123, 30 * 6, BindingMode.U, false));
             }
         }
         initializer.setInstancesForObject(DEVICE, new MyDevice());

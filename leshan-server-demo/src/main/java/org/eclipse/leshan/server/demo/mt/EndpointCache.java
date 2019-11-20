@@ -223,7 +223,8 @@ public class EndpointCache {
             payloads.put(serialNumber, payloadMap);
         }
         for (Map.Entry<Integer, Object> resEntry : resourceMap.entrySet()) {
-            Long calcTime = defTime - ((resourceMap.size() - 1 - resEntry.getKey()) * 1000 * pulse);
+            //Long calcTime = defTime - ((resourceMap.size() - 1 - resEntry.getKey()) * 1000 * pulse);
+            Long calcTime = defTime + (resEntry.getKey() * 1000 * pulse);
             JSONObject payloadObj = payloadMap.get(calcTime);
             if (payloadObj == null) {
                 payloadObj = new JSONObject("{\"" + resName + "\":" + resEntry.getValue() + "}");
