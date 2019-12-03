@@ -79,6 +79,8 @@ public class RegistrationEngine {
     private static enum Status {
         SUCCESS, FAILURE, TIMEOUT
     }
+    // device server
+    private Server dmServer;
 
     // device state
     private final String endpoint;
@@ -128,7 +130,7 @@ public class RegistrationEngine {
             } else {
                 // Try to register to dm servers.
                 // TODO we currently support only one dm server.
-                Server dmServer = dmServers.iterator().next();
+                this.dmServer = dmServers.iterator().next();
                 registerFuture = schedExecutor.submit(new RegistrationTask(dmServer));
             }
         }
@@ -612,5 +614,11 @@ public class RegistrationEngine {
      */
     public String getEndpoint() {
         return endpoint;
+    }
+    /**
+     * @return Current server
+     */
+    public Server getServer() {
+        return dmServer;
     }
 }

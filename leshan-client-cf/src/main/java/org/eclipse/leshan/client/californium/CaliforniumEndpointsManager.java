@@ -124,8 +124,10 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
                     @Override
                     public void verifyCertificate(CertificateMessage message, DTLSSession session)
                             throws HandshakeException {
-                        // As specify in the LWM2M spec 1.0, we only support "domain-issued certificate" usage
-                        // Defined in : https://tools.ietf.org/html/rfc6698#section-2.1.1 (3 -- Certificate usage 3)
+                        // As specify in the LWM2M spec 1.0, we only support "domain-issued certificate"
+                        // usage
+                        // Defined in : https://tools.ietf.org/html/rfc6698#section-2.1.1 (3 --
+                        // Certificate usage 3)
 
                         // Get server certificate from certificate message
                         if (message.getCertificateChain().getCertificates().size() == 0) {
@@ -236,7 +238,6 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
     public synchronized void destroy() {
         if (started)
             started = false;
-
         coapServer.destroy();
     }
 }

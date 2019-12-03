@@ -65,7 +65,7 @@ public class RedisStorage implements SimpleCache {
         try (Jedis j = mJedisPool.getResource()) {
             Long res = j.rpush(EP_EVENT_LIST, getEndpointPayloadKey(endpoint));
             if (res == null) {
-                LOG.warn("Redis rpush failed for {} : {}", EP_EVENT_LIST, getEndpointPayloadKey(endpoint));
+                LOG.error("Redis rpush failed for {} : {}", EP_EVENT_LIST, getEndpointPayloadKey(endpoint));
             }
         }
     }
@@ -75,7 +75,7 @@ public class RedisStorage implements SimpleCache {
             for (Map.Entry<Integer, String> entry : resourceMap.entrySet()) {
                 Long res = j.rpush(EP_EVENT_LIST, getEndpointPayloadKey(entry.getValue()));
                 if (res == null) {
-                    LOG.warn("Redis rpush failed for {} : {}", EP_EVENT_LIST, getEndpointPayloadKey(entry.getValue()));
+                    LOG.error("Redis rpush failed for {} : {}", EP_EVENT_LIST, getEndpointPayloadKey(entry.getValue()));
                 }
             }
         }
@@ -135,7 +135,7 @@ public class RedisStorage implements SimpleCache {
             if("OK".equals(result)) {
                 return true;
             } else {
-                LOG.warn("Redis LOCKED for {} : {}", endpoint, result);
+                LOG.error("Redis LOCKED for {} : {}", endpoint, result);
             }
         }
         return false;
@@ -147,7 +147,7 @@ public class RedisStorage implements SimpleCache {
             if(value != null && Thread.currentThread().getName().equals(value)){   
                 jedis.del(getLockKey(endpoint));
             } else {
-                LOG.warn("Redis UNLOCK failed {} : {}", endpoint, value);   
+                LOG.error("Redis UNLOCK failed {} : {}", endpoint, value);   
             }
         }
     }

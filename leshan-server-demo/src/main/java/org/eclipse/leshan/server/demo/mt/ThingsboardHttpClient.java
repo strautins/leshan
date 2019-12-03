@@ -1,6 +1,7 @@
 package org.eclipse.leshan.server.demo.mt;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -15,66 +16,86 @@ import org.apache.http.impl.nio.client.HttpAsyncClients;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ThingsboardHttpClient {
-    
-    private static final Logger LOG = LoggerFactory.getLogger(OnConnectAction.class);
-    
-    private final String mHost;
-    private final Integer mPort;
+public class ThingsboardHttpClient implements ThingsboardSend {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ThingsboardHttpClient.class);
+
+    private final CloseableHttpAsyncClient httpClient;
+    private final String HOST;
+    private final Integer PORT;
+    private final Integer TIMEOUT;
+
     private static final String mLink1 = "/api/v1/";
     private static final String mLink2 = "/telemetry";
-    public ThingsboardHttpClient(String host, Integer port) throws URISyntaxException {
-        LOG.warn("Created ThingsboardHttpClient at {} : {} : {}", System.currentTimeMillis(), host, port);
-        this.mHost = host;
-        this.mPort = port;
+
+    public ThingsboardHttpClient(String host, Integer port, int timeoutSec) throws URISyntaxException {
+        LOG.warn("Created ThingsboardHttpClient at {} : {} : {} : {}", System.currentTimeMillis(), host, port, timeoutSec);
+        this.HOST = host;
+        this.PORT = port;
+        this.TIMEOUT = timeoutSec;
+
+        RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(this.TIMEOUT).setConnectTimeout(this.TIMEOUT).build();
+        this.httpClient = HttpAsyncClients.custom().setDefaultRequestConfig(requestConfig).build();
     }
-    public void post2ThingsBoard(String cleanEndpoint,  ArrayList<String> payLoadList) throws IOException, InterruptedException {
-        //"http://123.123.123.123:8080/api/v1/" + cleanEndpoint + "/telemetry"
+    @Override
+    public void start() {
+        httpClient.start();
+    }
+
+    @Override
+    public void stop() {
+        try {
+            httpClient.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void send(String token, ArrayList<String> msg) {
+        try {
+            localSend(token, msg);
+        } catch (InterruptedException | IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
+    private void localSend(String token, ArrayList<String> msg) throws InterruptedException, IOException {
+        //"http://123.123.123.123:8080/api/v1/" + token + "/telemetry"
         ArrayList<HttpPost> httpPostList = new ArrayList<HttpPost>();
-        for(String payload: payLoadList) {
-            HttpPost request = new HttpPost("http://" + mHost + ":" + String.valueOf(mPort) + mLink1 + cleanEndpoint + mLink2);
+        for(String payload: msg) {
+            HttpPost request = new HttpPost(this.HOST + ":" + String.valueOf(this.PORT) + mLink1 + token + mLink2);
             StringEntity params = new StringEntity(payload);
             request.addHeader("content-type", "application/json");
             request.setEntity(params);
             httpPostList.add(request);
         }   
        
-        RequestConfig requestConfig = RequestConfig.custom()
-            .setSocketTimeout(3000)
-            .setConnectTimeout(3000).build();
-        CloseableHttpAsyncClient httpClient = HttpAsyncClients.custom()
-            .setDefaultRequestConfig(requestConfig)
-            .build();
-        try {
-            httpClient.start();
-            final CountDownLatch latch = new CountDownLatch(payLoadList.size());
-            for (final HttpPost request: httpPostList) {
-                httpClient.execute(request, new FutureCallback<HttpResponse>() {
+        final CountDownLatch latch = new CountDownLatch(msg.size());
+        for (final HttpPost request: httpPostList) {
+            httpClient.execute(request, new FutureCallback<HttpResponse>() {
 
-                    @Override
-                    public void completed(final HttpResponse response) {
-                        latch.countDown();
-                        LOG.warn("Http completed at {} : {}", System.currentTimeMillis(), response);
-                    }
+                @Override
+                public void completed(final HttpResponse response) {
+                    LOG.debug("Http completed at {} : {}", System.currentTimeMillis(), response);
+                    latch.countDown();
+                }
 
-                    @Override
-                    public void failed(final Exception ex) {
-                        latch.countDown();
-                        LOG.warn("Http failed at {} : {}", System.currentTimeMillis(), ex);
-                    }
+                @Override
+                public void failed(final Exception ex) {
+                    LOG.debug("Http failed at {} : {}", System.currentTimeMillis(), ex);
+                    latch.countDown();
+                }
 
-                    @Override
-                    public void cancelled() {
-                        latch.countDown();
-                        LOG.warn("Http cancelled at {} : {}", System.currentTimeMillis(), request.getRequestLine());
-                    }
-                });
-            }
-            latch.await();
-            LOG.warn("Http Shutting down at {} : {}", System.currentTimeMillis(), cleanEndpoint);
-        } finally {
-            httpClient.close();
+                @Override
+                public void cancelled() {
+                    LOG.debug("Http cancelled at {} : {}", System.currentTimeMillis(), request.getRequestLine());
+                    latch.countDown();
+                }
+            });
         }
-        LOG.warn("Http done at {} : {}", System.currentTimeMillis(), cleanEndpoint);
+        latch.await();
+        LOG.debug("Http done at {} : {}", System.currentTimeMillis(), token);
     }
 }

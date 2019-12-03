@@ -149,21 +149,18 @@ public class OnConnectAction {
     private static final String NAME_NONE = "none";
 
     private final LeshanServer mLeshanServer;
-    private final ThingsboardMqttClient mThingsboardMqttClient;
-    private final ThingsboardHttpClient mThingsboardHttpClient;
+    private final ThingsboardSend mThingsboardSend;
     private final RedisStorage mRedisStorage;
     private final SimpleCache mSimpleCache;
     private final long mTimeout;
 
     private final Gson gson;
 
-    public OnConnectAction(LeshanServer leshanServer, ThingsboardMqttClient lwM2mMqttClient,
-            ThingsboardHttpClient thingsboardHttpClient, RedisStorage redisStorage) throws URISyntaxException {
+    public OnConnectAction(LeshanServer leshanServer, ThingsboardSend thingsboardSend, RedisStorage redisStorage) throws URISyntaxException {
         this.mLeshanServer = leshanServer;
-        this.mThingsboardMqttClient = lwM2mMqttClient;
         this.mRedisStorage = redisStorage;
         this.mSimpleCache = new InMemoryCache();
-        this.mThingsboardHttpClient = thingsboardHttpClient;
+        this.mThingsboardSend = thingsboardSend;
         this.mTimeout = 10000;
 
         GsonBuilder gsonBuilder = new GsonBuilder();
@@ -179,67 +176,67 @@ public class OnConnectAction {
             request.addMessageObserver(new MessageObserver() {
                 @Override
                 public void onTimeout() {
-                    LOG.warn("timeout at {} : {}", System.currentTimeMillis(), request);
+                    LOG.debug("timeout at {} : {}", System.currentTimeMillis(), request);
                 }
 
                 @Override
                 public void onSendError(Throwable error) {
-                    LOG.warn("sent error {} at {} : {}", error, System.currentTimeMillis(), request);
+                    LOG.debug("sent error {} at {} : {}", error, System.currentTimeMillis(), request);
                 }
 
                 @Override
                 public void onRetransmission() {
-                    LOG.warn("retransmission at {} : {}", System.currentTimeMillis(), request);
+                    LOG.debug("retransmission at {} : {}", System.currentTimeMillis(), request);
                 }
 
                 @Override
                 public void onResponse(Response response) {
-                    LOG.warn("get response {} at {} : {}", response, System.currentTimeMillis(), request);
+                    LOG.debug("get response {} at {} : {}", response, System.currentTimeMillis(), request);
                 }
 
                 @Override
                 public void onReject() {
-                    LOG.warn("rejected at {} : {}", System.currentTimeMillis(), request);
+                    LOG.debug("rejected at {} : {}", System.currentTimeMillis(), request);
                 }
 
                 @Override
                 public void onReadyToSend() {
-                    LOG.warn("ready to send at {} : {}", System.currentTimeMillis(), request);
+                    LOG.debug("ready to send at {} : {}", System.currentTimeMillis(), request);
                 }
 
                 @Override
                 public void onDtlsRetransmission(int flight) {
-                    LOG.warn("retransmit flight {}  at {} : {}", flight, System.currentTimeMillis(), request);
+                    LOG.debug("retransmit flight {}  at {} : {}", flight, System.currentTimeMillis(), request);
                 }
 
                 @Override
                 public void onContextEstablished(EndpointContext endpointContext) {
-                    LOG.warn("context establiched at {} : {}", System.currentTimeMillis(), request);
+                    LOG.debug("context establiched at {} : {}", System.currentTimeMillis(), request);
                 }
 
                 @Override
                 public void onConnecting() {
-                    LOG.warn("connecting at {} : {}", System.currentTimeMillis(), request);
+                    LOG.debug("connecting at {} : {}", System.currentTimeMillis(), request);
                 }
 
                 @Override
                 public void onComplete() {
-                    LOG.warn("completed at {} : {}", System.currentTimeMillis(), request);
+                    LOG.debug("completed at {} : {}", System.currentTimeMillis(), request);
                 }
 
                 @Override
                 public void onCancel() {
-                    LOG.warn("cancelled at {} : {}", System.currentTimeMillis(), request);
+                    LOG.debug("cancelled at {} : {}", System.currentTimeMillis(), request);
                 }
 
                 @Override
                 public void onAcknowledgement() {
-                    LOG.warn("acknowledged at {} : {}", System.currentTimeMillis(), request);
+                    LOG.debug("acknowledged at {} : {}", System.currentTimeMillis(), request);
                 }
 
                 @Override
                 public void onSent(boolean retransmission) {
-                    LOG.warn("sent at {} : {} : {}", System.currentTimeMillis(), request, retransmission);
+                    LOG.debug("sent at {} : {} : {}", System.currentTimeMillis(), request, retransmission);
                 }
             });
         };
@@ -270,17 +267,17 @@ public class OnConnectAction {
     private final ObservationListener observationListener = new ObservationListener() {
         @Override
         public void newObservation(Observation observation, Registration registration) {
-            // LOG.warn("NEW Observation () for {}", observation.getPath().toString(),
+            // LOG.debug("NEW Observation () for {}", observation.getPath().toString(),
             // registration.getEndpoint());
         }
 
         @Override
         public void cancelled(Observation observation) {
-            // LOG.warn("Observation Canceled {}", observation.getPath().toString());
+            // LOG.debug("Observation Canceled {}", observation.getPath().toString());
         }
 
         @Override
-        public void onResponse(Observation observation, Registration registration, ObserveResponse response) {
+        public void onResponse(Observation observation, Registration registration, ObserveResponse response) { 
             if (registration != null && observation.getPath().toString().equals(PATH_GROUP)) {
                 LwM2mNode object = readRequest(registration, PATH_ALARM);
                 if (object != null && object instanceof LwM2mObject) {
@@ -292,11 +289,14 @@ public class OnConnectAction {
 
         @Override
         public void onError(Observation observation, Registration registration, Exception error) {
-            LOG.warn("Observation Error {} for {}", observation.getPath().toString(), registration.getEndpoint());
+            LOG.error("Observation Error {} for {}", observation.getPath().toString(), registration.getEndpoint());
         }
     };
 
     public void start() {
+        if(this.mThingsboardSend != null) {
+            this.mThingsboardSend.start();
+        }
         this.mLeshanServer.getRegistrationService().addListener(this.registrationListener);
         // this.mLeshanServer.getObservationService().addListener(this.observationListener);
         // this.mLeshanServer.coap().getUnsecuredEndpoint().addInterceptor(this.messageInterceptorAdapter);
@@ -309,6 +309,7 @@ public class OnConnectAction {
     }
 
     public void stop() {
+        this.mThingsboardSend.stop();
         this.mLeshanServer.getRegistrationService().removeListener(this.registrationListener);
         // this.mLeshanServer.getObservationService().removeListener(this.observationListener);
         // this.mLeshanServer.coap().getUnsecuredEndpoint().removeInterceptor(this.messageInterceptorAdapter);
@@ -347,35 +348,31 @@ public class OnConnectAction {
     }
 
     private void wrapperGetResources(Registration registration, String event) {
-        if (this.mSimpleCache.lock(registration.getEndpoint())) {
-            try {
-                LOG.warn("Lock acquired for {} with {}; Thread: {}", registration.getEndpoint(), event,
-                        Thread.currentThread().getName());
-                if(registration.getObjectLinks() != null) {
-                    splitEvent(registration, event);
-                }
-            } finally {
-                this.mSimpleCache.unlock(registration.getEndpoint());
-                LOG.warn("Unlock for {} with {}; Thread: {}", registration.getEndpoint(), event, Thread.currentThread().getName());    
-            }
-        } else {
-            LOG.warn("Lock not acquired {} with {};", registration.getEndpoint(), event);    
-        }
-    }
-    private void splitEvent(Registration registration, String event) {
         if (event.equals(EVENT_REGISTRATION) || event.equals(EVENT_UPDATED)) {
-            getResources(registration, event);
+            if (this.mSimpleCache.lock(registration.getEndpoint())) {
+                try {
+                    LOG.debug("Lock acquired for {} with {}; Thread: {}", registration.getEndpoint(), event,
+                            Thread.currentThread().getName());
+                    if(registration.getObjectLinks() != null) {
+                        getResources(registration, event);
+                    }
+                } finally {
+                    this.mSimpleCache.unlock(registration.getEndpoint());
+                    LOG.debug("Unlock for {} with {}; Thread: {}", registration.getEndpoint(), event, Thread.currentThread().getName());    
+                }
+            } else {
+                LOG.debug("Lock not acquired {} with {};", registration.getEndpoint(), event);    
+            }
         }  else {
             Boolean remove = mSimpleCache.delEndpointCache(registration.getEndpoint());
-            LOG.warn("Remove Cache for {} : {}", registration.getEndpoint(), remove);
+            LOG.debug("Remove Cache for {} : {}", registration.getEndpoint(), remove);
         }
-
     }
     private void getResources(Registration registration, String event) {
         // todo check observations
         // Set<Observation> observ = mLeshanServer.getObservationService().getObservations(registration);
         // for (Observation s : observ) {
-        //     LOG.warn("Observations for {} / {} : {}", registration.getEndpoint(), event, s.toString());
+        //     LOG.debug("Observations for {} / {} : {}", registration.getEndpoint(), event, s.toString());
         // }
         boolean isMainObj = false;
         boolean isDevices = false;
@@ -408,7 +405,7 @@ public class OnConnectAction {
         // if (isDevices) {
         //     ResourceModel resourceModel = this.mLeshanServer.getModelProvider().getObjectModel(registration)
         //         .getObjectModel(OBJECT_ID_DEVICES).resources.get(9);
-        //     LOG.warn("what the heaven for {} ", resourceModel.toString());
+        //     LOG.debug("what the heaven for {} ", resourceModel.toString());
         //     multiWriteRequest(registration);
         // }
         if (isMainObj && isDevices) {
@@ -500,12 +497,12 @@ public class OnConnectAction {
             // if(cResponse.isSuccess()) {
             ReadResponse response = mLeshanServer.send(registration, new ObserveRequest(link), this.mTimeout);
             if (response == null) {
-                LOG.warn("ObserveRequest for {} on {} timeout!", registration.getEndpoint(), link);
+                LOG.debug("ObserveRequest for {} on {} timeout!", registration.getEndpoint(), link);
             } else if (response.isSuccess()) {
-                // LOG.warn("ObserveRequest for {} on {} success! : {}",
+                // LOG.debug("ObserveRequest for {} on {} success! : {}",
                 // registration.getEndpoint(), link, response.getContent());
             } else {
-                LOG.warn("ObserveRequest for {} on {} Failed! Error : {} : {}", registration.getEndpoint(), link,
+                LOG.debug("ObserveRequest for {} on {} Failed! Error : {} : {}", registration.getEndpoint(), link,
                         response.getCode(), response.getErrorMessage());
             }
             // } else {
@@ -522,19 +519,19 @@ public class OnConnectAction {
     private LwM2mNode readRequest(Registration registration, String resourceLink, long timeout) {
         LwM2mNode object = null;
         try {
-            LOG.warn("Sending read to {} on {} at {}", registration.getEndpoint(), resourceLink,
+            LOG.debug("Sending read to {} on {} at {}", registration.getEndpoint(), resourceLink,
                     System.currentTimeMillis());
             ReadResponse response = this.mLeshanServer.send(registration, new ReadRequest(resourceLink), timeout);
             // set read values
             if (response == null) {
-                LOG.warn("ReadRequest for {} on resource {} timeout! at {}", registration.getEndpoint(), resourceLink,
+                LOG.debug("ReadRequest for {} on resource {} timeout! at {}", registration.getEndpoint(), resourceLink,
                         System.currentTimeMillis());
             } else if (response.isSuccess()) {
                 object = response.getContent();
-                LOG.warn("Received read to {}; on {}; at {}; object {}", registration.getEndpoint(), resourceLink,
+                LOG.debug("Received read to {}; on {}; at {}; object {}", registration.getEndpoint(), resourceLink,
                         System.currentTimeMillis(), response.getContent());
             } else {
-                LOG.warn("ReadRequest for {} on object {} Failed! Error: {} : {}", registration.getEndpoint(),
+                LOG.debug("ReadRequest for {} on object {} Failed! Error: {} : {}", registration.getEndpoint(),
                         resourceLink, response.getCode(), response.getErrorMessage());
             }
         } catch (InterruptedException e) {
@@ -551,7 +548,7 @@ public class OnConnectAction {
         WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, OBJECT_ID_DEVICES, 0,
         LwM2mMultipleResource.newBooleanResource(9, values));
         boolean result = writeRequest(registration, request);
-        LOG.warn("MultipleWrite is {}", result);
+        LOG.debug("MultipleWrite is {}", result);
     }
 
     private Boolean writeRequest(Registration registration, WriteRequest request) {
@@ -561,20 +558,20 @@ public class OnConnectAction {
     private Boolean writeRequest(Registration registration, WriteRequest request, long timeout) {
         Boolean result = null;
         try {
-            LOG.warn("Sending write to {} on {} at {}", registration.getEndpoint(), request.getPath().toString(),
+            LOG.debug("Sending write to {} on {} at {}", registration.getEndpoint(), request.getPath().toString(),
                     System.currentTimeMillis());
             LwM2mResponse response = this.mLeshanServer.send(registration, request, this.mTimeout);
             if (response == null) {
                 result = false;
-                LOG.warn("WriteRequest for {} on resource {} timeout! as {}", registration.getEndpoint(),
+                LOG.debug("WriteRequest for {} on resource {} timeout! as {}", registration.getEndpoint(),
                         request.getPath().toString(), System.currentTimeMillis());
             } else if (response.isSuccess()) {
                 result = true;
-                LOG.warn("Received write to {} on {} at {}", registration.getEndpoint(), request.getPath().toString(),
+                LOG.debug("Received write to {} on {} at {}", registration.getEndpoint(), request.getPath().toString(),
                         System.currentTimeMillis());
             } else if (!response.isSuccess()) {
                 result = false;
-                LOG.warn("WriteRequest for {} on resource {} Failed! Error: {} : {}", registration.getEndpoint(),
+                LOG.debug("WriteRequest for {} on resource {} Failed! Error: {} : {}", registration.getEndpoint(),
                         request.getPath().toString(), response.getCode(), response.getErrorMessage());
             }
         } catch (InterruptedException e) {
@@ -606,12 +603,12 @@ public class OnConnectAction {
                 String serialNumber = endpointCache.getSerial(entry.getKey());
                 if (serialNumber != null && lmt != null && resourceMap != null && pulse != null
                         && resourceMap.size() > 0) {
-                    LOG.warn("CreatePayload for {}. SensorName: {}; serialNumber: {}; Last measurement time: {}; pulse: {}; resourceMap.size(): {};",
+                    LOG.debug("CreatePayload for {}. SensorName: {}; serialNumber: {}; Last measurement time: {}; pulse: {}; resourceMap.size(): {};",
                                 registration.getEndpoint(), sensorName, serialNumber, lmt.getTime(), pulse, resourceMap.size());        
                     endpointCache.createPayload(serialNumber, lmt, resourceMap, sensorName, pulse);
                     clearInstanceAsync(registration, obj.getId(), entry.getValue(), (resourceMap.size() * pulse * 1000));
                 } else {
-                    LOG.warn(
+                    LOG.debug(
                             "CreatePayload Skipped for {}. SensorName: {}; serialNumber: {}; Last measurement time is {} null; resourceMap is {} null; pulse is {} null; resourceMap.size(): {};",
                             registration.getEndpoint(), sensorName, serialNumber, (lmt == null ? "" : "not"),
                             (resourceMap == null ? "" : "not"), (pulse == null ? "" : "not"),
@@ -629,24 +626,24 @@ public class OnConnectAction {
             ExecuteRequest request = new ExecuteRequest(objectId, inst.getId(), RESOURCE_ID_CLEAR_MEASUREMENTS,
                     String.valueOf(lmt.getTime()));
             final String debug = registration.getEndpoint() + "; on" + request.getPath().toString();
-            LOG.warn("ExecuteRequest for {} on {} at {}", registration.getEndpoint(),
+            LOG.debug("ExecuteRequest for {} on {} at {}", registration.getEndpoint(),
                     request.getPath().toString(), System.currentTimeMillis());
 
             this.mLeshanServer.send(registration, request, this.mTimeout, new ResponseCallback<ExecuteResponse>() {
                 @Override
                 public void onResponse(ExecuteResponse response) {
                     //if(!response.isSuccess()) {
-                        LOG.warn("Received Async ExecuteRequest is {} to {} at {} ",  response.isSuccess(), debug, System.currentTimeMillis());
+                        LOG.debug("Received Async ExecuteRequest is {} to {} at {} ",  response.isSuccess(), debug, System.currentTimeMillis());
                     //}
                 }
             }, new ErrorCallback() {
                 @Override
                 public void onError(Exception e) {
-                    LOG.warn("onError Async ExecuteRequest on {} : {}", debug, e.getMessage());
+                    LOG.error("onError Async ExecuteRequest on {} : {}", debug, e.getMessage());
                 }
             });
         } else {
-            LOG.warn("Clear object skipped for {} on object {}/{} because last measurement time is null",
+            LOG.debug("Clear object skipped for {} on object {}/{} because last measurement time is null",
                     registration.getEndpoint(), objectId, inst.getId());
         }
     }
@@ -658,7 +655,7 @@ public class OnConnectAction {
     //                 LwM2mSingleResource.newDateResource(RESOURCE_ID_LRMT, lmt));
     //         result = writeRequest(registration, request);
     //     } else {
-    //         LOG.warn("Clear object skipped for {} on object {}/{} because last measurement time is null",
+    //         LOG.debug("Clear object skipped for {} on object {}/{} because last measurement time is null",
     //         registration.getEndpoint(), objectId, inst.getId());
     //     }
     //     return result;
@@ -675,31 +672,31 @@ public class OnConnectAction {
     //                 @Override
     //                 public void onResponse(WriteResponse response) {
     //                     latch.countDown();
-    //                     LOG.warn("onResponse  {} : {} ", response.isSuccess(), debug);
+    //                     LOG.debug("onResponse  {} : {} ", response.isSuccess(), debug);
     //                 }
     //             }, new ErrorCallback() {
     //                 @Override
     //                 public void onError(Exception e) {
-    //                     LOG.warn("onError {} : {}", debug, e.getMessage());
+    //                     LOG.debug("onError {} : {}", debug, e.getMessage());
     //                 }
     //             });
     //         } else {
     //             latch.countDown();
-    //             LOG.warn("Clear object skipped for {} on object {}/{} because last measurement time is null",
+    //             LOG.debug("Clear object skipped for {} on object {}/{} because last measurement time is null",
     //                     registration.getEndpoint(), object.getId(), entry.getKey());
     //         }
 
     //     }
-    //     LOG.warn("latch.await for {} : {}", registration.getEndpoint(), object.getId());
+    //     LOG.debug("latch.await for {} : {}", registration.getEndpoint(), object.getId());
     //     try {
     //         Boolean result = latch.await(this.mTimeout, TimeUnit.MILLISECONDS);
     //         if(!result) {
-    //             LOG.warn("latch.await ended with timeout for {} : {}", registration.getEndpoint(), object.getId());     
+    //             LOG.debug("latch.await ended with timeout for {} : {}", registration.getEndpoint(), object.getId());     
     //         }
     //     } catch (InterruptedException e) {
     //         e.printStackTrace();
     //     }
-    //     LOG.warn("latch.await ended for {} : {}", registration.getEndpoint(), object.getId());
+    //     LOG.debug("latch.await ended for {} : {}", registration.getEndpoint(), object.getId());
     // }
 
     private Boolean readBooleanResource(Registration registration, String resourceLink) {
@@ -710,7 +707,7 @@ public class OnConnectAction {
             if (res.getType().equals(Type.BOOLEAN)) {
                 value = (boolean) res.getValue();
             } else {
-                LOG.warn("Unknown  ({}) resource type {}; expected BOOLEAN. EP: {}", resourceLink, res.getType(),
+                LOG.error("Unknown  ({}) resource type {}; expected BOOLEAN. EP: {}", resourceLink, res.getType(),
                         registration.getEndpoint());
             }
         }
@@ -777,7 +774,7 @@ public class OnConnectAction {
             Map<Integer, Object> resourceMap = (Map<Integer, Object>) ((LwM2mMultipleResource)resource).getValues();
             return resourceMap;
         } else {
-            LOG.warn("Error on getResourceMap. resource is {} null; resource is {} instance of LwM2mMultipleResource; resource is {} MultiInstances; Resource: {}",
+            LOG.error("Error on getResourceMap. resource is {} null; resource is {} instance of LwM2mMultipleResource; resource is {} MultiInstances; Resource: {}",
                 (resource != null ? "not" : ""), (resource instanceof LwM2mMultipleResource ? "" : "not"), (resource != null && resource.isMultiInstances() ? "": "not"), res);
         }
         return null;
@@ -786,17 +783,10 @@ public class OnConnectAction {
     // payloads send
     //================================================================================
     private void sendAll(Map<String, ArrayList<String>> data) {
-        if (this.mThingsboardHttpClient != null) {
+        if (this.mThingsboardSend != null) {
             for (Map.Entry<String, ArrayList<String>> entry : data.entrySet()) {
                 if(entry.getValue().size() > 0) {
-                    send2HttpApi(entry.getValue(), entry.getKey());
-                }
-            }
-        }
-        if (this.mThingsboardMqttClient != null) {
-            for (Map.Entry<String, ArrayList<String>> entry : data.entrySet()) {
-                if(entry.getValue().size() > 0) {
-                    send2Mqtt(entry.getValue(), entry.getKey());
+                    this.mThingsboardSend.send(entry.getKey(), entry.getValue());
                 }
             }
         }
@@ -806,24 +796,6 @@ public class OnConnectAction {
         // this.mRedisMessage.writeEventList(entry.getKey());
         // }
         // }
-    }
-
-    private void send2Mqtt(ArrayList<String> payloadArray, String token) {
-        try {
-            this.mThingsboardMqttClient.connectAndPublish(token, payloadArray);
-        } catch (URISyntaxException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void send2HttpApi(ArrayList<String> payloadArray, String token) {
-        try {
-            this.mThingsboardHttpClient.post2ThingsBoard(token, payloadArray);
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
     }
     //================================================================================
     // For Redis instructions!
@@ -863,6 +835,8 @@ public class OnConnectAction {
             } else if (objLink.isWrite()) {
                 ResourceModel resourceModel = this.mLeshanServer.getModelProvider().getObjectModel(registration)
                         .getObjectModel(objLink.getObjectId()).resources.get(objLink.getResourceId());
+                        String version = this.mLeshanServer.getModelProvider().getObjectModel(registration)
+                        .getObjectModel(objLink.getObjectId()).getVersion();
                 if (resourceModel != null) {
                     try {
                         Object value = null;

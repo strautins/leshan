@@ -65,6 +65,7 @@ import org.eclipse.leshan.server.demo.mt.RedisRequestLink;
 import org.eclipse.leshan.server.demo.mt.RedisStorage;
 import org.eclipse.leshan.server.demo.mt.ThingsboardHttpClient;
 import org.eclipse.leshan.server.demo.mt.ThingsboardMqttClient;
+import org.eclipse.leshan.server.demo.mt.ThingsboardSend;
 import org.eclipse.leshan.server.demo.servlet.ClientServlet;
 import org.eclipse.leshan.server.demo.servlet.EventServlet;
 import org.eclipse.leshan.server.demo.servlet.ObjectSpecServlet;
@@ -173,8 +174,7 @@ public class LeshanServerDemo {
         /////////
         options.addOption("nc", "networkConfig", true, "Set Network config file location");
 
-        options.addOption("t", "mqtt", true, "Set mqtt server link");
-        options.addOption("tb", "thingsboard", true, "Set thingsboard api link like:\n123.123.123.123:80");
+        options.addOption("tb", "thingsboard", true, "Set thingsboard api link like:\nhttp://123.123.123.123:80  for HTTP or tcp://localhost:1883 for MQTT");
 
         HelpFormatter formatter = new HelpFormatter();
         formatter.setWidth(120);
@@ -233,11 +233,8 @@ public class LeshanServerDemo {
         // get the Redis hostname:port
         String redisUrl = cl.getOptionValue("r");
 
-        // get the mqtt hostname:port
-        String mqttUrl = cl.getOptionValue("t");
-
         //get the http hostname:port
-         String httpUrl = cl.getOptionValue("tb");
+         String tbUrl = cl.getOptionValue("tb");
 
         // Get keystore parameters
         String keyStorePath = cl.getOptionValue("ks");
@@ -254,7 +251,7 @@ public class LeshanServerDemo {
 
         try {
             createAndStartServer(webAddress, webPort, localAddress, localPort, secureLocalAddress, secureLocalPort,
-                    modelsFolderPath, redisUrl, mqttUrl, httpUrl, keyStorePath, keyStoreType, keyStorePass, keyStoreAlias,
+                    modelsFolderPath, redisUrl, tbUrl, keyStorePath, keyStoreType, keyStorePass, keyStoreAlias,
                     keyStoreAliasPass, publishDNSSdServices, networkFileName);
         } catch (BindException e) {
             System.err.println(
@@ -266,7 +263,7 @@ public class LeshanServerDemo {
     }
 
     public static void createAndStartServer(String webAddress, int webPort, String localAddress, int localPort,
-            String secureLocalAddress, int secureLocalPort, String modelsFolderPath, String redisUrl, String mqttUrl, String httpUrl,
+            String secureLocalAddress, int secureLocalPort, String modelsFolderPath, String redisUrl, String tbUrl,
             String keyStorePath, String keyStoreType, String keyStorePass, String keyStoreAlias,
             String keyStoreAliasPass, Boolean publishDNSSdServices, String networkFileName) throws Exception {
         // Prepare LWM2M server
@@ -406,26 +403,24 @@ public class LeshanServerDemo {
         // use a magic converter to support bad type send by the UI.
         builder.setEncoder(new DefaultLwM2mNodeEncoder(new MagicLwM2mValueConverter()));
 
-        ThingsboardMqttClient thingsboardMqttClient = null;
+        ThingsboardSend thingsboardSend = null;
+        if(tbUrl != null) {
+            String[] link = tbUrl.split(":");
+            //prefix:ip:port
+            if(link.length == 3 && RedisRequestLink.isInt(link[2])) {
+                if (link[0].equals("http")) {
+                    thingsboardSend = new ThingsboardHttpClient(link[0] + ":" + link[1], Integer.valueOf(link[2]), 3);
+                } else if(link[0].equals("tcp")) {
+                    thingsboardSend = new ThingsboardMqttClient(link[0] + ":" + link[1], Integer.valueOf(link[2]), 3);
+                } else {
+                    LOG.warn("Incorrect Thingsboard link {}", tbUrl);     
+                }
+            } else {
+                LOG.warn("Incorrect Thingsboard link {}", tbUrl);      
+            }
+        }
+
         RedisStorage redisStorage = null; 
-        ThingsboardHttpClient thingsboardHttpClient = null;
-        
-        if(mqttUrl != null) {
-            String[] host = mqttUrl.split(":");
-            if(host.length == 2 && RedisRequestLink.isInt(host[1])) {
-                thingsboardMqttClient = new ThingsboardMqttClient(host[0], Integer.valueOf(host[1]));
-            } else {
-                LOG.warn("Incorrect Thingsboard Mqtt link {}", mqttUrl);     
-            }
-        }
-        if(httpUrl != null) {
-            String[] host = httpUrl.split(":");
-            if(host.length == 2 && RedisRequestLink.isInt(host[1])) {
-                thingsboardHttpClient = new ThingsboardHttpClient(host[0], Integer.valueOf(host[1]));
-            } else {
-                LOG.warn("Incorrect Thingsboard HTTP link {}", httpUrl);     
-            }
-        }
         if(jedis != null) {
             redisStorage = new RedisStorage(jedis);
         }
@@ -434,7 +429,7 @@ public class LeshanServerDemo {
         // Create and start LWM2M server
         LeshanServer lwServer = builder.build();
         //start logic for device read
-        OnConnectAction lwM2mPayload = new OnConnectAction(lwServer, thingsboardMqttClient, thingsboardHttpClient, redisStorage);
+        OnConnectAction lwM2mPayload = new OnConnectAction(lwServer, thingsboardSend, redisStorage);
         lwM2mPayload.start();
 
         // Now prepare Jetty

@@ -29,9 +29,11 @@ import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
 import org.eclipse.californium.elements.UDPConnector;
+import org.eclipse.californium.scandium.ConnectionListener;
 import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.CertificateType;
+import org.eclipse.californium.scandium.dtls.Connection;
 import org.eclipse.californium.scandium.dtls.MultiNodeConnectionIdGenerator;
 import org.eclipse.californium.scandium.dtls.SingleNodeConnectionIdGenerator;
 import org.eclipse.leshan.LwM2m;
@@ -63,9 +65,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Class helping you to build and configure a Californium based Leshan Lightweight M2M server. Usage: create it, call
- * the different setters for changing the configuration and then call the {@link #build()} method for creating the
- * {@link LeshanServer} ready to operate.
+ * Class helping you to build and configure a Californium based Leshan
+ * Lightweight M2M server. Usage: create it, call the different setters for
+ * changing the configuration and then call the {@link #build()} method for
+ * creating the {@link LeshanServer} ready to operate.
  */
 public class LeshanServerBuilder {
 
@@ -106,8 +109,9 @@ public class LeshanServerBuilder {
      * By default a wildcard address and the default CoAP port(5683) is used
      * 
      * @param hostname The address to bind. If null wildcard address is used.
-     * @param port A valid port value is between 0 and 65535. A port number of zero will let the system pick up an
-     *        ephemeral port in a bind operation.
+     * @param port     A valid port value is between 0 and 65535. A port number of
+     *                 zero will let the system pick up an ephemeral port in a bind
+     *                 operation.
      */
     public LeshanServerBuilder setLocalAddress(String hostname, int port) {
         if (hostname == null) {
@@ -138,8 +142,9 @@ public class LeshanServerBuilder {
      * By default a wildcard address and the default CoAPs port(5684) is used.
      * 
      * @param hostname The address to bind. If null wildcard address is used.
-     * @param port A valid port value is between 0 and 65535. A port number of zero will let the system pick up an
-     *        ephemeral port in a bind operation.
+     * @param port     A valid port value is between 0 and 65535. A port number of
+     *                 zero will let the system pick up an ephemeral port in a bind
+     *                 operation.
      */
     public LeshanServerBuilder setLocalSecureAddress(String hostname, int port) {
         if (hostname == null) {
@@ -164,7 +169,8 @@ public class LeshanServerBuilder {
 
     /**
      * <p>
-     * Set your {@link RegistrationStore} implementation which stores {@link Registration} and {@link Observation}.
+     * Set your {@link RegistrationStore} implementation which stores
+     * {@link Registration} and {@link Observation}.
      * </p>
      * By default the {@link InMemoryRegistrationStore} implementation is used.
      * 
@@ -176,11 +182,12 @@ public class LeshanServerBuilder {
 
     /**
      * <p>
-     * Set your {@link SecurityStore} implementation which stores {@link SecurityInfo}.
+     * Set your {@link SecurityStore} implementation which stores
+     * {@link SecurityInfo}.
      * </p>
-     * By default no security store is set. It is needed for secured connection if you are using the defaultAuthorizer
-     * or if you want PSK feature activated. An {@link InMemorySecurityStore} is provided to start using secured
-     * connection.
+     * By default no security store is set. It is needed for secured connection if
+     * you are using the defaultAuthorizer or if you want PSK feature activated. An
+     * {@link InMemorySecurityStore} is provided to start using secured connection.
      * 
      */
     public LeshanServerBuilder setSecurityStore(SecurityStore securityStore) {
@@ -190,10 +197,11 @@ public class LeshanServerBuilder {
 
     /**
      * <p>
-     * Set your {@link Authorizer} implementation to define if a device if authorize to register to this server.
+     * Set your {@link Authorizer} implementation to define if a device if authorize
+     * to register to this server.
      * </p>
-     * By default the {@link DefaultAuthorizer} implementation is used, it needs a security store to accept secured
-     * connection.
+     * By default the {@link DefaultAuthorizer} implementation is used, it needs a
+     * security store to accept secured connection.
      */
     public LeshanServerBuilder setAuthorizer(Authorizer authorizer) {
         this.authorizer = authorizer;
@@ -204,8 +212,8 @@ public class LeshanServerBuilder {
      * <p>
      * Set your {@link LwM2mModelProvider} implementation.
      * </p>
-     * By default the {@link StandardModelProvider} implementation is used which support all core objects for all
-     * devices.
+     * By default the {@link StandardModelProvider} implementation is used which
+     * support all core objects for all devices.
      * 
      */
     public LeshanServerBuilder setObjectModelProvider(LwM2mModelProvider objectModelProvider) {
@@ -215,10 +223,12 @@ public class LeshanServerBuilder {
 
     /**
      * <p>
-     * Set the {@link PublicKey} of the server which will be used for RawPublicKey DTLS authentication.
+     * Set the {@link PublicKey} of the server which will be used for RawPublicKey
+     * DTLS authentication.
      * </p>
      * This should be used for RPK support only. If you support RPK and X509,
-     * {@link LeshanServerBuilder#setCertificateChain(X509Certificate[])} should be used.
+     * {@link LeshanServerBuilder#setCertificateChain(X509Certificate[])} should be
+     * used.
      */
     public LeshanServerBuilder setPublicKey(PublicKey publicKey) {
         this.publicKey = publicKey;
@@ -226,7 +236,8 @@ public class LeshanServerBuilder {
     }
 
     /**
-     * Set the {@link PrivateKey} of the server which will be used for RawPublicKey(RPK) and X509 DTLS authentication.
+     * Set the {@link PrivateKey} of the server which will be used for
+     * RawPublicKey(RPK) and X509 DTLS authentication.
      */
     public LeshanServerBuilder setPrivateKey(PrivateKey privateKey) {
         this.privateKey = privateKey;
@@ -235,10 +246,12 @@ public class LeshanServerBuilder {
 
     /**
      * <p>
-     * Set the CertificateChain of the server which will be used for X509 DTLS authentication.
+     * Set the CertificateChain of the server which will be used for X509 DTLS
+     * authentication.
      * </p>
-     * For RPK the public key will be extract from the first X509 certificate of the certificate chain. If you only need
-     * RPK support, use {@link LeshanServerBuilder#setPublicKey(PublicKey)} instead.
+     * For RPK the public key will be extract from the first X509 certificate of the
+     * certificate chain. If you only need RPK support, use
+     * {@link LeshanServerBuilder#setPublicKey(PublicKey)} instead.
      */
     public <T extends X509Certificate> LeshanServerBuilder setCertificateChain(T[] certificateChain) {
         this.certificateChain = certificateChain;
@@ -255,9 +268,11 @@ public class LeshanServerBuilder {
 
     /**
      * <p>
-     * Set the {@link LwM2mNodeEncoder} which will encode {@link LwM2mNode} with supported content format.
+     * Set the {@link LwM2mNodeEncoder} which will encode {@link LwM2mNode} with
+     * supported content format.
      * </p>
-     * By default the {@link DefaultLwM2mNodeEncoder} is used. It supports Text, Opaque, TLV and JSON format.
+     * By default the {@link DefaultLwM2mNodeEncoder} is used. It supports Text,
+     * Opaque, TLV and JSON format.
      */
     public LeshanServerBuilder setEncoder(LwM2mNodeEncoder encoder) {
         this.encoder = encoder;
@@ -266,9 +281,11 @@ public class LeshanServerBuilder {
 
     /**
      * <p>
-     * Set the {@link LwM2mNodeDecoder} which will decode data in supported content format to create {@link LwM2mNode}.
+     * Set the {@link LwM2mNodeDecoder} which will decode data in supported content
+     * format to create {@link LwM2mNode}.
      * </p>
-     * By default the {@link DefaultLwM2mNodeDecoder} is used. It supports Text, Opaque, TLV and JSON format.
+     * By default the {@link DefaultLwM2mNodeDecoder} is used. It supports Text,
+     * Opaque, TLV and JSON format.
      */
     public LeshanServerBuilder setDecoder(LwM2mNodeDecoder decoder) {
         this.decoder = decoder;
@@ -282,6 +299,7 @@ public class LeshanServerBuilder {
         this.coapConfig = config;
         return this;
     }
+
     /**
      * Set the Californium/DTLS connectionID
      */
@@ -290,10 +308,14 @@ public class LeshanServerBuilder {
         Integer cidNode = coapConfig.getInt(Keys.DTLS_CONNECTION_ID_NODE_ID);
         if (cidLength != null) {
             if (cidNode != null && cidNode > 1) {
-                LOG.warn("Create MultiNodeConnectionIdGenerator. DTLS_CONNECTION_ID_LENGTH: {},  DTLS_CONNECTION_ID_NODE_ID: {}", cidLength, cidNode);
+                LOG.warn(
+                        "Create MultiNodeConnectionIdGenerator. DTLS_CONNECTION_ID_LENGTH: {},  DTLS_CONNECTION_ID_NODE_ID: {}",
+                        cidLength, cidNode);
                 this.dtlsConfigBuilder.setConnectionIdGenerator(new MultiNodeConnectionIdGenerator(cidNode, cidLength));
             } else {
-                LOG.warn("Create SingleNodeConnectionIdGenerator. DTLS_CONNECTION_ID_LENGTH: {},  DTLS_CONNECTION_ID_NODE_ID: {}", cidLength, cidNode);
+                LOG.warn(
+                        "Create SingleNodeConnectionIdGenerator. DTLS_CONNECTION_ID_LENGTH: {},  DTLS_CONNECTION_ID_NODE_ID: {}",
+                        cidLength, cidNode);
                 this.dtlsConfigBuilder.setConnectionIdGenerator(new SingleNodeConnectionIdGenerator(cidLength));
             }
         }
@@ -311,10 +333,11 @@ public class LeshanServerBuilder {
     /**
      * Advanced setter used to create custom CoAP endpoint.
      * <p>
-     * An {@link UDPConnector} is expected for unsecured endpoint and a {@link DTLSConnector} is expected for secured
-     * endpoint.
+     * An {@link UDPConnector} is expected for unsecured endpoint and a
+     * {@link DTLSConnector} is expected for secured endpoint.
      * 
-     * @param endpointFactory An {@link EndpointFactory}, you can extends {@link DefaultEndpointFactory}.
+     * @param endpointFactory An {@link EndpointFactory}, you can extends
+     *                        {@link DefaultEndpointFactory}.
      * @return the builder for fluent Bootstrap Server creation.
      */
     public LeshanServerBuilder setEndpointFactory(EndpointFactory endpointFactory) {
@@ -339,10 +362,11 @@ public class LeshanServerBuilder {
     }
 
     /**
-     * deactivate PresenceService which tracks presence of devices using LWM2M Queue Mode. When Queue Mode is
-     * deactivated request is always sent immediately and {@link ClientSleepingException} will never be raised.
-     * Deactivate QueueMode can make sense if you want to handle it on your own or if you don't plan to support devices
-     * with queue mode.
+     * deactivate PresenceService which tracks presence of devices using LWM2M Queue
+     * Mode. When Queue Mode is deactivated request is always sent immediately and
+     * {@link ClientSleepingException} will never be raised. Deactivate QueueMode
+     * can make sense if you want to handle it on your own or if you don't plan to
+     * support devices with queue mode.
      */
     public LeshanServerBuilder disableQueueModeSupport() {
         this.noQueueMode = true;
@@ -350,11 +374,13 @@ public class LeshanServerBuilder {
     }
 
     /**
-     * Sets a new {@link ClientAwakeTimeProvider} object different from the default one.
+     * Sets a new {@link ClientAwakeTimeProvider} object different from the default
+     * one.
      * <p>
-     * By default a {@link StaticClientAwakeTimeProvider} will be used initialized with the
-     * <code>MAX_TRANSMIT_WAIT</code> value available in CoAP {@link NetworkConfig} which should be by default 93s as
-     * defined in <a href="https://tools.ietf.org/html/rfc7252#section-4.8.2">RFC7252</a>.
+     * By default a {@link StaticClientAwakeTimeProvider} will be used initialized
+     * with the <code>MAX_TRANSMIT_WAIT</code> value available in CoAP
+     * {@link NetworkConfig} which should be by default 93s as defined in
+     * <a href="https://tools.ietf.org/html/rfc7252#section-4.8.2">RFC7252</a>.
      * 
      * @param awakeTimeProvider the {@link ClientAwakeTimeProvider} to set.
      */
@@ -364,7 +390,8 @@ public class LeshanServerBuilder {
     }
 
     /**
-     * Sets a new {@link RegistrationIdProvider} object different from the default one (Random string).
+     * Sets a new {@link RegistrationIdProvider} object different from the default
+     * one (Random string).
      * 
      * @param registrationIdProvider the {@link RegistrationIdProvider} to set.
      */
@@ -429,6 +456,23 @@ public class LeshanServerBuilder {
             if (dtlsConfigBuilder == null) {
                 dtlsConfigBuilder = new DtlsConnectorConfig.Builder();
             }
+            // testing jst 26.11.2019
+            dtlsConfigBuilder.setConnectionListener(new ConnectionListener() {
+                @Override
+                public void onConnectionEstablished(Connection connection) {
+                    // TODO Auto-generated method stub
+                    System.out.println("DTLS ConnectionListener Connection received "
+                            + connection.getSession().getSessionIdentifier());
+                }
+
+                @Override
+                public void onConnectionRemoved(Connection connection) {
+                    // TODO Auto-generated method stub
+                    System.out.println("DTLS ConnectionListener Connection removed " 
+                            + connection.getSession().getSessionIdentifier());
+                }
+			});
+
             // Set default DTLS setting for Leshan unless user change it.
             DtlsConnectorConfig incompleteConfig = dtlsConfigBuilder.getIncompleteConfig();
 

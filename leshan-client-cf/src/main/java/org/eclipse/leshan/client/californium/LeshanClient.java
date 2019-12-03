@@ -22,8 +22,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.eclipse.californium.core.CoapServer;
+import org.eclipse.californium.core.network.CoapEndpoint;
+import org.eclipse.californium.core.network.Endpoint;
 import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.server.resources.Resource;
+import org.eclipse.californium.elements.Connector;
+import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig.Builder;
 import org.eclipse.leshan.client.RegistrationEngine;
 import org.eclipse.leshan.client.bootstrap.BootstrapHandler;
@@ -33,6 +37,7 @@ import org.eclipse.leshan.client.californium.request.CaliforniumLwM2mRequestSend
 import org.eclipse.leshan.client.observer.LwM2mClientObserver;
 import org.eclipse.leshan.client.observer.LwM2mClientObserverDispatcher;
 import org.eclipse.leshan.client.resource.LwM2mObjectEnabler;
+import org.eclipse.leshan.client.servers.Server;
 import org.eclipse.leshan.core.californium.EndpointFactory;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeDecoder;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeEncoder;
@@ -130,7 +135,25 @@ public class LeshanClient {
 
     public void destroy(boolean deregister) {
         LOG.info("Destroying Leshan client ...");
+        Server currentServer = engine.getServer();
         engine.destroy(deregister);
+        if(currentServer != null) {
+            Endpoint endpoint = (CoapEndpoint)(endpointsManager.getEndpoint(currentServer.getIdentity()));
+            if(endpoint != null && endpoint instanceof CoapEndpoint) {
+                Connector connector = ((CoapEndpoint) endpoint).getConnector();
+                if (connector instanceof DTLSConnector) {
+                    LOG.info("Sending CLOSE_NOTIFY to (DTLS)Coap Server {} ...", currentServer.getIdentity().getPeerAddress());
+                    ((DTLSConnector) connector).close(currentServer.getIdentity().getPeerAddress());
+                    //time to send CLOSE_NOTIFY. todo: add better wait!
+                    try {
+                        Thread.sleep(2000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+        
         endpointsManager.destroy();
         LOG.info("Leshan client destroyed.");
     }
