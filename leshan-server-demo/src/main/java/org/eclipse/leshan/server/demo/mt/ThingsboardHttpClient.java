@@ -1,7 +1,6 @@
 package org.eclipse.leshan.server.demo.mt;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;

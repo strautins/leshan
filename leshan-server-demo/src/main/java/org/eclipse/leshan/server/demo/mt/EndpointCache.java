@@ -215,8 +215,8 @@ public class EndpointCache {
             payloadObj.put(resName, value);
         }
     }
-    public void createPayload(String serialNumber, Date lmt, Map<Integer, Object> resourceMap, String resName, Long pulse) {
-        Long defTime = lmt.getTime();
+    public void createPayload(String serialNumber, Date fmt, Map<Integer, Object> resourceMap, String resName, Long pulse) {
+        Long defTime = fmt.getTime();
         Map<Long, JSONObject> payloadMap = payloads.get(serialNumber);
         if (payloadMap == null) {
             payloadMap = new HashMap<Long, JSONObject>();

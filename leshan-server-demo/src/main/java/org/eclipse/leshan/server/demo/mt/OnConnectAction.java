@@ -599,18 +599,18 @@ public class OnConnectAction {
             for (Map.Entry<Integer, LwM2mObjectInstance> entry : obj.getInstances().entrySet()) {
                 Long pulse = endpointCache.getIntervalKey(entry.getKey(), object.getId());
                 Map<Integer, Object> resourceMap = getResourceMap(entry.getValue(), RESOURCE_ID_RESOURCE_MAP);
-                Date lmt = getDateResource(entry.getValue(), RESOURCE_ID_FMT);
+                Date fmt = getDateResource(entry.getValue(), RESOURCE_ID_FMT);
                 String serialNumber = endpointCache.getSerial(entry.getKey());
-                if (serialNumber != null && lmt != null && resourceMap != null && pulse != null
+                if (serialNumber != null && fmt != null && resourceMap != null && pulse != null
                         && resourceMap.size() > 0) {
-                    LOG.debug("CreatePayload for {}. SensorName: {}; serialNumber: {}; Last measurement time: {}; pulse: {}; resourceMap.size(): {};",
-                                registration.getEndpoint(), sensorName, serialNumber, lmt.getTime(), pulse, resourceMap.size());        
-                    endpointCache.createPayload(serialNumber, lmt, resourceMap, sensorName, pulse);
+                    LOG.debug("CreatePayload for {}. SensorName: {}; serialNumber: {}; first measurement time: {}; pulse: {}; resourceMap.size(): {};",
+                                registration.getEndpoint(), sensorName, serialNumber, fmt.getTime(), pulse, resourceMap.size());        
+                    endpointCache.createPayload(serialNumber, fmt, resourceMap, sensorName, pulse);
                     clearInstanceAsync(registration, obj.getId(), entry.getValue(), (resourceMap.size() * pulse * 1000));
                 } else {
                     LOG.debug(
-                            "CreatePayload Skipped for {}. SensorName: {}; serialNumber: {}; Last measurement time is {} null; resourceMap is {} null; pulse is {} null; resourceMap.size(): {};",
-                            registration.getEndpoint(), sensorName, serialNumber, (lmt == null ? "" : "not"),
+                            "CreatePayload Skipped for {}. SensorName: {}; serialNumber: {}; first measurement time is {} null; resourceMap is {} null; pulse is {} null; resourceMap.size(): {};",
+                            registration.getEndpoint(), sensorName, serialNumber, (fmt == null ? "" : "not"),
                             (resourceMap == null ? "" : "not"), (pulse == null ? "" : "not"),
                             (resourceMap != null ? resourceMap.size() : "Null"));
                 }
