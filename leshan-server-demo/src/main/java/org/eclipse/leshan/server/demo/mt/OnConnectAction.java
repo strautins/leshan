@@ -47,7 +47,6 @@ import org.eclipse.leshan.server.observation.ObservationListener;
 import org.eclipse.leshan.server.registration.Registration;
 import org.eclipse.leshan.server.registration.RegistrationListener;
 import org.eclipse.leshan.server.registration.RegistrationUpdate;
-import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -624,7 +623,7 @@ public class OnConnectAction {
         if (fmt != null) {
             Date lmt = new Date(fmt.getTime()  + addTime);
             ExecuteRequest request = new ExecuteRequest(objectId, inst.getId(), RESOURCE_ID_CLEAR_MEASUREMENTS,
-                    String.valueOf(lmt.getTime()));
+                    String.valueOf(lmt.getTime() / 1000));
             final String debug = registration.getEndpoint() + "; on" + request.getPath().toString();
             LOG.debug("ExecuteRequest for {} on {} at {}", registration.getEndpoint(),
                     request.getPath().toString(), System.currentTimeMillis());

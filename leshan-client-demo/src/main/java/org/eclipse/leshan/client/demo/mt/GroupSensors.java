@@ -214,7 +214,7 @@ public class GroupSensors extends BaseInstanceEnabler {
     public static Date getDate(String value) {
         if(GroupSensors.isLong(value)) {
             // let's assume we received the millisecond since 1970/1/1
-            return new Date(Long.parseLong(value)); 
+            return new Date(Long.parseLong(value) * 1000); 
         } else {
             // let's assume we received an ISO 8601 format date
             try {

@@ -22,13 +22,13 @@ public class CoReadings extends SensorConfig {
     public synchronized ReadResponse read(ServerIdentity identity, int resourceId) {
         switch (resourceId) {
         case R0:
-            HashMap<Integer, Long> temperatureMap = new HashMap<Integer, Long>();
+            HashMap<Integer, Double> temperatureMap = new HashMap<Integer, Double>();
             int i = 0;
             for (Object val : super.getMeasurementList()) {
-                temperatureMap.put(i, (Long)val); 
+                temperatureMap.put(i, Double.parseDouble(val.toString())); 
                 i++;
             } 
-            return ReadResponse.success(resourceId, temperatureMap, Type.INTEGER);
+            return ReadResponse.success(resourceId, temperatureMap, Type.FLOAT);
         case R1:
             return ReadResponse.success(resourceId, super.getFMT());
         default:

@@ -24,13 +24,13 @@ public class RedisRequestLink {
             mError = new JSONObject();
             mError.put("error", "Action unknown " +  links[0].toUpperCase());
         }
-        if(links.length >= 1) {
+        if(links.length > 1) {
             this.mObjectId = links[1];
         }
-        if(links.length >= 2) {
+        if(links.length > 2) {
             this.mInstanceId = links[2];
         }
-        if(links.length == 3) {
+        if(links.length == 4) {
             this.mResourceId = links[3];
         }else if(links.length > 3) {
             mError = new JSONObject();

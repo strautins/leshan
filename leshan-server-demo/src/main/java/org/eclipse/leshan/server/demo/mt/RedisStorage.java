@@ -35,7 +35,7 @@ public class RedisStorage implements SimpleCache {
                 for (final String payload : data.getValue()) {
                     Long res = j.rpush(getEndpointPayloadKey(data.getKey()), payload);
                     if (res == null) {
-                        LOG.warn("Redis rpush failed for {} : {}", getEndpointPayloadKey(data.getKey()), payload);
+                        LOG.error("Redis rpush failed for {} : {}", getEndpointPayloadKey(data.getKey()), payload);
                     }
                 }
             } 
@@ -47,7 +47,7 @@ public class RedisStorage implements SimpleCache {
             for (final String payload : Data) {
                 Long res = j.rpush(getEndpointPayloadKey(endpoint), payload);
                 if (res == null) {
-                    LOG.warn("Redis rpush failed for {} : {}", getEndpointPayloadKey(endpoint), payload);
+                    LOG.error("Redis rpush failed for {} : {}", getEndpointPayloadKey(endpoint), payload);
                 }
             }
         }
@@ -57,7 +57,7 @@ public class RedisStorage implements SimpleCache {
         try (Jedis j = mJedisPool.getResource()) {
             Long res = j.rpush(getEndpointPayloadKey(endpoint), payload);
             if (res == null) {
-                LOG.warn("Redis rpush failed for {} : {}", getEndpointPayloadKey(endpoint), payload);
+                LOG.error("Redis rpush failed for {} : {}", getEndpointPayloadKey(endpoint), payload);
             }
         }
     }
