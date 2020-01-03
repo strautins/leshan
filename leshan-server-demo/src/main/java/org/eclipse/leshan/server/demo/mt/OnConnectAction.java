@@ -1,16 +1,11 @@
 package org.eclipse.leshan.server.demo.mt;
 
-import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -419,7 +414,7 @@ public class OnConnectAction {
                     endpointCache = mSimpleCache.getEndpointCache(registration.getEndpoint());
                 }
 
-                // if attention required or serial ,mapping is missing
+                // if attention required or serial mapping is missing
                 if (isAttentionRequired || endpointCache == null) {
                     Boolean isAlarmTriggered = false;
                     Boolean isDevicesInfoChanged = false;
@@ -428,6 +423,13 @@ public class OnConnectAction {
                         isDevicesInfoChanged = readBooleanResource(registration,
                                 PATH_GROUP_DEVICES_INFO_CHANGED);
                     }
+                    //on object instance multi resource write
+                    // WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, OBJECT_ID_GROUP,
+                    //             0,
+                    //             LwM2mSingleResource.newBooleanResource(RESOURCE_ID_ALARM_TRIGGERED, false),
+                    //             LwM2mSingleResource.newBooleanResource(RESOURCE_ID_DEVICES_INFO_CHANGED, false));
+                    // writeRequest(registration, request);
+
                     if (isDevicesInfoChanged != null && isDevicesInfoChanged || endpointCache == null) {
                         // clear flag aware of changes
                         if (isDevicesInfoChanged) {
@@ -439,22 +441,27 @@ public class OnConnectAction {
                         // read devices object, get mapping collect payloads for battery, reachability,
                         // last activity time
                         LwM2mNode devicesObject = readRequest(registration, PATH_DEVICES);
+                        if(devicesObject == null) {
+                            LOG.error("Exiting process for endpoint:{} Reason: Response of resource {} is null", registration.getEndpoint(), PATH_DEVICES);
+                            return;
+                        }
                         endpointCache = new EndpointCache(registration.getEndpoint(), devicesObject);
                         endpointCache.createDevicesPayload(devicesObject);
                         // push mapping to cache
                         mSimpleCache.setEndpointCache(registration.getEndpoint(), endpointCache);
                     }
 
-                    if (isAlarmTriggered != null && isAlarmTriggered && isAlertObject) {
-                        if (isAlarmTriggered) {
+                    if (isAlarmTriggered != null && isAlarmTriggered && isAlertObject && endpointCache != null) {
+                        // todo maybe observe all object check changes!
+                        LwM2mNode alarmObject = readRequest(registration, PATH_ALARM);
+                        boolean isAlarm = endpointCache.createAlarmPayload(alarmObject);
+                        //clearing flag
+                        if(isAlarmTriggered && !isAlarm) {
                             WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, OBJECT_ID_GROUP,
                                     0,
                                     LwM2mSingleResource.newBooleanResource(RESOURCE_ID_ALARM_TRIGGERED, false));
                             writeRequest(registration, request);
                         }
-                        // todo maybe observe all object check changes!
-                        LwM2mNode alarmObject = readRequest(registration, PATH_ALARM);
-                        endpointCache.createAlarmPayload(alarmObject);
                     }
                 }
 
@@ -556,22 +563,26 @@ public class OnConnectAction {
 
     private Boolean writeRequest(Registration registration, WriteRequest request, long timeout) {
         Boolean result = null;
+        String resourceInfo = null;
+        if(request.getNode() instanceof LwM2mObjectInstance) {
+            resourceInfo = ((LwM2mObjectInstance)request.getNode()).getResources().toString();
+        }
         try {
-            LOG.debug("Sending write to {} on {} at {}", registration.getEndpoint(), request.getPath().toString(),
+            LOG.debug("Sending write to {} on {}({}) at {}", registration.getEndpoint(), request.getPath().toString(), resourceInfo,
                     System.currentTimeMillis());
             LwM2mResponse response = this.mLeshanServer.send(registration, request, this.mTimeout);
             if (response == null) {
                 result = false;
-                LOG.debug("WriteRequest for {} on resource {} timeout! as {}", registration.getEndpoint(),
-                        request.getPath().toString(), System.currentTimeMillis());
+                LOG.debug("WriteRequest for {} on resource {}({}) timeout! as {}", registration.getEndpoint(),
+                        request.getPath().toString(), resourceInfo,  System.currentTimeMillis());
             } else if (response.isSuccess()) {
                 result = true;
-                LOG.debug("Received write to {} on {} at {}", registration.getEndpoint(), request.getPath().toString(),
+                LOG.debug("Received write to {} on resource {}({}) at {}", registration.getEndpoint(), request.getPath().toString(), resourceInfo,
                         System.currentTimeMillis());
             } else if (!response.isSuccess()) {
                 result = false;
-                LOG.debug("WriteRequest for {} on resource {} Failed! Error: {} : {}", registration.getEndpoint(),
-                        request.getPath().toString(), response.getCode(), response.getErrorMessage());
+                LOG.debug("WriteRequest for {} on resource {}({}) Failed! Error: {} : {}", registration.getEndpoint(),
+                        request.getPath().toString(), resourceInfo, response.getCode(), response.getErrorMessage());
             }
         } catch (InterruptedException e) {
             e.printStackTrace();

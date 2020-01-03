@@ -25,7 +25,7 @@ abstract class SensorConfig extends BaseInstanceEnabler {
     public static final int R2 = 2;
     private static final List<Integer> supportedResources = Arrays.asList(R0, R1, R2);
     private boolean mIsEnable = true;
-    private int mInterval = 30;
+    private int mInterval = 60;
     private Date mFMT = new Date();
 
     private List<Object> mMeasurementList = new ArrayList<Object>();

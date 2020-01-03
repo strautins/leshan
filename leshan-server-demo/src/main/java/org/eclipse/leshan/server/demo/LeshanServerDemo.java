@@ -60,6 +60,7 @@ import org.eclipse.leshan.core.node.codec.DefaultLwM2mNodeEncoder;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeDecoder;
 import org.eclipse.leshan.server.californium.LeshanServer;
 import org.eclipse.leshan.server.californium.LeshanServerBuilder;
+import org.eclipse.leshan.server.demo.mt.FileResource;
 import org.eclipse.leshan.server.demo.mt.OnConnectAction;
 import org.eclipse.leshan.server.demo.mt.RedisRequestLink;
 import org.eclipse.leshan.server.demo.mt.RedisStorage;
@@ -131,6 +132,8 @@ public class LeshanServerDemo {
 
     private final static String DEFAULT_KEYSTORE_ALIAS = "leshan";
 
+    private final static String FILE_STORE_LINK = "files";
+
     public static void main(String[] args) {
         // Define options for command line tools
         Options options = new Options();
@@ -175,6 +178,8 @@ public class LeshanServerDemo {
         options.addOption("nc", "networkConfig", true, "Set Network config file location");
 
         options.addOption("tb", "thingsboard", true, "Set thingsboard api link like:\nhttp://123.123.123.123:80  for HTTP or tcp://localhost:1883 for MQTT");
+
+        options.addOption("f", "file", true, "Set File location, must be directory");
 
         HelpFormatter formatter = new HelpFormatter();
         formatter.setWidth(120);
@@ -247,12 +252,15 @@ public class LeshanServerDemo {
         Boolean publishDNSSdServices = cl.hasOption("mdns");
 
         // Get network file path
-        String networkFileName = cl.getOptionValue("nc");
+        String coapFilePath = cl.getOptionValue("nc");
+
+        // Get file path
+        String filePath = cl.getOptionValue("f");
 
         try {
             createAndStartServer(webAddress, webPort, localAddress, localPort, secureLocalAddress, secureLocalPort,
                     modelsFolderPath, redisUrl, tbUrl, keyStorePath, keyStoreType, keyStorePass, keyStoreAlias,
-                    keyStoreAliasPass, publishDNSSdServices, networkFileName);
+                    keyStoreAliasPass, publishDNSSdServices, coapFilePath, filePath);
         } catch (BindException e) {
             System.err.println(
                     String.format("Web port %s is already used, you could change it using 'webport' option.", webPort));
@@ -265,7 +273,7 @@ public class LeshanServerDemo {
     public static void createAndStartServer(String webAddress, int webPort, String localAddress, int localPort,
             String secureLocalAddress, int secureLocalPort, String modelsFolderPath, String redisUrl, String tbUrl,
             String keyStorePath, String keyStoreType, String keyStorePass, String keyStoreAlias,
-            String keyStoreAliasPass, Boolean publishDNSSdServices, String networkFileName) throws Exception {
+            String keyStoreAliasPass, Boolean publishDNSSdServices, String coapFilePath, String filePath) throws Exception {
         // Prepare LWM2M server
         LeshanServerBuilder builder = new LeshanServerBuilder();
         builder.setLocalAddress(localAddress, localPort);
@@ -276,10 +284,10 @@ public class LeshanServerDemo {
 
         // Create CoAP Config
         NetworkConfig coapConfig;
-        if(networkFileName == null) {
-            networkFileName = NetworkConfig.DEFAULT_FILE_NAME;        
+        if(coapFilePath == null) {
+            coapFilePath = NetworkConfig.DEFAULT_FILE_NAME;        
         }
-        File configFile = new File(networkFileName);
+        File configFile = new File(coapFilePath);
         if (configFile.isFile()) {
             coapConfig = new NetworkConfig();
             coapConfig.load(configFile);
@@ -402,35 +410,49 @@ public class LeshanServerDemo {
 
         // use a magic converter to support bad type send by the UI.
         builder.setEncoder(new DefaultLwM2mNodeEncoder(new MagicLwM2mValueConverter()));
+        //for production disable unsecured 
+        builder.disableUnsecuredEndpoint();
 
+        // Create LWM2M server
+        LeshanServer lwServer = builder.build();
+
+        //create sending to thingsboard
         ThingsboardSend thingsboardSend = null;
         if(tbUrl != null) {
             String[] link = tbUrl.split(":");
             //prefix:ip:port
-            if(link.length == 3 && RedisRequestLink.isInt(link[2])) {
+            if(link.length == 3 && RedisRequestLink.isInt(link[2]) && (link[0].equals("http") || link[0].equals("tcp"))) {
                 if (link[0].equals("http")) {
                     thingsboardSend = new ThingsboardHttpClient(link[0] + ":" + link[1], Integer.valueOf(link[2]), 3);
                 } else if(link[0].equals("tcp")) {
                     thingsboardSend = new ThingsboardMqttClient(link[0] + ":" + link[1], Integer.valueOf(link[2]), 3);
-                } else {
-                    LOG.warn("Incorrect Thingsboard link {}", tbUrl);     
                 }
             } else {
-                LOG.warn("Incorrect Thingsboard link {}", tbUrl);      
+                LOG.error("Incorrect Thingsboard link {}", tbUrl);      
             }
+        }
+        // create file storage
+        File rootFile = null;
+        if(filePath != null) {
+            rootFile = new File(filePath);
+            if (!rootFile.exists() && !rootFile.isDirectory()) {
+                LOG.error("File location {} doesn't exists or is no directory!", rootFile.getAbsolutePath());
+                rootFile = null;
+            }
+        }
+        
+        //add file storage resource
+        if(rootFile != null) {
+            lwServer.coap().getServer().add(new FileResource(coapConfig, FILE_STORE_LINK, rootFile));
         }
 
         RedisStorage redisStorage = null; 
         if(jedis != null) {
             redisStorage = new RedisStorage(jedis);
         }
-        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 03.12.2019 12:00:00");  
 
-        // Create and start LWM2M server
-        LeshanServer lwServer = builder.build();
         //start logic for device read
-        OnConnectAction lwM2mPayload = new OnConnectAction(lwServer, thingsboardSend, redisStorage);
-        lwM2mPayload.start();
+        OnConnectAction processSD = new OnConnectAction(lwServer, thingsboardSend, redisStorage);
 
         // Now prepare Jetty
         InetSocketAddress jettyAddr;
@@ -451,7 +473,7 @@ public class LeshanServerDemo {
         ServletHolder eventServletHolder = new ServletHolder(eventServlet);
         root.addServlet(eventServletHolder, "/event/*");
 
-        ServletHolder clientServletHolder = new ServletHolder(new ClientServlet(lwServer, lwM2mPayload));
+        ServletHolder clientServletHolder = new ServletHolder(new ClientServlet(lwServer, processSD));
         root.addServlet(clientServletHolder, "/api/clients/*");
 
         ServletHolder securityServletHolder = new ServletHolder(new SecurityServlet(securityStore, serverCertificate));
@@ -479,10 +501,13 @@ public class LeshanServerDemo {
             ServiceInfo coapSecureServiceInfo = ServiceInfo.create("_coaps._udp.local.", "leshan", secureLocalPort, "");
             jmdns.registerService(coapSecureServiceInfo);
         }
+        
+        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 03.01.2019 11:00:00");  
 
-        // Start Jetty & Leshan
+        // Start Jetty & Leshan & processSD
         lwServer.start();
         server.start();
+        processSD.start();
         LOG.info("Web server started at {}.", server.getURI());
     }
 }

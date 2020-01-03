@@ -170,8 +170,11 @@ public class EndpointCache {
         }
     }
 
-    public void createAlarmPayload(LwM2mNode AlarmObject) {
+    public boolean createAlarmPayload(LwM2mNode AlarmObject) {
+        //if object could not read = true
+        boolean isAlarm = true;
         if (AlarmObject != null && AlarmObject instanceof LwM2mObject) {
+            isAlarm = false;
             for (Map.Entry<Integer, LwM2mObjectInstance> entry : ((LwM2mObject) AlarmObject).getInstances()
                     .entrySet()) {
                 String serialNr = getSerial(entry.getKey());
@@ -179,6 +182,9 @@ public class EndpointCache {
                 Boolean isHushed = OnConnectAction.getBooleanResource(entry.getValue(), OnConnectAction.RESOURCE_ID_HUSHED);
                 Boolean isTemperatureAlarm = OnConnectAction.getBooleanResource(entry.getValue(), OnConnectAction.RESOURCE_ID_TEMPERATURE_ALARM);
                 Boolean isCoAlarm = OnConnectAction.getBooleanResource(entry.getValue(), OnConnectAction.RESOURCE_ID_CO_ALARM);
+                if(smokeAlarm != 0 || isTemperatureAlarm || isCoAlarm) {
+                    isAlarm = true;    
+                }
                 long tim = System.currentTimeMillis();
                 createPayload(serialNr, tim, OnConnectAction.NAME_SMOKE_ALARM, smokeAlarm);
                 createPayload(serialNr, tim, OnConnectAction.NAME_HUSHED, isHushed);
@@ -198,6 +204,7 @@ public class EndpointCache {
                 createPayload(serialNr, tim, OnConnectAction.NAME_ALARM_HUMIDITY, humidity);
             }
         }
+        return isAlarm;
     }
     private void createPayload(String serialNumber, Long tim, String resName, Object value) {
         // Serial payloads

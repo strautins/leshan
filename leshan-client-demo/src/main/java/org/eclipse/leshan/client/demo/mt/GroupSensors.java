@@ -50,10 +50,10 @@ public class GroupSensors extends BaseInstanceEnabler {
     private ArrayList<Devices> mDevicesList = new ArrayList<Devices>();
     private static final List<Integer> supportedResources = Arrays.asList(mR0, mR1, mR2, mR3, mR4, mR5);
     /**Alarm triggered */
-    private boolean mR1Value = false;
+    private boolean mR1Value = true;
     /**device info changed */
-    private boolean mR2Value = false;
-    private long mR5Value = 30;
+    private boolean mR2Value = true;
+    private long mR5Value = 20;
     public void setGroupSensors(String... serialNrs) {
         scheduleNext();
         for (String serial : serialNrs) {
@@ -100,9 +100,11 @@ public class GroupSensors extends BaseInstanceEnabler {
             @Override
             public void run() {
                 scheduleNext();
+                mR1Value = true;
+                mR2Value= true;
                 fireResourcesChange(0);
             }
-        }, 5, TimeUnit.SECONDS);
+        }, mR5Value, TimeUnit.SECONDS);
     }
     public ArrayList<TemperatureReadings> getTemperatureObjReadings() {
         return this.mTemperatureList;
