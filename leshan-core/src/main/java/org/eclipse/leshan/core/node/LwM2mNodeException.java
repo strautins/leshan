@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2013-2015 Sierra Wireless and others.
+ * Copyright (c) 2019 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
@@ -12,31 +12,26 @@
  * 
  * Contributors:
  *     Sierra Wireless - initial API and implementation
- *     Gemalto M2M GmbH
  *******************************************************************************/
-package org.eclipse.leshan.json;
+package org.eclipse.leshan.core.node;
 
-/**
- * Exception thrown in case of JSON parsing error
- */
-public class LwM2mJsonException extends RuntimeException {
+public class LwM2mNodeException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;
 
-    public LwM2mJsonException(String message) {
+    public LwM2mNodeException(String message) {
         super(message);
     }
 
-    public LwM2mJsonException(String message, Object... args) {
+    public LwM2mNodeException(String message, Object... args) {
         super(String.format(message, args));
     }
 
-    public LwM2mJsonException(Exception e, String message, Object... args) {
+    public LwM2mNodeException(Exception e, String message, Object... args) {
         super(String.format(message, args), e);
     }
 
-    public LwM2mJsonException(String message, Exception cause) {
+    public LwM2mNodeException(String message, Exception cause) {
         super(message, cause);
     }
-
 }

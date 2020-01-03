@@ -35,8 +35,24 @@ public class LwM2mObjectInstance implements LwM2mNode {
 
     private final Map<Integer, LwM2mResource> resources;
 
+    public LwM2mObjectInstance(Collection<LwM2mResource> resources) {
+        LwM2mNodeUtil.validateNotNull(resources, "resource MUST NOT be null");
+        this.id = UNDEFINED;
+        Map<Integer, LwM2mResource> resourcesMap = new HashMap<>(resources.size());
+        for (LwM2mResource resource : resources) {
+            LwM2mResource previous = resourcesMap.put(resource.getId(), resource);
+            if (previous != null) {
+                throw new LwM2mNodeException(
+                        "Unable to create LwM2mObjectInstance : there is several resources with the same id %d",
+                        resource.getId());
+            }
+        }
+        this.resources = Collections.unmodifiableMap(resourcesMap);
+    }
+
     public LwM2mObjectInstance(int id, Collection<LwM2mResource> resources) {
         Validate.notNull(resources);
+        LwM2mNodeUtil.validateObjectInstanceId(id);
 
         this.id = id;
         Map<Integer, LwM2mResource> resourcesMap = new HashMap<>(resources.size());
