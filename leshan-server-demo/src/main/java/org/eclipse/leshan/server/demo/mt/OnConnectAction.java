@@ -1,12 +1,21 @@
 package org.eclipse.leshan.server.demo.mt;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URISyntaxException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import com.google.common.collect.Multiset.Entry;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -37,17 +46,21 @@ import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.ResponseCallback;
 import org.eclipse.leshan.core.response.WriteResponse;
 import org.eclipse.leshan.server.californium.LeshanServer;
+import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeDeserializer;
 import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeSerializer;
 import org.eclipse.leshan.server.observation.ObservationListener;
 import org.eclipse.leshan.server.registration.Registration;
 import org.eclipse.leshan.server.registration.RegistrationListener;
 import org.eclipse.leshan.server.registration.RegistrationUpdate;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class OnConnectAction {
+import redis.clients.jedis.Jedis;
+import redis.clients.util.Pool;
 
+public class OnConnectAction {
+    private static final int CFG_HEADER_BYTES = 8;
+    private static final int VALUE_BYTES = 4;
     private static final Logger LOG = LoggerFactory.getLogger(OnConnectAction.class);
 
     private static final String EVENT_DEREGISTRATION = "DEREGISTRATION";
@@ -61,29 +74,11 @@ public class OnConnectAction {
 
     protected static final int OBJECT_ID_GROUP = 33755;
     private static final String PATH_GROUP = "/33755/";
-    private static final String PATH_GROUP_ATTENTION_REQUIRED = "33755/0/0";
-    private static final String PATH_GROUP_ALARM_TRIGGERED = "33755/0/1";
-    private static final String PATH_GROUP_DEVICES_INFO_CHANGED = "33755/0/2";
+    private static final String PATH_GROUP_EVENTS = "33755/0/0";
+    private static final String PATH_GROUP_EVENT_CFG = "33755/0/1";
+    private static final String PATH_GROUP_CLEAR_DATA = "33755/0/2";
     /** Sensor object temperature */
-    protected static final int OBJECT_ID_TEMPERATURE = 33758;
-    private static final String PATH_TEMPERATURE = "/33758/";
-    private static final String NAME_TEMPERATURE = "temperature";
-    /** Sensor object humidity */
-    protected static final int OBJECT_ID_HUMIDITY = 33759;
-    private static final String PATH_HUMIDITY = "/33759/";
-    private static final String NAME_HUMIDITY = "humidity";
-    /** Sensor object co2 */
-    protected static final int OBJECT_ID_CO2 = 33761;
-    private static final String PATH_CO2 = "/33761/";
-    private static final String NAME_CO2 = "co2";
-    /** Sensor object co */
-    protected static final int OBJECT_ID_CO = 33762;
-    private static final String PATH_CO = "/33762/";
-    private static final String NAME_CO = "co";
-    /** Sensor object atmospheric */
-    protected static final int OBJECT_ID_PRESSURE = 33760;
-    private static final String PATH_PRESSURE = "/33760/";
-    private static final String NAME_PRESSURE = "atmospheric";
+    private static final String PATH_SENSORS = "/33758/";
     /** Alarm object path */
     private static final String PATH_ALARM = "/33757/";
     /** Devices resource names */
@@ -98,17 +93,6 @@ public class OnConnectAction {
     protected static final int RESOURCE_ID_BLUETOOTH_SIGNAL = 5;
     protected static final int RESOURCE_ID_BATTERY = 6;
     protected static final int RESOURCE_ID_BATTERY_LEVEL = 7;
-
-    protected static final int RESOURCE_ID_TEMPERATURE_ENABLE = 11;
-    public static final int RESOURCE_ID_TEMPERATURE_INTERVAL = 12;
-    protected static final int RESOURCE_ID_HUMIDITY_ENABLE = 13;
-    public static final int RESOURCE_ID_HUMIDITY_INTERVAL = 14;
-    protected static final int RESOURCE_ID_PRESSURE_ENABLE = 15;
-    public static final int RESOURCE_ID_PRESSURE_INTERVAL = 16;
-    protected static final int RESOURCE_ID_CO2_ENABLE = 17;
-    public static final int RESOURCE_ID_CO2_INTERVAL = 18;
-    protected static final int RESOURCE_ID_CO_ENABLE = 19;
-    public static final int RESOURCE_ID_CO_INTERVAL = 20;
 
     /** Sensor object resource ID */
     protected static final int RESOURCE_ID_RESOURCE_MAP = 0;
@@ -136,29 +120,39 @@ public class OnConnectAction {
     protected static final int RESOURCE_ID_HUMIDITY = 7;
     protected static final int RESOURCE_ID_PRESSURE = 8;
 
-    /** Group resource ID */
-    private static final int RESOURCE_ID_ALARM_TRIGGERED = 1;
-    private static final int RESOURCE_ID_DEVICES_INFO_CHANGED = 2;
-    /** dummy resource name */
-    private static final String NAME_NONE = "none";
-
     private final LeshanServer mLeshanServer;
     private final ThingsboardSend mThingsboardSend;
-    private final RedisStorage mRedisStorage;
-    private final SimpleCache mSimpleCache;
+    private final SimpleStorage mSimpleStorage;
     private final long mTimeout;
+
+    // enum MeasType : uint8_t {
+    //     INT8 = 0,
+    //     INT16,
+    //     INT32,
+    //     FLOAT,
+    // };
+    private static final Map<Integer, Integer> CFG_BYTES;
+    static {
+        Map<Integer, Integer> bytes = new HashMap<Integer, Integer>();
+        //from server to client params
+        bytes.put(0, 1); //1*8=8
+        bytes.put(1, 2); //2*8=16
+        bytes.put(2, 4); //4*8=32
+        bytes.put(3, 4); //4*8=32 
+        CFG_BYTES = Collections.unmodifiableMap(bytes);
+    }
 
     private final Gson gson;
 
-    public OnConnectAction(LeshanServer leshanServer, ThingsboardSend thingsboardSend, RedisStorage redisStorage) throws URISyntaxException {
+    public OnConnectAction(LeshanServer leshanServer, ThingsboardSend thingsboardSend, Pool<Jedis> jedis) throws URISyntaxException {
         this.mLeshanServer = leshanServer;
-        this.mRedisStorage = redisStorage;
-        this.mSimpleCache = new InMemoryCache();
+        this.mSimpleStorage = jedis != null ? new RedisStorage(jedis) : new InMemoryStorage();
         this.mThingsboardSend = thingsboardSend;
         this.mTimeout = 10000;
 
         GsonBuilder gsonBuilder = new GsonBuilder();
         gsonBuilder.registerTypeHierarchyAdapter(LwM2mNode.class, new LwM2mNodeSerializer());
+        gsonBuilder.registerTypeHierarchyAdapter(LwM2mNode.class, new LwM2mNodeDeserializer());
         gsonBuilder.setDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
         this.gson = gsonBuilder.create();
     }
@@ -313,55 +307,14 @@ public class OnConnectAction {
         // }
     }
 
-    public SimpleCache getSimpleCache() {
-        return mSimpleCache;
-    }
-
-    private String getSensorName(Integer objectId) {
-        String result = null;
-        switch (objectId) {
-        case OBJECT_ID_TEMPERATURE:
-            result = NAME_TEMPERATURE;
-            break;
-        case OBJECT_ID_HUMIDITY:
-            result = NAME_HUMIDITY;
-            break;
-        case OBJECT_ID_PRESSURE:
-            result = NAME_PRESSURE;
-            break;
-        case OBJECT_ID_CO:
-            result = NAME_CO;
-            break;
-        case OBJECT_ID_CO2:
-            result = NAME_CO2;
-            break;
-        default:
-            result = NAME_NONE;
-        }
-        return result;
-    }
-
     private void wrapperGetResources(Registration registration, String event) {
-        if (event.equals(EVENT_REGISTRATION) || event.equals(EVENT_UPDATED)) {
-            if (this.mSimpleCache.lock(registration.getEndpoint())) {
-                try {
-                    LOG.debug("Lock acquired for {} with {}; Thread: {}", registration.getEndpoint(), event,
-                            Thread.currentThread().getName());
-                    if(registration.getObjectLinks() != null) {
-                        getResources(registration, event);
-                    }
-                } finally {
-                    this.mSimpleCache.unlock(registration.getEndpoint());
-                    LOG.debug("Unlock for {} with {}; Thread: {}", registration.getEndpoint(), event, Thread.currentThread().getName());    
-                }
-            } else {
-                LOG.debug("Lock not acquired {} with {};", registration.getEndpoint(), event);    
+        if (event.equals(EVENT_REGISTRATION) || event.equals(EVENT_UPDATED)) {          
+            if(registration.getObjectLinks() != null) {
+                getResources(registration, event);
             }
-        }  else {
-            Boolean remove = mSimpleCache.delEndpointCache(registration.getEndpoint());
-            LOG.debug("Remove Cache for {} : {}", registration.getEndpoint(), remove);
         }
     }
+
     private void getResources(Registration registration, String event) {
         // todo check observations
         // Set<Observation> observ = mLeshanServer.getObservationService().getObservations(registration);
@@ -370,126 +323,115 @@ public class OnConnectAction {
         // }
         boolean isMainObj = false;
         boolean isDevices = false;
-        boolean isHumidity = false;
-        boolean isCo2 = false;
-        boolean isTemperature = false;
-        boolean isCo = false;
-        boolean isAtmospheric = false;
-        boolean isAlertObject = false;
+        boolean isSensors = false;
+        boolean isAlarm = false;
         for (Link i : registration.getObjectLinks()) {
             if (i.getUrl().contains(PATH_GROUP)) {
                 isMainObj = true;
-            } else if (i.getUrl().contains(PATH_TEMPERATURE)) {
-                isTemperature = true;
-            } else if (i.getUrl().contains(PATH_HUMIDITY)) {
-                isHumidity = true;
-            } else if (i.getUrl().contains(PATH_CO2)) {
-                isCo2 = true;
-            } else if (i.getUrl().contains(PATH_CO)) {
-                isCo = true;
-            } else if (i.getUrl().contains(PATH_PRESSURE)) {
-                isAtmospheric = true;
+            } else if (i.getUrl().contains(PATH_SENSORS)) {
+                isSensors = true;
             } else if (i.getUrl().contains(PATH_ALARM)) {
-                isAlertObject = true;
+                isAlarm = true;
             } else if (i.getUrl().contains(PATH_DEVICES)) {
                 isDevices = true;
             }
         }
-        //testing
+        // testing
         // if (isDevices) {
         //     ResourceModel resourceModel = this.mLeshanServer.getModelProvider().getObjectModel(registration)
         //         .getObjectModel(OBJECT_ID_DEVICES).resources.get(9);
-        //     LOG.debug("what the heaven for {} ", resourceModel.toString());
         //     multiWriteRequest(registration);
         // }
         if (isMainObj && isDevices) {
-            Boolean isAttentionRequired = readBooleanResource(registration, PATH_GROUP_ATTENTION_REQUIRED);
-            if (isAttentionRequired == null) {
-                // error occurred while getting flag from device;
-            } else {
-                EndpointCache endpointCache = null;
-                if(event.equals(EVENT_REGISTRATION)) {
-                    endpointCache = null;    
-                } else {
-                    endpointCache = mSimpleCache.getEndpointCache(registration.getEndpoint());
+            //todo get from memory devices object!
+            LwM2mObject devicesObject = null;
+            LwM2mObject groupObj = null; 
+            LwM2mObject AlarmObj = null; 
+            byte[] events = null;
+            if(event.equals(EVENT_REGISTRATION)) {
+                groupObj = (LwM2mObject)readRequest(registration, PATH_GROUP);
+                if(groupObj != null) {
+                    events = getOpaque(groupObj.getInstance(0), 0);   
+                    putLwM2mObjectInMemory(registration.getEndpoint(), groupObj);  
                 }
-
-                // if attention required or serial mapping is missing
-                if (isAttentionRequired || endpointCache == null) {
-                    Boolean isAlarmTriggered = false;
-                    Boolean isDevicesInfoChanged = false;
-                    if (isAttentionRequired) {
-                        isAlarmTriggered = readBooleanResource(registration, PATH_GROUP_ALARM_TRIGGERED);
-                        isDevicesInfoChanged = readBooleanResource(registration,
-                                PATH_GROUP_DEVICES_INFO_CHANGED);
-                    }
-                    //on object instance multi resource write
-                    // WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, OBJECT_ID_GROUP,
-                    //             0,
-                    //             LwM2mSingleResource.newBooleanResource(RESOURCE_ID_ALARM_TRIGGERED, false),
-                    //             LwM2mSingleResource.newBooleanResource(RESOURCE_ID_DEVICES_INFO_CHANGED, false));
-                    // writeRequest(registration, request);
-
-                    if (isDevicesInfoChanged != null && isDevicesInfoChanged || endpointCache == null) {
-                        // clear flag aware of changes
-                        if (isDevicesInfoChanged) {
-                            WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, OBJECT_ID_GROUP,
-                                    0, LwM2mSingleResource.newBooleanResource(RESOURCE_ID_DEVICES_INFO_CHANGED,
-                                            false));
-                            writeRequest(registration, request);
-                        }
-                        // read devices object, get mapping collect payloads for battery, reachability,
-                        // last activity time
-                        LwM2mNode devicesObject = readRequest(registration, PATH_DEVICES);
-                        if(devicesObject == null) {
-                            LOG.error("Exiting process for endpoint:{} Reason: Response of resource {} is null", registration.getEndpoint(), PATH_DEVICES);
-                            return;
-                        }
-                        endpointCache = new EndpointCache(registration.getEndpoint(), devicesObject);
-                        endpointCache.createDevicesPayload(devicesObject);
-                        // push mapping to cache
-                        mSimpleCache.setEndpointCache(registration.getEndpoint(), endpointCache);
-                    }
-
-                    if (isAlarmTriggered != null && isAlarmTriggered && isAlertObject && endpointCache != null) {
-                        // todo maybe observe all object check changes!
-                        LwM2mNode alarmObject = readRequest(registration, PATH_ALARM);
-                        boolean isAlarm = endpointCache.createAlarmPayload(alarmObject);
-                        //clearing flag
-                        if(isAlarmTriggered && !isAlarm) {
-                            WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, OBJECT_ID_GROUP,
-                                    0,
-                                    LwM2mSingleResource.newBooleanResource(RESOURCE_ID_ALARM_TRIGGERED, false));
-                            writeRequest(registration, request);
-                        }
-                    }
+                devicesObject = (LwM2mObject)readRequest(registration, PATH_DEVICES);
+                if(devicesObject != null) {
+                    putLwM2mObjectInMemory(registration.getEndpoint(), devicesObject);
                 }
-
-                if (endpointCache != null) {
-                    if (isTemperature) {
-                        processData(registration, endpointCache, PATH_TEMPERATURE);
-                    }
-                    if (isHumidity) {
-                        processData(registration, endpointCache, PATH_HUMIDITY);
-                    }
-                    if (isCo2) {
-                        processData(registration, endpointCache, PATH_CO2);
-                    }
-                    if (isCo) {
-                        processData(registration, endpointCache, PATH_CO);
-                    }
-                    if (isAtmospheric) {
-                        processData(registration, endpointCache, PATH_PRESSURE);
-                    }
-                    sendAll(endpointCache.serializePayloadAll());
-                }
-
             }
+
+            if(events == null) {
+                events = readOpaque(registration, PATH_GROUP_EVENTS);
+            }
+           
+            if (events != null) {
+                StringBuilder sb = new StringBuilder();
+                for(byte bs: events) {
+                    sb.append(String.format("%8s", Integer.toBinaryString(bs & 0xFF)).replace(' ', '0')); 
+                }
+                LOG.error("EVENT LIST: {}", sb.toString());
+            } 
+            //collect daily sensor data  
+            if (isSensors) {
+                Payload payload = new Payload();
+                int safety = 0; //if device gives misleading info
+                while(payload.isRepeatCall() && safety < 3) {
+                    safety++;
+                    payload.init();
+                    processData(registration, PATH_SENSORS, payload);
+                    if(payload.isData()) {
+                        if(devicesObject == null) {
+                            devicesObject = getLwM2mObjectFromMemory(registration.getEndpoint(), OBJECT_ID_DEVICES);
+                        }
+                        if(devicesObject == null) {
+                            devicesObject = (LwM2mObject)readRequest(registration, PATH_DEVICES);
+                        }
+                        //get device serial info, parse collected data in array
+                        if(devicesObject != null) {
+                            Map<String, ArrayList<String>> data = new HashMap<String, ArrayList<String>>();
+                            for (Map.Entry<Integer, LwM2mObjectInstance> entry : ((LwM2mObject) devicesObject).getInstances().entrySet()) {
+                                String serialNr =  OnConnectAction.getStringResource(entry.getValue(), OnConnectAction.RESOURCE_ID_SERIAL_NUMBER);
+                                String p = payload.getPayload(entry.getKey());
+                                if(p != null && serialNr != null) {
+                                    ArrayList<String> arr = new ArrayList<String>();
+                                    arr.add(p);
+                                    data.put(serialNr, arr);
+                                }
+                            }
+                            sendAll(data);
+                            //clear read data 
+                            createExecuteRequest(registration, PATH_GROUP_CLEAR_DATA, null);
+                        } else {
+                            LOG.error("Could not get serial info from endpoint:{}", registration.getEndpoint());
+                            break;
+                        }
+                    }
+                }
+            }
+            //TODO clear event list on PATH_GROUP_CLEAR_DATA if no sensor data read and event data not empty 
         }
         // collecting request from redis
-        if (this.mRedisStorage != null) {
-            processRedisRequests(registration);
+        // if (this.mSimpleStorage != null) {
+        //     processRedisRequests(registration);
+        // }
+    }
+
+    private void putLwM2mObjectInMemory(String endpoint, LwM2mObject obj) {
+        if(this.mSimpleStorage != null) {
+            String response = this.gson.toJson(obj);
+            this.mSimpleStorage.setResource(endpoint, "/" + obj.getId() +  "/", response);
         }
+    }
+
+    private LwM2mObject getLwM2mObjectFromMemory(String endpoint, int id) {
+        LwM2mObject obj = null;
+        if(this.mSimpleStorage != null) {
+            String response = this.mSimpleStorage.getResource(endpoint, "/" + id + "/");
+            if(response != null) {
+                obj = this.gson.fromJson(response, LwM2mObject.class);
+            }
+        }
+        return obj;
     }
 
     private void observeRequest(Registration registration, String link) {
@@ -589,52 +531,129 @@ public class OnConnectAction {
         }
         return result;
     }
- 
-    // private JSONObject addToJsonDevicesObject(JSONObject endpointCache, LwM2mNode
-    // devicesObject) {
-    // JSONObject json = new
-    // JSONObject(OnConnectAction.this.gson.toJson(devicesObject));
-    // if(endpointCache == null) {
-    // endpointCache = new JSONObject();
-    // }
-    // endpointCache.put(JSON_DEVICES_KEY, json);
-    // return endpointCache;
-    // }
-
-    private void processData(Registration registration, EndpointCache endpointCache, String resourceLink) {
+   
+    private void processData(Registration registration, String resourceLink, Payload payload) {
         LwM2mNode object = readRequest(registration, resourceLink);
         if (object != null && object instanceof LwM2mObject) {
             LwM2mObject obj = (LwM2mObject) object;
-            String sensorName = getSensorName(obj.getId());
             for (Map.Entry<Integer, LwM2mObjectInstance> entry : obj.getInstances().entrySet()) {
-                Long pulse = endpointCache.getIntervalKey(entry.getKey(), object.getId());
-                Map<Integer, Object> resourceMap = getResourceMap(entry.getValue(), RESOURCE_ID_RESOURCE_MAP);
-                Date fmt = getDateResource(entry.getValue(), RESOURCE_ID_FMT);
-                String serialNumber = endpointCache.getSerial(entry.getKey());
-                if (serialNumber != null && fmt != null && resourceMap != null && pulse != null
-                        && resourceMap.size() > 0) {
-                    LOG.debug("CreatePayload for {}. SensorName: {}; serialNumber: {}; first measurement time: {}; pulse: {}; resourceMap.size(): {};",
-                                registration.getEndpoint(), sensorName, serialNumber, fmt.getTime(), pulse, resourceMap.size());        
-                    endpointCache.createPayload(serialNumber, fmt, resourceMap, sensorName, pulse);
-                    clearInstanceAsync(registration, obj.getId(), entry.getValue(), (resourceMap.size() * pulse * 1000));
-                } else {
-                    LOG.debug(
-                            "CreatePayload Skipped for {}. SensorName: {}; serialNumber: {}; first measurement time is {} null; resourceMap is {} null; pulse is {} null; resourceMap.size(): {};",
-                            registration.getEndpoint(), sensorName, serialNumber, (fmt == null ? "" : "not"),
-                            (resourceMap == null ? "" : "not"), (pulse == null ? "" : "not"),
-                            (resourceMap != null ? resourceMap.size() : "Null"));
-                }
+                processDataSub(payload, entry.getValue(), 0);
+                processDataSub(payload, entry.getValue(), 1);
+                processDataSub(payload, entry.getValue(), 2);
+                processDataSub(payload, entry.getValue(), 3);
+                processDataSub(payload, entry.getValue(), 4);
             }
-            // clearObjectAsync(registration, obj);
         }
     }
 
-    private void clearInstanceAsync(Registration registration, Integer objectId, LwM2mObjectInstance inst, long addTime) {
-        Date fmt = getDateResource(inst, RESOURCE_ID_FMT);
-        if (fmt != null) {
-            Date lmt = new Date(fmt.getTime()  + addTime);
-            ExecuteRequest request = new ExecuteRequest(objectId, inst.getId(), RESOURCE_ID_CLEAR_MEASUREMENTS,
-                    String.valueOf(lmt.getTime() / 1000));
+    private void processDataSub(Payload payload, LwM2mObjectInstance instance, int resource) {
+        byte[] b = getOpaque(instance, resource);
+        if(b != null && b.length >= CFG_HEADER_BYTES) { //byte header +? data
+            processSensorData(payload, instance.getId(), resource, b); 
+        }
+    }
+    //LITTLE_ENDIAN byte decode
+    //4B unixtime, 2B interval, 1B count, 1B cfg, else data
+    private void processSensorData(Payload payload,int instance, int resource, byte[] opaque) {
+        byte[] rawTime = getEmptyByteArray(0);
+        rawTime[0] = opaque[0]; rawTime[1] = opaque[1];
+        rawTime[2] = opaque[2]; rawTime[3] = opaque[3];
+        byte[] rawInterval = getEmptyByteArray(2);//add last fake bytes for parsing
+        rawInterval[0] = opaque[4]; rawInterval[1] = opaque[5];
+        int count = opaque[6];
+        int unixTime = byteToInt(rawTime, false);
+        int interval = byteToInt(rawInterval, false);
+        //config as string
+        String cfgStr = String.format("%8s", Integer.toBinaryString(opaque[7] & 0xFF)).replace(' ', '0');
+        boolean repeatCall = bitStringToInt(cfgStr.substring(6, 7), false) == 1;
+        payload.setIfIsRepeatCall(repeatCall);
+        int pow = bitStringToInt(cfgStr.substring(3, 6), true); //floating point
+        double floatingPoint = Math.pow(10, pow);
+        int byteOfValue = CFG_BYTES.get(bitStringToInt(cfgStr.substring(0,3), false)); //value bytes
+        double validCount = ((double)(opaque.length - CFG_HEADER_BYTES)) / byteOfValue;
+
+        //->dbg
+        StringBuilder sb = new StringBuilder();
+        for(byte bs: opaque) {
+            sb.append(String.format("%8s", Integer.toBinaryString(bs & 0xFF)).replace(' ', '0')); 
+        }
+        LOG.error("Config: {}:{}:{}:{}:{}::{}", unixTime, interval, count, cfgStr, validCount, sb.toString());
+         //<-dbg
+      
+        if(opaque.length > CFG_HEADER_BYTES && count == validCount) {
+            Map<Integer, Object> collect = new HashMap<Integer, Object>();
+            int posInList = 0;
+            int offset = VALUE_BYTES - byteOfValue;
+            byte[] rawValue = getEmptyByteArray(offset);
+            for (int i = 0; i + CFG_HEADER_BYTES < opaque.length; i++) {   
+                rawValue[(i % byteOfValue)] = opaque[CFG_HEADER_BYTES + i];
+                if(offset + (i % byteOfValue) == VALUE_BYTES - 1) { //last byte in array is added, create value
+                    int value = byteToInt(rawValue);
+                    int valueTim = unixTime + (posInList * interval);
+                    if(pow < 0) {//@floatingPoint must be 0.1,0.01.. //double, round remove 12.2300000000001
+                        collect.put(valueTim, getDigitValue((double)value * floatingPoint, Math.abs(pow)));
+                    } else {//int @floatingPoint must be 1,10..
+                        collect.put(valueTim, value * (int)floatingPoint);
+                    }
+                    //next item
+                    posInList++;
+                    rawValue = getEmptyByteArray(offset);
+                }
+            }
+            payload.add(instance, resource, collect);
+        }
+    }
+    //offset fills in LITTLE_ENDIAN last @offset bytes till 4byte array
+    private byte[] getEmptyByteArray(int offset) {
+        byte[] rawValue = new byte[VALUE_BYTES];//empty array for init
+        if(offset > 0) { //if int is 2 byte add 2 last byte for parsing
+            for( int i = 0; i < offset; i++) {
+                rawValue[(VALUE_BYTES - offset) + i] = 0;
+            }
+        }
+        return rawValue;
+    }
+    //String with more than 1 byte works only with BIG_ENDIAN  
+    public static int bitStringToInt(String b, boolean isSign) {
+        int value = 0;
+        for (int i = 0; i < b.length(); i++) {
+            if(b.charAt(i) == '1') { 
+                int add = (int) Math.pow(2, (b.length() - 1 - i));
+                if(isSign && i == 0) { //first sing minus
+                    add *=-1;
+                }
+                value += add;
+            }
+        }
+        return value;
+    }
+    //for unsigned LITTLE_ENDIAN convert to BIG_ENDIAN //todo: improves performance
+    public static int byteToInt(byte[] b, boolean isSign) {
+        int value = 0;
+        StringBuilder sb = new StringBuilder();
+        for (byte by : b) {
+            sb.insert(0,  String.format("%8s", Integer.toBinaryString(by & 0xFF)).replace(' ', '0')); 
+        }
+        value = bitStringToInt(sb.toString(), isSign);
+        return value;
+    }
+    //with sign value
+    public static int byteToInt(byte[] b) {
+        int value = 0;
+        for (int i = 0; i < b.length; i++) {
+            //value = (value << 8) + (b[i] & 0xff); //BIG_ENDIAN
+            value += ((int) b[i] & 0xffL) << (8 * i); //LITTLE_ENDIAN
+        }
+        return value;
+    }
+
+    public static double getDigitValue(double value, int round) {
+        BigDecimal toBeTruncated = BigDecimal.valueOf(value);
+        return toBeTruncated.setScale(round, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    private void createExecuteRequest(Registration registration, String  path, String parameters) {
+            ExecuteRequest request = new ExecuteRequest(path, parameters);
             final String debug = registration.getEndpoint() + "; on" + request.getPath().toString();
             LOG.debug("ExecuteRequest for {} on {} at {}", registration.getEndpoint(),
                     request.getPath().toString(), System.currentTimeMillis());
@@ -652,10 +671,6 @@ public class OnConnectAction {
                     LOG.error("onError Async ExecuteRequest on {} : {}", debug, e.getMessage());
                 }
             });
-        } else {
-            LOG.debug("Clear object skipped for {} on object {}/{} because last measurement time is null",
-                    registration.getEndpoint(), objectId, inst.getId());
-        }
     }
     // private Boolean clearInstance(Registration registration, Integer objectId, LwM2mObjectInstance inst) {
     //     Boolean result = false;
@@ -708,6 +723,20 @@ public class OnConnectAction {
     //     }
     //     LOG.debug("latch.await ended for {} : {}", registration.getEndpoint(), object.getId());
     // }
+    private byte[] readOpaque(Registration registration, String resourceLink) {
+        byte[] value = null;
+        LwM2mNode object = readRequest(registration, resourceLink);
+        if (object != null && object instanceof LwM2mSingleResource) {
+            LwM2mSingleResource res = (LwM2mSingleResource) object;
+            if (res.getType().equals(Type.OPAQUE)) {
+                value = (byte[])res.getValue();
+            } else {
+                LOG.error("Unknown  ({}) resource type {}; expected OPAQUE. EP: {}", resourceLink, res.getType(),
+                        registration.getEndpoint());
+            }
+        }
+        return value;
+    }
 
     private Boolean readBooleanResource(Registration registration, String resourceLink) {
         Boolean value = null;
@@ -789,6 +818,18 @@ public class OnConnectAction {
         }
         return null;
     }
+
+    static protected  byte[] getOpaque(LwM2mObjectInstance instObj, int res) {
+        LwM2mResource resource = instObj.getResources().get(res);
+        if(resource != null && resource instanceof LwM2mSingleResource) {
+            @SuppressWarnings("unchecked")
+            byte[] resourceMap = (byte[])((LwM2mSingleResource)resource).getValue();
+            return resourceMap;
+        } else {
+            LOG.error("Error on getOpaque. {}", resource);
+        }
+        return null;
+    }
     //================================================================================
     // payloads send
     //================================================================================
@@ -800,106 +841,100 @@ public class OnConnectAction {
                 }
             }
         }
-        // if (this.mRedisMessage != null) {
-        // this.mRedisMessage.sendPayload(data);
-        // for (Map.Entry<String, ArrayList<String>> entry : data.entrySet()) {
-        // this.mRedisMessage.writeEventList(entry.getKey());
-        // }
-        // }
     }
     //================================================================================
     // For Redis instructions!
     //================================================================================
-    private void processRedisRequests(Registration registration) {
-        Map<String, String> requestPayload = this.mRedisStorage.getEndpointRequests(registration.getEndpoint());
-        if (requestPayload != null) {
-            for (Map.Entry<String, String> entry : requestPayload.entrySet()) {
-                RedisRequestLink requestLink = new RedisRequestLink(entry.getKey(), entry.getValue());
-                if (!requestLink.isError()) {
-                    sendRequest(registration, requestLink);
-                }
-                entry.setValue(requestLink.getResponse());
-            }
-            this.mRedisStorage.sendResponse(registration.getEndpoint(), requestPayload);
-        }
-    }
+    // private void processRedisRequests(Registration registration) {
+    //     Map<String, String> requestPayload = this.mRedisStorage.getEndpointRequests(registration.getEndpoint());
+    //     if (requestPayload != null) {
+    //         for (Map.Entry<String, String> entry : requestPayload.entrySet()) {
+    //             RedisRequestLink requestLink = new RedisRequestLink(entry.getKey(), entry.getValue());
+    //             if (!requestLink.isError()) {
+    //                 sendRequest(registration, requestLink);
+    //             }
+    //             entry.setValue(requestLink.getResponse());
+    //         }
+    //         this.mRedisStorage.sendResponse(registration.getEndpoint(), requestPayload);
+    //     }
+    // }
 
-    private void sendRequest(Registration registration, RedisRequestLink objLink) {
-        try {
-            if (objLink.isRead()) {
-                ReadResponse response = this.mLeshanServer.send(registration, new ReadRequest(objLink.getLink()),
-                        this.mTimeout);
-                // set read values
-                if (response == null) {
-                    JSONObject res = new JSONObject();
-                    res.put("error", "timeout");
-                    objLink.setResponse(res);
-                } else if (response.isSuccess()) {
-                    objLink.setResponse(OnConnectAction.this.gson.toJson(response.getContent()));
-                } else {
-                    JSONObject res = new JSONObject();
-                    res.put("error", response.getErrorMessage());
-                    res.put("code", response.getCode());
-                    objLink.setResponse(res);
-                }
-            } else if (objLink.isWrite()) {
-                ResourceModel resourceModel = this.mLeshanServer.getModelProvider().getObjectModel(registration)
-                        .getObjectModel(objLink.getObjectId()).resources.get(objLink.getResourceId());
-                        String version = this.mLeshanServer.getModelProvider().getObjectModel(registration)
-                        .getObjectModel(objLink.getObjectId()).getVersion();
-                if (resourceModel != null) {
-                    try {
-                        Object value = null;
-                        if (resourceModel.type.equals(org.eclipse.leshan.core.model.ResourceModel.Type.BOOLEAN)) {
-                            value = Boolean.valueOf(objLink.getValue().toString());
-                        } else if (resourceModel.type
-                                .equals(org.eclipse.leshan.core.model.ResourceModel.Type.INTEGER)) {
-                            value = Long.valueOf(objLink.getValue().toString());
-                        } else if (resourceModel.type.equals(org.eclipse.leshan.core.model.ResourceModel.Type.STRING)) {
-                            value = String.valueOf(objLink.getValue().toString());
-                        }
-                        if (value != null) {
-                            WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, objLink.getObjectId(),
-                                    objLink.getInstanceId(), LwM2mSingleResource.newResource(objLink.getResourceId(),
-                                            value, resourceModel.type));
-                            // blocking request
-                            WriteResponse response = this.mLeshanServer.send(registration, request, this.mTimeout);
-                            if (response == null) {
-                                JSONObject res = new JSONObject();
-                                res.put("error", "timeout");
-                                objLink.setResponse(res);
-                            } else if (response.isSuccess()) {
-                                JSONObject res = new JSONObject();
-                                res.put("result", response.getCoapResponse().toString());
-                                objLink.setResponse(res);
-                            } else {
-                                JSONObject res = new JSONObject();
-                                res.put("error", response.getErrorMessage());
-                                res.put("code", response.getCode());
-                                objLink.setResponse(res);
-                            }
-                        } else {
-                            JSONObject res = new JSONObject();
-                            res.put("error", "Resource type not implemented! " + resourceModel.type);
-                            objLink.setResponse(res);
-                        }
-                    } catch (Exception e) {
-                        JSONObject res = new JSONObject();
-                        res.put("error", "Write value cast error: " + objLink.getValue());
-                        objLink.setResponse(res);
-                    }
-                } else {
-                    JSONObject res = new JSONObject();
-                    res.put("error", "Resource model not found! " + objLink.getObjectId() + objLink.getResourceId());
-                    objLink.setResponse(res);
-                }
-            } else {
-                JSONObject res = new JSONObject();
-                res.put("error", "Action not implemented!");
-                objLink.setResponse(res);
-            }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
+    // private void sendRequest(Registration registration, RedisRequestLink objLink) {
+    //     try {
+    //         if (objLink.isRead()) {
+    //             ReadResponse response = this.mLeshanServer.send(registration, new ReadRequest(objLink.getLink()),
+    //                     this.mTimeout);
+    //             // set read values
+    //             if (response == null) {
+    //                 JSONObject res = new JSONObject();
+    //                 res.put("error", "timeout");
+    //                 objLink.setResponse(res);
+    //             } else if (response.isSuccess()) {
+    //                 objLink.setResponse(OnConnectAction.this.gson.toJson(response.getContent()));
+    //             } else {
+    //                 JSONObject res = new JSONObject();
+    //                 res.put("error", response.getErrorMessage());
+    //                 res.put("code", response.getCode());
+    //                 objLink.setResponse(res);
+    //             }
+    //         } else if (objLink.isWrite()) {
+    //             ResourceModel resourceModel = this.mLeshanServer.getModelProvider().getObjectModel(registration)
+    //                     .getObjectModel(objLink.getObjectId()).resources.get(objLink.getResourceId());
+    //                     String version = this.mLeshanServer.getModelProvider().getObjectModel(registration)
+    //                     .getObjectModel(objLink.getObjectId()).getVersion();
+    //             if (resourceModel != null) {
+    //                 try {
+    //                     Object value = null;
+    //                     if (resourceModel.type.equals(org.eclipse.leshan.core.model.ResourceModel.Type.BOOLEAN)) {
+    //                         value = Boolean.valueOf(objLink.getValue().toString());
+    //                     } else if (resourceModel.type
+    //                             .equals(org.eclipse.leshan.core.model.ResourceModel.Type.INTEGER)) {
+    //                         value = Long.valueOf(objLink.getValue().toString());
+    //                     } else if (resourceModel.type.equals(org.eclipse.leshan.core.model.ResourceModel.Type.STRING)) {
+    //                         value = String.valueOf(objLink.getValue().toString());
+    //                     }
+    //                     if (value != null) {
+    //                         WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, objLink.getObjectId(),
+    //                                 objLink.getInstanceId(), LwM2mSingleResource.newResource(objLink.getResourceId(),
+    //                                         value, resourceModel.type));
+    //                         // blocking request
+    //                         WriteResponse response = this.mLeshanServer.send(registration, request, this.mTimeout);
+    //                         if (response == null) {
+    //                             JSONObject res = new JSONObject();
+    //                             res.put("error", "timeout");
+    //                             objLink.setResponse(res);
+    //                         } else if (response.isSuccess()) {
+    //                             JSONObject res = new JSONObject();
+    //                             res.put("result", response.getCoapResponse().toString());
+    //                             objLink.setResponse(res);
+    //                         } else {
+    //                             JSONObject res = new JSONObject();
+    //                             res.put("error", response.getErrorMessage());
+    //                             res.put("code", response.getCode());
+    //                             objLink.setResponse(res);
+    //                         }
+    //                     } else {
+    //                         JSONObject res = new JSONObject();
+    //                         res.put("error", "Resource type not implemented! " + resourceModel.type);
+    //                         objLink.setResponse(res);
+    //                     }
+    //                 } catch (Exception e) {
+    //                     JSONObject res = new JSONObject();
+    //                     res.put("error", "Write value cast error: " + objLink.getValue());
+    //                     objLink.setResponse(res);
+    //                 }
+    //             } else {
+    //                 JSONObject res = new JSONObject();
+    //                 res.put("error", "Resource model not found! " + objLink.getObjectId() + objLink.getResourceId());
+    //                 objLink.setResponse(res);
+    //             }
+    //         } else {
+    //             JSONObject res = new JSONObject();
+    //             res.put("error", "Action not implemented!");
+    //             objLink.setResponse(res);
+    //         }
+    //     } catch (InterruptedException e) {
+    //         e.printStackTrace();
+    //     }
+    // }
 }

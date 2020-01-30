@@ -1,7 +1,9 @@
 package org.eclipse.leshan.server.demo.mt;
+
 import java.util.Iterator;
 
-import org.json.JSONObject;
+import com.eclipsesource.json.JsonObject;
+import com.google.gson.Gson;
 
 public class RedisRequestLink {
     private static final String R = "R";
@@ -12,17 +14,17 @@ public class RedisRequestLink {
     private String mObjectId;
     private String mInstanceId;
     private String mResourceId;
-    private JSONObject mError = null; 
-    private JSONObject mRequest;
-    private JSONObject mResponse;
+    private JsonObject mError = null; 
+    private JsonObject mRequest;
+    private JsonObject mResponse;
     public RedisRequestLink(String link, String info) {
         //R:43000:0:1
         String[] links = link.split(":");
         if(links.length >= 0 && (R + W + E).contains(links[0].toUpperCase())) {
             this.mAction = links[0].toUpperCase();
         } else {
-            mError = new JSONObject();
-            mError.put("error", "Action unknown " +  links[0].toUpperCase());
+            mError = new JsonObject();
+            mError.set("error", "Action unknown " +  links[0].toUpperCase());
         }
         if(links.length > 1) {
             this.mObjectId = links[1];
@@ -33,34 +35,34 @@ public class RedisRequestLink {
         if(links.length == 4) {
             this.mResourceId = links[3];
         }else if(links.length > 3) {
-            mError = new JSONObject();
-            mError.put("error", "Incorrect link separator count! " + links.length);
+            mError = new JsonObject();
+            mError.set("error", "Incorrect link separator count! " + links.length);
         }
 
         if(!isError()) {
             try {
-                mRequest = new JSONObject(info);
-                Iterator<String> keys = mRequest.keys();
-                while(keys.hasNext()) {
-                    switch (keys.next()) {
-                        case "values":
-                            mValue = mRequest.get("values");
-                            break;
-                        case "value":
-                            mValue = mRequest.get("value");
-                            break;
-                    }
-                } 
+                mRequest = new Gson().fromJson(info == null ? "{}" : info, JsonObject.class);
+                // Iterator<String> keys = mRequest.ge
+                // while(keys.hasNext()) {
+                //     switch (keys.next()) {
+                //         case "values":
+                //             mValue = mRequest.get("values");
+                //             break;
+                //         case "value":
+                //             mValue = mRequest.get("value");
+                //             break;
+                //     }
+                // } 
             } catch (Exception e) {
-                mError = new JSONObject();
-                mError.put("error", "JSON parse ERROR:" + info + " / " + e.getMessage());
+                mError = new JsonObject();
+                mError.set("error", "JSON parse ERROR:" + info + " / " + e.getMessage());
                 //todo return with json parse error
             } 
         }
 
         if(!isError() && isWrite() && this.mResourceId == null) {
-            mError = new JSONObject();
-            mError.put("error", "In Write operation full link missing! " + info);   
+            mError = new JsonObject();
+            mError.set("error", "In Write operation full link missing! " + info);   
         }
     }
     public boolean isRead() {
@@ -93,19 +95,19 @@ public class RedisRequestLink {
         return this.mError != null;
     }
     public void setResponse(String response) {
-        setResponse(new JSONObject(response));
+        // setResponse(new JsonObject(response));
     }
-    public void setResponse(JSONObject response) {
+    public void setResponse(JsonObject response) {
         mResponse = response;
-        mResponse.put("tim", System.currentTimeMillis());
+        mResponse.set("tim", System.currentTimeMillis());
     }
     public String getResponse() {
         if(isError()) {
             return mError.toString();   
         } else {
-            JSONObject res = new JSONObject();
-            res.put("request", mRequest);
-            res.put("response", mResponse);
+            JsonObject res = new JsonObject();
+            res.set("request", mRequest);
+            res.set("response", mResponse);
             return res.toString(); 
         }
     }

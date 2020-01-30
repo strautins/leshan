@@ -456,22 +456,6 @@ public class LeshanServerBuilder {
             if (dtlsConfigBuilder == null) {
                 dtlsConfigBuilder = new DtlsConnectorConfig.Builder();
             }
-            // testing jst 26.11.2019
-            dtlsConfigBuilder.setConnectionListener(new ConnectionListener() {
-                @Override
-                public void onConnectionEstablished(Connection connection) {
-                    // TODO Auto-generated method stub
-                    System.out.println("DTLS ConnectionListener Connection received "
-                            + connection.getSession().getSessionIdentifier());
-                }
-
-                @Override
-                public void onConnectionRemoved(Connection connection) {
-                    // TODO Auto-generated method stub
-                    System.out.println("DTLS ConnectionListener Connection removed " 
-                            + connection.getSession().getSessionIdentifier());
-                }
-			});
 
             // Set default DTLS setting for Leshan unless user change it.
             DtlsConnectorConfig incompleteConfig = dtlsConfigBuilder.getIncompleteConfig();

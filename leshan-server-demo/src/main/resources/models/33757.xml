@@ -31,16 +31,6 @@
 				<Description><![CDATA[Shows if hush is currently active.]]></Description>
 			</Item>
 			<Item ID="2">
-				<Name>Temperature Alarm</Name>
-				<Operations>R</Operations>
-				<MultipleInstances>Single</MultipleInstances>
-				<Mandatory>Mandatory</Mandatory>
-				<Type>Boolean</Type>
-				<RangeEnumeration></RangeEnumeration>
-				<Units></Units>
-				<Description><![CDATA[Temperature alarm status information.]]></Description>
-			</Item>
-			<Item ID="3">
 				<Name>CO Alarm</Name>
 				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -50,7 +40,7 @@
 				<Units></Units>
 				<Description><![CDATA[CO alarm status information]]></Description>
 			</Item>
-			<Item ID="4">
+			<Item ID="3">
 				<Name>Temperature</Name>
 				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -60,37 +50,17 @@
 				<Units>Cel</Units>
 				<Description><![CDATA[Current temperature.]]></Description>
 			</Item>
-			<Item ID="5">
-				<Name>CO2</Name>
-				<Operations>R</Operations>
-				<MultipleInstances>Single</MultipleInstances>
-				<Mandatory>Optional</Mandatory>
-				<Type>Integer</Type>
-				<RangeEnumeration></RangeEnumeration>
-				<Units></Units>
-				<Description><![CDATA[Current CO2 level ppm.]]></Description>
-			</Item>
-			<Item ID="6">
-				<Name>CO</Name>
-				<Operations>R</Operations>
-				<MultipleInstances>Single</MultipleInstances>
-				<Mandatory>Optional</Mandatory>
-				<Type>Integer</Type>
-				<RangeEnumeration></RangeEnumeration>
-				<Units></Units>
-				<Description><![CDATA[Current CO level ppm.]]></Description>
-			</Item>
-			<Item ID="7">
+			<Item ID="4">
 				<Name>Humidity</Name>
 				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
 				<Mandatory>Optional</Mandatory>
-				<Type>Integer</Type>
+				<Type>Float</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units>%RH</Units>
 				<Description><![CDATA[Current relative humidity.]]></Description>
 			</Item>
-			<Item ID="8">
+			<Item ID="5">
 				<Name>Pressure</Name>
 				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -99,6 +69,26 @@
 				<RangeEnumeration></RangeEnumeration>
 				<Units>Pa</Units>
 				<Description><![CDATA[Current atmospheric pressure.]]></Description>
+			</Item>
+			<Item ID="6">
+				<Name>CO2</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>Float</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Current CO2 level ppm.]]></Description>
+			</Item>
+			<Item ID="7">
+				<Name>CO</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>Float</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Current CO level ppm.]]></Description>
 			</Item>
 		</Resources>
 		<Description2 />

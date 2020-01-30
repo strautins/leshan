@@ -1,44 +1,64 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LWM2M xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.openmobilealliance.org/tech/profiles/LWM2M.xsd">
 	<Object ObjectType="MODefinition">
-		<Name>Temperature Measurements</Name>
+		<Name>Sensors</Name>
 		<Description1><![CDATA[Control and read temperature sensor measurements. If "Stored Measurement Count" reaches maximum capacity (TBD), each new measurement causes oldest to be removed from list. Changes to "Enable" and "Measurement Interval" resources causes stored measurements to be cleared.]]></Description1>
 		<ObjectID>33758</ObjectID>
 		<ObjectURN></ObjectURN>
 		<LWM2MVersion>1.0</LWM2MVersion>
 		<ObjectVersion>1.0</ObjectVersion>
 		<MultipleInstances>Multiple</MultipleInstances>
-		<Mandatory>Optional</Mandatory>
+		<Mandatory>Mandatory</Mandatory>
 		<Resources>
 			<Item ID="0">
-				<Name>Measurements</Name>
+				<Name>Temperature Data</Name>
 				<Operations>R</Operations>
-				<MultipleInstances>Multiple</MultipleInstances>
+				<MultipleInstances>Single</MultipleInstances>
 				<Mandatory>Mandatory</Mandatory>
-				<Type>Float</Type>
+				<Type>Opaque</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units>Cel</Units>
 				<Description><![CDATA[List of measurements. First resource being oldest measurement.]]></Description>
 			</Item>
 			<Item ID="1">
-				<Name>First Measurement Time</Name>
+				<Name>Humidity Data</Name>
 				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
 				<Mandatory>Mandatory</Mandatory>
-				<Type>Time</Type>
+				<Type>Opaque</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
-				<Description><![CDATA[First measurement time of resource "Measurements".]]></Description>
+				<Description><![CDATA[List of measurements. First resource being oldest measurement.]]></Description>
 			</Item>
 			<Item ID="2">
-				<Name>Clear Measurements</Name>
-				<Operations>E</Operations>
+				<Name>Atmospheric Pressure Data</Name>
+				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
 				<Mandatory>Mandatory</Mandatory>
-				<Type></Type>
+				<Type>Opaque</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units>Pa</Units>
+				<Description><![CDATA[List of measurements. First resource being oldest measurement.]]></Description>
+			</Item>
+			<Item ID="3">
+				<Name>Atmospheric CO2 Concentration Data</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Opaque</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
-				<Description><![CDATA[Resource executed without parameter clears all measurements. If Unix Timestamp parameter is provided, clears measurements till provided time.]]></Description>
+				<Description><![CDATA[List of measurements. CO2 concentration ppm. First resource being oldest measurement.]]></Description>
+			</Item>
+			<Item ID="4">
+				<Name>Atmospheric CO Concentration Data</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Mandatory</Mandatory>
+				<Type>Opaque</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[List of measurements. CO concentration ppm. First resource being oldest measurement.]]></Description>
 			</Item>
 		</Resources>
 		<Description2 />

@@ -34,7 +34,6 @@ public class LwM2mNodeSerializer implements JsonSerializer<LwM2mNode> {
     @Override
     public JsonElement serialize(LwM2mNode src, Type typeOfSrc, JsonSerializationContext context) {
         JsonObject element = new JsonObject();
-
         element.addProperty("id", src.getId());
 
         if (typeOfSrc == LwM2mObject.class) {

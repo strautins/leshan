@@ -115,7 +115,7 @@ public class LeshanServerDemo {
                             "3340.xml", "3341.xml", "3342.xml", "3343.xml", "3344.xml", "3345.xml", "3346.xml",
                             "3347.xml", "3348.xml", "3349.xml", "3350.xml",
 
-                            "33755.xml" , "33756.xml", "33757.xml", "33758.xml", "33759.xml", "33760.xml" , "33761.xml", "33762.xml",
+                            "33755.xml" , "33756.xml", "33757.xml", "33758.xml",
 
                             "Communication_Characteristics-V1_0.xml",
 
@@ -446,13 +446,8 @@ public class LeshanServerDemo {
             lwServer.coap().getServer().add(new FileResource(coapConfig, FILE_STORE_LINK, rootFile));
         }
 
-        RedisStorage redisStorage = null; 
-        if(jedis != null) {
-            redisStorage = new RedisStorage(jedis);
-        }
-
         //start logic for device read
-        OnConnectAction processSD = new OnConnectAction(lwServer, thingsboardSend, redisStorage);
+        OnConnectAction processSD = new OnConnectAction(lwServer, thingsboardSend, jedis);
 
         // Now prepare Jetty
         InetSocketAddress jettyAddr;
@@ -467,13 +462,12 @@ public class LeshanServerDemo {
         root.setResourceBase(LeshanServerDemo.class.getClassLoader().getResource("webapp").toExternalForm());
         root.setParentLoaderPriority(true);
         server.setHandler(root);
-
         // Create Servlet
         EventServlet eventServlet = new EventServlet(lwServer, lwServer.getSecuredAddress().getPort());
         ServletHolder eventServletHolder = new ServletHolder(eventServlet);
         root.addServlet(eventServletHolder, "/event/*");
 
-        ServletHolder clientServletHolder = new ServletHolder(new ClientServlet(lwServer, processSD));
+        ServletHolder clientServletHolder = new ServletHolder(new ClientServlet(lwServer));
         root.addServlet(clientServletHolder, "/api/clients/*");
 
         ServletHolder securityServletHolder = new ServletHolder(new SecurityServlet(securityStore, serverCertificate));
