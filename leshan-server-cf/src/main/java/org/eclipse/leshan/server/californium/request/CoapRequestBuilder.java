@@ -23,6 +23,8 @@ import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.leshan.core.californium.EndpointContextUtil;
 import org.eclipse.leshan.core.model.LwM2mModel;
+import org.eclipse.leshan.core.node.LwM2mNode;
+import org.eclipse.leshan.core.node.LwM2mObject;
 import org.eclipse.leshan.core.node.LwM2mObjectInstance;
 import org.eclipse.leshan.core.node.LwM2mPath;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeEncoder;
@@ -59,27 +61,20 @@ public class CoapRequestBuilder implements DownlinkRequestVisitor {
     private final String rootPath;
     private final String registrationId;
     private final String endpoint;
+    private final boolean preventConnectionInitiation;
 
     private final LwM2mModel model;
     private final LwM2mNodeEncoder encoder;
 
-    public CoapRequestBuilder(Identity destination, LwM2mModel model, LwM2mNodeEncoder encoder) {
-        this.destination = destination;
-        this.rootPath = null;
-        this.registrationId = null;
-        this.endpoint = null;
-        this.model = model;
-        this.encoder = encoder;
-    }
-
     public CoapRequestBuilder(Identity destination, String rootPath, String registrationId, String endpoint,
-            LwM2mModel model, LwM2mNodeEncoder encoder) {
+            LwM2mModel model, LwM2mNodeEncoder encoder, boolean preventConnectionInitiation) {
         this.destination = destination;
         this.rootPath = rootPath;
         this.endpoint = endpoint;
         this.registrationId = registrationId;
         this.model = model;
         this.encoder = encoder;
+        this.preventConnectionInitiation = preventConnectionInitiation;
     }
 
     @Override
@@ -127,13 +122,13 @@ public class CoapRequestBuilder implements DownlinkRequestVisitor {
         coapRequest = Request.newPost();
         coapRequest.getOptions().setContentFormat(request.getContentFormat().getCode());
         // if no instance id, the client will assign it.
-        LwM2mObjectInstance instance;
-        if (request.getInstanceId() == null) {
-            instance = new LwM2mObjectInstance(request.getResources());
+        LwM2mNode node;
+        if (request.unknownObjectInstanceId()) {
+            node = new LwM2mObjectInstance(request.getResources());
         } else {
-            instance = new LwM2mObjectInstance(request.getInstanceId(), request.getResources());
+            node = new LwM2mObject(request.getPath().getObjectId(), request.getObjectInstances());
         }
-        coapRequest.setPayload(encoder.encode(instance, request.getContentFormat(), request.getPath(), model));
+        coapRequest.setPayload(encoder.encode(node, request.getContentFormat(), request.getPath(), model));
         setTarget(coapRequest, request.getPath());
     }
 
@@ -179,7 +174,7 @@ public class CoapRequestBuilder implements DownlinkRequestVisitor {
     public void visit(BootstrapDeleteRequest request) {
         coapRequest = Request.newDelete();
         coapRequest.setConfirmable(true);
-        EndpointContext context = EndpointContextUtil.extractContext(destination);
+        EndpointContext context = EndpointContextUtil.extractContext(destination, preventConnectionInitiation);
         coapRequest.setDestinationContext(context);
         setTarget(coapRequest, request.getPath());
     }
@@ -188,7 +183,7 @@ public class CoapRequestBuilder implements DownlinkRequestVisitor {
     public void visit(BootstrapFinishRequest request) {
         coapRequest = Request.newPost();
         coapRequest.setConfirmable(true);
-        EndpointContext context = EndpointContextUtil.extractContext(destination);
+        EndpointContext context = EndpointContextUtil.extractContext(destination, preventConnectionInitiation);
         coapRequest.setDestinationContext(context);
 
         // root path
@@ -203,8 +198,8 @@ public class CoapRequestBuilder implements DownlinkRequestVisitor {
         coapRequest.getOptions().addUriPath("bs");
     }
 
-    private final void setTarget(Request coapRequest, LwM2mPath path) {
-        EndpointContext context = EndpointContextUtil.extractContext(destination);
+    protected void setTarget(Request coapRequest, LwM2mPath path) {
+        EndpointContext context = EndpointContextUtil.extractContext(destination, preventConnectionInitiation);
         coapRequest.setDestinationContext(context);
 
         // root path

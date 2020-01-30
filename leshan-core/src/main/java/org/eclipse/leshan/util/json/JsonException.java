@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2013-2015 Sierra Wireless and others.
+ * Copyright (c) 2020 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
@@ -13,40 +13,28 @@
  * Contributors:
  *     Sierra Wireless - initial API and implementation
  *******************************************************************************/
-package org.eclipse.leshan.core.request;
+package org.eclipse.leshan.util.json;
 
 /**
- * Transport binding and Queue Mode
+ * Exception raised by concrete implementation of {@link JsonSerDes} during serialization and deserialization.
  */
-public enum BindingMode {
+public class JsonException extends RuntimeException {
 
-    /** UDP */
-    U,
+    private static final long serialVersionUID = 1L;
 
-    /** UDP with Queue Mode */
-    UQ,
-
-    /** SMS */
-    S,
-
-    /** SMS with Queue Mode */
-    SQ,
-
-    /** UDP and SMS */
-    US,
-
-    /** UDP with Queue Mode and SMS */
-    UQS;
-
-    public boolean useSMS() {
-        return equals(S) || equals(SQ) || equals(UQS);
+    public JsonException(String message) {
+        super(message);
     }
 
-    public boolean useQueueMode() {
-        return equals(UQ) || equals(SQ) || equals(UQS);
+    public JsonException(String message, Object... args) {
+        super(String.format(message, args));
     }
 
-    public boolean useUDP() {
-        return equals(U) || equals(UQ) || equals(UQS);
+    public JsonException(Exception e, String message, Object... args) {
+        super(String.format(message, args), e);
+    }
+
+    public JsonException(String message, Exception cause) {
+        super(message, cause);
     }
 }
