@@ -23,9 +23,14 @@ import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.XMLGregorianCalendar;
 
 import org.eclipse.leshan.client.californium.LeshanClient;
+import org.eclipse.leshan.client.demo.mt.utils.ByteUtil;
+import org.eclipse.leshan.client.demo.mt.utils.CustomEvent;
+import org.eclipse.leshan.client.demo.mt.utils.PredefinedEvent;
+import org.eclipse.leshan.client.demo.mt.utils.PredefinedEvent.PredefinedEventCode;
 import org.eclipse.leshan.client.request.ServerIdentity;
 import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
 import org.eclipse.leshan.core.model.ObjectModel;
+import org.eclipse.leshan.core.model.ResourceModel;
 import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.response.ExecuteResponse;
 import org.eclipse.leshan.core.response.ReadResponse;
@@ -45,34 +50,12 @@ public class GroupSensors extends BaseInstanceEnabler {
     private static final int R6 = 6;
     private static final int R7 = 7;
 
-    private static final Map<Integer, Event> EVENTS;
-    static {
-        Map<Integer, Event> ev = new HashMap<Integer, Event>();
-        ev.put(0, new Event(0, "NO_EVENT", false, true));
-        ev.put(1, new Event(1, "CRIT_BAT", true, true));
-        ev.put(2, new Event(2, "BATTERY_PROB", true, true));
-        ev.put(3, new Event(3, "NOT_REACHABLE", true, true));
-        ev.put(4, new Event(4, "DOCKED", false, true));
-        ev.put(5, new Event(5, "UNDOCKED", false, true));
-        ev.put(6, new Event(6, "EXT_PWR_ON", true, true));
-        ev.put(7, new Event(7, "EXT_PWR_OFF", true, true));
-        ev.put(8, new Event(8, "LOW_BT_SIGNAL", false, true));
-        ev.put(9, new Event(9, "LOW_CEL_SIGNAL", false, true));
-        ev.put(10, new Event(10, "ALARM", true, true));
-
-        ev.put(128, new Event(128, "TEMP_EVENT", false, false));
-        ev.put(129, new Event(129, "HUMID_EVENT", false, false));
-        ev.put(130, new Event(130, "PRESS_EVENT", false, false));
-        ev.put(131, new Event(131, "CO2_EVENT", false, false));
-        ev.put(132, new Event(132, "IAQ_EVEN", false, false));
-        EVENTS = Collections.unmodifiableMap(ev);
-    }
 
     private LeshanClient mLeshanClient;
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Group object"));
 
-    private HashMap<Integer, Event> mEventList = new HashMap<Integer, Event>();
+    private HashMap<PredefinedEventCode, PredefinedEvent> mEventList = new HashMap<PredefinedEventCode, PredefinedEvent>();
     private HashMap<Integer, String> mSerialMap = new HashMap<Integer, String>();
     private ArrayList<SensorReadings> mSensorList = new ArrayList<SensorReadings>();
     private ArrayList<AlarmStatus> mAlarmStatusList = new ArrayList<AlarmStatus>();
@@ -116,17 +99,17 @@ public class GroupSensors extends BaseInstanceEnabler {
     }
     public void createEvent() {
         //get random event, first event = no event??
-        int event = 1 + mRnd.nextInt(10);
-        Event e = mEventList.get(event);
+        PredefinedEventCode ev = PredefinedEvent.PREDEFINED_EVENT_VALUE.get(1 + mRnd.nextInt(10));
+        PredefinedEvent e = mEventList.get(ev);
         if(e == null) {
-            e = EVENTS.get(event).getEvent();
-            mEventList.put(e.getId(), e);
+            e = new PredefinedEvent(ev);
+            mEventList.put(ev, e);
         }
-        LOG.info("Creating EVENT:{}; Is Registration Update:{}", e.getCode(), e.isRegisterToServer());
+        LOG.info("Creating EVENT:{}; Is Registration Update:{}", e.getCode(), e.isImmediateNotify());
         //rnd instance!
         int instance = mRnd.nextInt(mSerialMap.size());
-        e.setInstance(instance);
-
+        e.addParam2(instance);
+        //todo change resource for event
         // switch(e.getId()) {
         //     case 1:
         //         this.mDevicesList.get(instance).setId(id);
@@ -137,7 +120,7 @@ public class GroupSensors extends BaseInstanceEnabler {
         //     default:
         //     // do nothing
         // }
-        if(e.isRegisterToServer() && this.mLastEventRead!= null
+        if(e.isImmediateNotify() && this.mLastEventRead!= null
              && (this.mLastEventRead.getTime() / 1000) + mNotifyDelay 
              <= (System.currentTimeMillis() / 1000)) {
             this.mLeshanClient.triggerRegistrationUpdate();
@@ -166,19 +149,18 @@ public class GroupSensors extends BaseInstanceEnabler {
         switch (resourceId) {
         case R0:
             this.mLastEventRead = new Date();
-            byte[] b = new byte[0];
+            byte[] bEvent = new byte[0];
             if(!mEventList.isEmpty()) {
-                for(Map.Entry<Integer, Event> entry: mEventList.entrySet()) {
-                    b = GroupSensors.concatenate(b, entry.getValue().getByte());
+                for(Map.Entry<PredefinedEventCode, PredefinedEvent> entry: mEventList.entrySet()) {
+                    bEvent = GroupSensors.concatenate(bEvent, entry.getValue().toByte());
                 }
             } else {
-                b = GroupSensors.concatenate(b, EVENTS.get(0).getByte());
-               
+                bEvent = GroupSensors.concatenate(bEvent, new PredefinedEvent(PredefinedEventCode.NO_EVENT).toByte());
             }
-            return ReadResponse.success(resourceId, b);
+            return ReadResponse.success(resourceId, bEvent);
         case R1:
-            //todo return set events
-            return super.read(identity, resourceId);
+            byte[] bCfg = new byte[0];
+            return ReadResponse.success(resourceId, bCfg);
         case R2:
             return super.read(identity, resourceId);    
         case R3:
@@ -213,15 +195,44 @@ public class GroupSensors extends BaseInstanceEnabler {
     }
 
     @Override
-    public synchronized WriteResponse write(ServerIdentity identity, int resourceid, LwM2mResource value) {
-        switch (resourceid) {
+    public synchronized WriteResponse write(ServerIdentity identity, int resourceId, LwM2mResource value) {
+        switch (resourceId) {
         case R0:
             //NOT FOUND
-            return super.write(identity, resourceid, value);
+            return super.write(identity, resourceId, value);
+        case R1:
+            if(value.getType().equals(ResourceModel.Type.OPAQUE)) {
+                byte[] bCfg = (byte[])value.getValue();  
+                StringBuilder sb = new StringBuilder();
+                for(byte bs: bCfg) {
+                    sb.append(String.format("%8s", Integer.toBinaryString(bs & 0xFF)).replace(' ', '0')); 
+                }
+                LOG.error("Received:{}", sb.toString());
+                for(byte[] b : ByteUtil.split(bCfg, 8)) {
+                    LOG.error("data:{}:{}", b.length, new CustomEvent(b).toString());
+                };
+                return WriteResponse.success();
+            } else {
+                return super.write(identity, resourceId, value);
+            }
         default:
             //NOT FOUND
-            return super.write(identity, resourceid, value);
+            return super.write(identity, resourceId, value);
         }
+    }
+
+    public static int byteToInt(byte[] b) {
+        int value = 0;
+        for (int i = 0; i < b.length; i++) {
+            //value = (value << 8) + (b[i] & 0xff); //BIG_ENDIAN
+            value += ((int) b[i] & 0xffL) << (8 * i); //LITTLE_ENDIAN
+        }
+        return value;
+    }
+
+    public static float byteArrayToFloat(byte[] bytes) {
+        int intBits = byteToInt(bytes);
+        return Float.intBitsToFloat(intBits);  
     }
     
     @Override

@@ -3,19 +3,13 @@ package org.eclipse.leshan.server.demo.mt;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URISyntaxException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import com.google.common.collect.Multiset.Entry;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -25,12 +19,12 @@ import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.network.interceptors.MessageInterceptorAdapter;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.leshan.Link;
-import org.eclipse.leshan.core.model.ResourceModel;
 import org.eclipse.leshan.core.model.ResourceModel.Type;
 import org.eclipse.leshan.core.node.LwM2mMultipleResource;
 import org.eclipse.leshan.core.node.LwM2mNode;
 import org.eclipse.leshan.core.node.LwM2mObject;
 import org.eclipse.leshan.core.node.LwM2mObjectInstance;
+import org.eclipse.leshan.core.node.LwM2mPath;
 import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.node.LwM2mSingleResource;
 import org.eclipse.leshan.core.observation.Observation;
@@ -44,8 +38,10 @@ import org.eclipse.leshan.core.response.LwM2mResponse;
 import org.eclipse.leshan.core.response.ObserveResponse;
 import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.ResponseCallback;
-import org.eclipse.leshan.core.response.WriteResponse;
 import org.eclipse.leshan.server.californium.LeshanServer;
+import org.eclipse.leshan.server.demo.mt.utils.ByteUtil;
+import org.eclipse.leshan.server.demo.mt.utils.CustomEvent;
+import org.eclipse.leshan.server.demo.mt.utils.PredefinedEvent;
 import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeDeserializer;
 import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeSerializer;
 import org.eclipse.leshan.server.observation.ObservationListener;
@@ -59,8 +55,6 @@ import redis.clients.jedis.Jedis;
 import redis.clients.util.Pool;
 
 public class OnConnectAction {
-    private static final int CFG_HEADER_BYTES = 8;
-    private static final int VALUE_BYTES = 4;
     private static final Logger LOG = LoggerFactory.getLogger(OnConnectAction.class);
 
     private static final String EVENT_DEREGISTRATION = "DEREGISTRATION";
@@ -74,9 +68,9 @@ public class OnConnectAction {
 
     protected static final int OBJECT_ID_GROUP = 33755;
     private static final String PATH_GROUP = "/33755/";
-    private static final String PATH_GROUP_EVENTS = "33755/0/0";
-    private static final String PATH_GROUP_EVENT_CFG = "33755/0/1";
-    private static final String PATH_GROUP_CLEAR_DATA = "33755/0/2";
+    private static final LwM2mPath PATH_GROUP_EVENTS = new LwM2mPath("33755/0/0");
+    private static final LwM2mPath PATH_GROUP_EVENT_CFG = new LwM2mPath("33755/0/1");
+    private static final LwM2mPath PATH_GROUP_CLEAR_DATA = new LwM2mPath("33755/0/2");
     /** Sensor object temperature */
     private static final String PATH_SENSORS = "/33758/";
     /** Alarm object path */
@@ -94,10 +88,6 @@ public class OnConnectAction {
     protected static final int RESOURCE_ID_BATTERY = 6;
     protected static final int RESOURCE_ID_BATTERY_LEVEL = 7;
 
-    /** Sensor object resource ID */
-    protected static final int RESOURCE_ID_RESOURCE_MAP = 0;
-    protected static final int RESOURCE_ID_FMT = 1;
-    protected static final int RESOURCE_ID_CLEAR_MEASUREMENTS = 2;
     /** Alarm resource names */
     protected static final String NAME_SMOKE_ALARM = "smoke_alarm";
     protected static final String NAME_HUSHED = "hushed";
@@ -109,32 +99,25 @@ public class OnConnectAction {
     protected static final String NAME_ALARM_CO2 = "alarm_co2";
     protected static final String NAME_ALARM_CO = "alarm_co";
     protected static final String NAME_ALARM_ATMOSPHERIC = "alarm_atmospheric";
+
     /** Alarm object resource ID */
     protected static final int RESOURCE_ID_SMOKE_ALARM = 0;
     protected static final int RESOURCE_ID_HUSHED = 1;
-    protected static final int RESOURCE_ID_TEMPERATURE_ALARM = 2;
-    protected static final int RESOURCE_ID_CO_ALARM = 3;
-    protected static final int RESOURCE_ID_TEMPERATURE = 4;
-    protected static final int RESOURCE_ID_CO2 = 5;
-    protected static final int RESOURCE_ID_CO = 6;
-    protected static final int RESOURCE_ID_HUMIDITY = 7;
-    protected static final int RESOURCE_ID_PRESSURE = 8;
+    protected static final int RESOURCE_ID_CO_ALARM = 2;
+    protected static final int RESOURCE_ID_TEMPERATURE = 3;
+    protected static final int RESOURCE_ID_HUMIDITY = 4;
+    protected static final int RESOURCE_ID_PRESSURE = 5;
+    protected static final int RESOURCE_ID_CO2 = 6;
+    protected static final int RESOURCE_ID_CO = 7;
 
     private final LeshanServer mLeshanServer;
     private final ThingsboardSend mThingsboardSend;
     private final SimpleStorage mSimpleStorage;
     private final long mTimeout;
 
-    // enum MeasType : uint8_t {
-    //     INT8 = 0,
-    //     INT16,
-    //     INT32,
-    //     FLOAT,
-    // };
     private static final Map<Integer, Integer> CFG_BYTES;
     static {
         Map<Integer, Integer> bytes = new HashMap<Integer, Integer>();
-        //from server to client params
         bytes.put(0, 1); //1*8=8
         bytes.put(1, 2); //2*8=16
         bytes.put(2, 4); //4*8=32
@@ -149,7 +132,7 @@ public class OnConnectAction {
         this.mSimpleStorage = jedis != null ? new RedisStorage(jedis) : new InMemoryStorage();
         this.mThingsboardSend = thingsboardSend;
         this.mTimeout = 10000;
-
+        
         GsonBuilder gsonBuilder = new GsonBuilder();
         gsonBuilder.registerTypeHierarchyAdapter(LwM2mNode.class, new LwM2mNodeSerializer());
         gsonBuilder.registerTypeHierarchyAdapter(LwM2mNode.class, new LwM2mNodeDeserializer());
@@ -351,25 +334,27 @@ public class OnConnectAction {
             if(event.equals(EVENT_REGISTRATION)) {
                 groupObj = (LwM2mObject)readRequest(registration, PATH_GROUP);
                 if(groupObj != null) {
-                    events = getOpaque(groupObj.getInstance(0), 0);   
                     putLwM2mObjectInMemory(registration.getEndpoint(), groupObj);  
+                    events = getOpaque(groupObj.getInstance(PATH_GROUP_EVENTS.getObjectInstanceId()), PATH_GROUP_EVENTS.getResourceId());   
+                    byte[] cfg = getOpaque(groupObj.getInstance(PATH_GROUP_EVENT_CFG.getObjectInstanceId()), PATH_GROUP_EVENT_CFG.getResourceId());   
+                    cfg = getEndpointCfg(registration, cfg);//get byte cfg
+                    writeOpaque(registration, PATH_GROUP_EVENT_CFG, cfg);//write byte cfg
+
                 }
+
                 devicesObject = (LwM2mObject)readRequest(registration, PATH_DEVICES);
                 if(devicesObject != null) {
                     putLwM2mObjectInMemory(registration.getEndpoint(), devicesObject);
                 }
             }
-
             if(events == null) {
                 events = readOpaque(registration, PATH_GROUP_EVENTS);
             }
            
             if (events != null) {
-                StringBuilder sb = new StringBuilder();
-                for(byte bs: events) {
-                    sb.append(String.format("%8s", Integer.toBinaryString(bs & 0xFF)).replace(' ', '0')); 
+                for(byte[] b: ByteUtil.split(events, 4)) {
+                    LOG.error("EVENTS: {}", new PredefinedEvent(b).toString());
                 }
-                LOG.error("EVENT LIST: {}", sb.toString());
             } 
             //collect daily sensor data  
             if (isSensors) {
@@ -400,7 +385,7 @@ public class OnConnectAction {
                             }
                             sendAll(data);
                             //clear read data 
-                            createExecuteRequest(registration, PATH_GROUP_CLEAR_DATA, null);
+                            createExecuteRequest(registration, PATH_GROUP_CLEAR_DATA.toString(), null);
                         } else {
                             LOG.error("Could not get serial info from endpoint:{}", registration.getEndpoint());
                             break;
@@ -415,6 +400,22 @@ public class OnConnectAction {
         //     processRedisRequests(registration);
         // }
     }
+    public byte[] getEndpointCfg(Registration registration,  byte[] currentByteCfg) {
+        StringBuilder sb = new StringBuilder();
+        for(byte bs: currentByteCfg) {
+            sb.append(String.format("%8s", Integer.toBinaryString(bs & 0xFF)).replace(' ', '0')); 
+        }
+        LOG.error("currentByteCfg: {}", sb.toString());
+        // //todo get uniq cfg for each endpoint?
+        CustomEvent ev1 = new CustomEvent(CustomEvent.ConfEventCode.TEMP_EVENT,
+            CustomEvent.EventTriggerType.UP, true, 20.34f, 0, 1, 2);
+        CustomEvent ev2 = new CustomEvent(CustomEvent.ConfEventCode.HUMID_EVENT,
+            CustomEvent.EventTriggerType.BOTH, false, -50.88f, 0, 1, 2, 4);
+        CustomEvent ev3 = new CustomEvent(CustomEvent.ConfEventCode.CO2_EVENT,
+            CustomEvent.EventTriggerType.DOWN, true, 800f, 0, 1, 2);
+        return ByteUtil.concatenate(ev1.toByte(), ev2.toByte(), ev3.toByte());
+    }
+
 
     private void putLwM2mObjectInMemory(String endpoint, LwM2mObject obj) {
         if(this.mSimpleStorage != null) {
@@ -499,7 +500,7 @@ public class OnConnectAction {
         LOG.debug("MultipleWrite is {}", result);
     }
 
-    private Boolean writeRequest(Registration registration, WriteRequest request) {
+    private boolean writeRequest(Registration registration, WriteRequest request) {
         return writeRequest(registration, request, this.mTimeout);
     }
 
@@ -548,47 +549,48 @@ public class OnConnectAction {
 
     private void processDataSub(Payload payload, LwM2mObjectInstance instance, int resource) {
         byte[] b = getOpaque(instance, resource);
-        if(b != null && b.length >= CFG_HEADER_BYTES) { //byte header +? data
+        if(b != null && b.length >= ByteUtil.CFG_HEADER_BYTES) { //byte header +? data
             processSensorData(payload, instance.getId(), resource, b); 
         }
     }
-    //LITTLE_ENDIAN byte decode
+    //LITTLE_ENDIAN byte decode //use ByteBuffer??
     //4B unixtime, 2B interval, 1B count, 1B cfg, else data
     private void processSensorData(Payload payload,int instance, int resource, byte[] opaque) {
-        byte[] rawTime = getEmptyByteArray(0);
+        byte[] rawTime = ByteUtil.getEmptyByteArray(0);
         rawTime[0] = opaque[0]; rawTime[1] = opaque[1];
         rawTime[2] = opaque[2]; rawTime[3] = opaque[3];
-        byte[] rawInterval = getEmptyByteArray(2);//add last fake bytes for parsing
+        byte[] rawInterval = ByteUtil.getEmptyByteArray(2);//add last fake bytes for parsing
         rawInterval[0] = opaque[4]; rawInterval[1] = opaque[5];
         int count = opaque[6];
-        int unixTime = byteToInt(rawTime, false);
-        int interval = byteToInt(rawInterval, false);
+        int unixTime = ByteUtil.byteToInt(rawTime, false);
+        int interval = ByteUtil.byteToInt(rawInterval, false);
         //config as string
         String cfgStr = String.format("%8s", Integer.toBinaryString(opaque[7] & 0xFF)).replace(' ', '0');
-        boolean repeatCall = bitStringToInt(cfgStr.substring(6, 7), false) == 1;
+        boolean repeatCall = ByteUtil.bitStringToInt(cfgStr.substring(6, 7), false) == 1;
         payload.setIfIsRepeatCall(repeatCall);
-        int pow = bitStringToInt(cfgStr.substring(3, 6), true); //floating point
+        int pow = ByteUtil.bitStringToInt(cfgStr.substring(3, 6), true); //floating point
         double floatingPoint = Math.pow(10, pow);
-        int byteOfValue = CFG_BYTES.get(bitStringToInt(cfgStr.substring(0,3), false)); //value bytes
-        double validCount = ((double)(opaque.length - CFG_HEADER_BYTES)) / byteOfValue;
+        int byteOfValue = CFG_BYTES.get(ByteUtil.bitStringToInt(cfgStr.substring(0,3), false)); //value bytes
+        double validCount = ((double)(opaque.length - ByteUtil.CFG_HEADER_BYTES)) / byteOfValue;
 
         //->dbg
         StringBuilder sb = new StringBuilder();
         for(byte bs: opaque) {
-            sb.append(String.format("%8s", Integer.toBinaryString(bs & 0xFF)).replace(' ', '0')); 
+            sb.append(ByteUtil.byteToString(bs)); 
         }
         LOG.error("Config: {}:{}:{}:{}:{}::{}", unixTime, interval, count, cfgStr, validCount, sb.toString());
          //<-dbg
       
-        if(opaque.length > CFG_HEADER_BYTES && count == validCount) {
+        if(opaque.length > ByteUtil.CFG_HEADER_BYTES && count == validCount) {
             Map<Integer, Object> collect = new HashMap<Integer, Object>();
             int posInList = 0;
-            int offset = VALUE_BYTES - byteOfValue;
-            byte[] rawValue = getEmptyByteArray(offset);
-            for (int i = 0; i + CFG_HEADER_BYTES < opaque.length; i++) {   
-                rawValue[(i % byteOfValue)] = opaque[CFG_HEADER_BYTES + i];
-                if(offset + (i % byteOfValue) == VALUE_BYTES - 1) { //last byte in array is added, create value
-                    int value = byteToInt(rawValue);
+            int offset = ByteUtil.VALUE_BYTES - byteOfValue;
+            byte[] rawValue = ByteUtil.getEmptyByteArray(offset);
+            for (int i = 0; i + ByteUtil.CFG_HEADER_BYTES < opaque.length; i++) {   
+                rawValue[(i % byteOfValue)] = opaque[ByteUtil.CFG_HEADER_BYTES + i];
+                if(offset + (i % byteOfValue) == ByteUtil.VALUE_BYTES - 1) { //last byte in array is added, create value
+                    //int value = ByteBuffer.wrap(rawValue).order(ByteOrder.LITTLE_ENDIAN).getInt(); 
+                    int value = ByteUtil.byteToInt(rawValue);
                     int valueTim = unixTime + (posInList * interval);
                     if(pow < 0) {//@floatingPoint must be 0.1,0.01.. //double, round remove 12.2300000000001
                         collect.put(valueTim, getDigitValue((double)value * floatingPoint, Math.abs(pow)));
@@ -597,54 +599,11 @@ public class OnConnectAction {
                     }
                     //next item
                     posInList++;
-                    rawValue = getEmptyByteArray(offset);
+                    rawValue = ByteUtil.getEmptyByteArray(offset);
                 }
             }
             payload.add(instance, resource, collect);
         }
-    }
-    //offset fills in LITTLE_ENDIAN last @offset bytes till 4byte array
-    private byte[] getEmptyByteArray(int offset) {
-        byte[] rawValue = new byte[VALUE_BYTES];//empty array for init
-        if(offset > 0) { //if int is 2 byte add 2 last byte for parsing
-            for( int i = 0; i < offset; i++) {
-                rawValue[(VALUE_BYTES - offset) + i] = 0;
-            }
-        }
-        return rawValue;
-    }
-    //String with more than 1 byte works only with BIG_ENDIAN  
-    public static int bitStringToInt(String b, boolean isSign) {
-        int value = 0;
-        for (int i = 0; i < b.length(); i++) {
-            if(b.charAt(i) == '1') { 
-                int add = (int) Math.pow(2, (b.length() - 1 - i));
-                if(isSign && i == 0) { //first sing minus
-                    add *=-1;
-                }
-                value += add;
-            }
-        }
-        return value;
-    }
-    //for unsigned LITTLE_ENDIAN convert to BIG_ENDIAN //todo: improves performance
-    public static int byteToInt(byte[] b, boolean isSign) {
-        int value = 0;
-        StringBuilder sb = new StringBuilder();
-        for (byte by : b) {
-            sb.insert(0,  String.format("%8s", Integer.toBinaryString(by & 0xFF)).replace(' ', '0')); 
-        }
-        value = bitStringToInt(sb.toString(), isSign);
-        return value;
-    }
-    //with sign value
-    public static int byteToInt(byte[] b) {
-        int value = 0;
-        for (int i = 0; i < b.length; i++) {
-            //value = (value << 8) + (b[i] & 0xff); //BIG_ENDIAN
-            value += ((int) b[i] & 0xffL) << (8 * i); //LITTLE_ENDIAN
-        }
-        return value;
     }
 
     public static double getDigitValue(double value, int round) {
@@ -723,9 +682,9 @@ public class OnConnectAction {
     //     }
     //     LOG.debug("latch.await ended for {} : {}", registration.getEndpoint(), object.getId());
     // }
-    private byte[] readOpaque(Registration registration, String resourceLink) {
+    private byte[] readOpaque(Registration registration, LwM2mPath resourceLink) {
         byte[] value = null;
-        LwM2mNode object = readRequest(registration, resourceLink);
+        LwM2mNode object = readRequest(registration, resourceLink.toString());
         if (object != null && object instanceof LwM2mSingleResource) {
             LwM2mSingleResource res = (LwM2mSingleResource) object;
             if (res.getType().equals(Type.OPAQUE)) {
@@ -736,6 +695,12 @@ public class OnConnectAction {
             }
         }
         return value;
+    }
+    private boolean writeOpaque(Registration registration, LwM2mPath resourceLink, byte[] byteValue) {
+        WriteRequest r = new WriteRequest(resourceLink.getObjectId(), 
+            resourceLink.getObjectInstanceId(), 
+            resourceLink.getResourceId(), byteValue);
+        return writeRequest(registration, r);
     }
 
     private Boolean readBooleanResource(Registration registration, String resourceLink) {

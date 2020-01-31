@@ -17,9 +17,7 @@ public class Payload {
     private static final String NAME_PRESSURE = "atmospheric";
     private static final String NAME_NONE = "none"; 
 
-    /** json timestamp */
     private static final String TIMESTAMP_KEY = "ts";
-     /** json values */ 
     private static final String VALUES_KEY = "values";
 
     private boolean mRepeatCall = true;

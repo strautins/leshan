@@ -59,8 +59,8 @@ public class Devices extends BaseInstanceEnabler {
     private long R6Value = 0l;
     private Map<Integer, Double> R7Value = new HashMap<Integer, Double>();
     private Map<Integer, Boolean> R9Values = new HashMap<Integer, Boolean>();
-    private Boolean R16Value= true;
-    private Boolean R17Value= true;
+    private Boolean R16Value = true;
+    private Boolean R17Value = true;
 
     private SensorReadings mSensor = null;
 
@@ -88,9 +88,11 @@ public class Devices extends BaseInstanceEnabler {
         this.R4Value = new Date();
         fireResourcesChange(R3);
     }
+
     public void setSerialNumber(String serialNr) {
         this.R2Value = serialNr;      
     }
+
     public void setSensorReadings(SensorReadings value) {
         this.mSensor = value;      
     }
@@ -125,7 +127,7 @@ public class Devices extends BaseInstanceEnabler {
         case R14:
             return ReadResponse.success(resourceId, this.mSensor.getSensor(SensorReadings.R3).getInterval());
         case R15:
-            return ReadResponse.success(resourceId, this.mSensor.getSensor(SensorReadings.R3).getInterval());
+            return ReadResponse.success(resourceId, this.mSensor.getSensor(SensorReadings.R4).getInterval());
         case R16:
             return ReadResponse.success(resourceId, this.R16Value);
         case R17:
