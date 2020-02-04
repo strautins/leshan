@@ -1,6 +1,7 @@
 package org.eclipse.leshan.client.demo.mt;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
@@ -9,14 +10,16 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.eclipse.californium.elements.util.NamedThreadFactory;
+import org.eclipse.leshan.client.demo.mt.utils.CustomEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class SensorConfig {
     
     private static final Logger LOG = LoggerFactory.getLogger(SensorConfig.class);
-    
-    private final ScheduledExecutorService scheduler;
+    private SensorReadings mSensorReadings;
+    private final List<CustomEvent> mCustomEvents = Collections.synchronizedList(new ArrayList<CustomEvent>());
+    private final ScheduledExecutorService mScheduler;
     private int mInterval;
     private Date mFMT = new Date();
 
@@ -45,16 +48,21 @@ public class SensorConfig {
         //1 bit is more data
         //1 bit reserved
         this.mCfg = cfg;
-        this.scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Sensor"));
+        this.mScheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Sensor"));
         scheduleReadings(2); //start adjust values with delay
     }
+
     public void scheduleReadings(int interval) {
-        scheduler.schedule(new Runnable() {
+        mScheduler.schedule(new Runnable() {
             @Override
             public void run() {
                 scheduleNext();
             }
         }, interval, TimeUnit.SECONDS);
+    }
+
+    public void setSensorReadings(SensorReadings sensorReadings) {
+        this.mSensorReadings = sensorReadings;
     }
 
     public boolean isEnable() {
@@ -71,6 +79,14 @@ public class SensorConfig {
 
     public void setInterval(int value) {
         this.mInterval = value;
+    }
+
+    public void setEvent(CustomEvent customEvent) {
+        this.mCustomEvents.add(customEvent);
+    }
+
+    public void clearEvent() {
+        this.mCustomEvents.clear();
     }
 
     public Date getFMT() {
@@ -127,21 +143,50 @@ public class SensorConfig {
     public void adjustMeasurements() {
         if(this.isEnable()) {
             double delta = (mRnd.nextDouble() - 0.5) * this.mDelta;
-            this.mCurrentValue += delta;
-
-            if(this.mCurrentValue  <= this.mLow || this.getMeasurementList().isEmpty() && delta < 0) {
+           
+            if(this.mCurrentValue + delta <= this.mLow || this.getMeasurementList().isEmpty() && delta < 0) {
                 this.mIsBottom = true;
-            } else if(this.mCurrentValue  >= this.mHigh || this.getMeasurementList().isEmpty() && delta < 0) {
+            } else if(this.mCurrentValue + delta >= this.mHigh || this.getMeasurementList().isEmpty() && delta < 0) {
                 this.mIsBottom = false;
             }
-            if(this.mIsBottom ) {
-                this.mCurrentValue += mAdjust;
-            } else {
-                this.mCurrentValue -= mAdjust;
-            }
+
+            delta += this.mIsBottom ? mAdjust : -mAdjust;
+
+            pushEvent(mCurrentValue, delta);
+
+            this.mCurrentValue += delta;
+
             this.addMeasurementList(this.mCurrentValue);
         }
     }
+
+    private void pushEvent(double currentValue, double delta) {
+        List<CustomEvent> newEvents = new ArrayList<CustomEvent>(); 
+        for (CustomEvent ev : mCustomEvents) {
+            boolean isEventTriggered = false;
+            if((ev.getEventTriggerType().equals(CustomEvent.EventTriggerType.UP) ||
+                    ev.getEventTriggerType().equals(CustomEvent.EventTriggerType.BOTH)) 
+                && currentValue < ev.getValue() &&  ev.getValue() <= currentValue + delta
+             ||
+                (ev.getEventTriggerType().equals(CustomEvent.EventTriggerType.UP) ||
+                    ev.getEventTriggerType().equals(CustomEvent.EventTriggerType.BOTH)) 
+                && currentValue > ev.getValue() &&  ev.getValue() >= currentValue + delta) {
+                isEventTriggered = true; 
+            }
+
+            if(isEventTriggered) {
+                newEvents.add(new CustomEvent(ev.getEventCode(), 
+                    ev.getEventTriggerType(), ev.isImmediateNotify(),
+                    ev.getValue(), this.mSensorReadings.getId()));
+            }
+            LOG.error("Adjust:{}; Current:{}; Delta:{}; Value:{}; {}", ev.getEventTriggerType().name(),currentValue, delta, ev.getValue(), isEventTriggered);
+        }
+
+        if(newEvents.size() > 0) {
+            this.mSensorReadings.getGroupSensors().pushEvent(newEvents.toArray(new CustomEvent[newEvents.size()]));    
+        }
+    }
+
     public double getCurrentValue(int round) {
         return GroupSensors.getDigitValue(this.mCurrentValue, round);
     }

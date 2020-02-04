@@ -1,5 +1,6 @@
 package org.eclipse.leshan.server.demo.mt;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -10,12 +11,22 @@ public class Payload {
     
     private static final Logger LOG = LoggerFactory.getLogger(Payload.class);
 
-    private static final String NAME_TEMPERATURE = "temperature";
-    private static final String NAME_HUMIDITY = "humidity";
-    private static final String NAME_CO2 = "co2";
-    private static final String NAME_CO = "co";
-    private static final String NAME_PRESSURE = "atmospheric";
-    private static final String NAME_NONE = "none"; 
+    public static enum SensorDataNaming {
+        temperature, humidity, atmospheric, co2, co, air_quality
+    }
+
+    private static final Map<Integer, SensorDataNaming> SENSOR_NAME;
+    static {
+        Map<Integer, SensorDataNaming> sensorName = new HashMap<Integer, SensorDataNaming>();
+        sensorName.put(0, SensorDataNaming.temperature); 
+        sensorName.put(1, SensorDataNaming.humidity); 
+        sensorName.put(2, SensorDataNaming.atmospheric); 
+        sensorName.put(3, SensorDataNaming.co2); 
+        sensorName.put(4, SensorDataNaming.co); 
+        sensorName.put(5, SensorDataNaming.air_quality); 
+
+        SENSOR_NAME = Collections.unmodifiableMap(sensorName);
+    }
 
     private static final String TIMESTAMP_KEY = "ts";
     private static final String VALUES_KEY = "values";
@@ -90,7 +101,7 @@ public class Payload {
                     /**String payload = "{\"ts\":" + calcTime +",\"values\":{\"temperature\":" 
                      *  + resEntry.getValue() + ", \"co2\":"+ co2 +"}}"; 
                      */ 
-                    String resName = getSensorName(res.getKey());
+                    String resName = SENSOR_NAME.get(res.getKey()).name();
                     payload.append(prefix);
                     prefix = ",";
                     payload.append(wrap(resName));
@@ -104,29 +115,6 @@ public class Payload {
             return payload.toString();
         }
         return null;
-    }
-    private static String getSensorName(int resource) {
-        String result = null;
-        switch (resource) {
-        case 0:
-            result = NAME_TEMPERATURE;
-            break;
-        case 1:
-            result = NAME_HUMIDITY;
-            break;
-        case 2:
-            result = NAME_PRESSURE;
-            break;
-        case 3:
-            result = NAME_CO2;
-            break;
-        case 4:
-            result = NAME_CO;
-            break;
-        default:
-            result = NAME_NONE;
-        }
-        return result;
     }
     private static String wrap(String value) {
 		return "\"" + value.replace("\"", "") +  "\"";

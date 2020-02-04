@@ -38,7 +38,7 @@ public class ByteUtil {
         return value;
     }
 
-    //for unsigned LITTLE_ENDIAN convert to BIG_ENDIAN //todo: improves performance
+    //for unsigned LITTLE_ENDIAN convert to BIG_ENDIAN //todo: improve performance
     public static int byteToInt(byte[] b, boolean isSign) {
         int value = 0;
         StringBuilder sb = new StringBuilder();
@@ -49,7 +49,6 @@ public class ByteUtil {
         return value;
     }
 
-    //with sign value
     public static int byteToInt(byte[] b) {
         int value = 0;
         for (int i = 0; i < b.length; i++) {
@@ -59,18 +58,31 @@ public class ByteUtil {
         return value;
     }
 
+    public static byte[] intToByte(int i) {
+        return new byte[] {
+            (byte) ((i) & 0xFF), //LITTLE_ENDIAN
+            (byte) ((i >> 8) & 0xFF),
+            (byte) ((i >> 16) & 0xFF),
+            (byte) ((i >> 24) & 0xFF)
+        };
+    }
+
     public static float byteArrayToFloat(byte[] bytes) {
         return Float.intBitsToFloat(byteToInt(bytes));  
     }
 
     public static byte[] floatToByteArray(float f) {
         int intBits =  Float.floatToIntBits(f);
-        return new byte[] {
-            (byte) ((intBits) & 0xFF), //LITTLE_ENDIAN
-            (byte) ((intBits >> 8) & 0xFF),
-            (byte) ((intBits >> 16) & 0xFF),
-            (byte) ((intBits >> 24) & 0xFF)
-        };
+        return intToByte(intBits);
+    }
+    
+    //from LITTLE_ENDIAN to BIG_ENDIAN
+    public static String byteToString(byte[] b) {
+        StringBuilder sb = new StringBuilder();
+        for (byte by : b) {
+            sb.insert(0, byteToString(by)); 
+        }
+        return sb.toString();
     }
 
     public static String byteToString(byte b) {
@@ -90,7 +102,7 @@ public class ByteUtil {
         }
         return res;
     }
-    
+
     public static byte[][] split(byte[] bArray, int len) {
         if(bArray.length > len && bArray.length % len == 0) {
             byte[][] result = new byte[bArray.length / len][];   

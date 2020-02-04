@@ -1,6 +1,5 @@
 package org.eclipse.leshan.client.demo.mt;
 
-import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
@@ -8,6 +7,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.leshan.client.demo.mt.utils.ByteUtil;
+import org.eclipse.leshan.client.demo.mt.utils.CodeWrapper;
+import org.eclipse.leshan.client.demo.mt.utils.CustomEvent;
 import org.eclipse.leshan.client.request.ServerIdentity;
 import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
 import org.eclipse.leshan.core.response.ExecuteResponse;
@@ -19,17 +21,15 @@ import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.model.ObjectModel;
 
 public class SensorReadings extends BaseInstanceEnabler {
+    public GroupSensors mGroupSensors;
     private static final Logger LOG = LoggerFactory.getLogger(SensorReadings.class);
     public static final int R0 = 0;
     public static final int R1 = 1;
     public static final int R2 = 2;
     public static final int R3 = 3;
     public static final int R4 = 4;
-    private final SensorConfig mTemperature;
-    private final SensorConfig mHumidity;
-    private final SensorConfig mAtmospheric;
-    private final SensorConfig mCO;
-    private final SensorConfig mCO2;
+    public static final int R5 = 5;
+    private final Map<Integer, SensorConfig> mSensors = new HashMap<Integer, SensorConfig>();
     private static final List<Integer> supportedResources = Arrays.asList(R0, R1, R2, R3, R4);
 
     // enum MeasType : uint8_t {
@@ -50,40 +50,60 @@ public class SensorReadings extends BaseInstanceEnabler {
     }
 
     public SensorReadings() {
-        this.mTemperature = new SensorConfig(-20d, 32d, 2d, 0.5d, "01011000"); 
-        this.mHumidity = new SensorConfig(30d, 70d, 10d, 1d, "00100000"); 
-        this.mAtmospheric = new SensorConfig(990d, 1030d, 2d, 0.5d, "01011000"); 
-        this.mCO = new SensorConfig(0d, 20, 2d, 0.5d, "01011000"); 
-        this.mCO2 = new SensorConfig(450d, 1800d, 100d, 15d, "01000000"); 
-    }
-    public void clearData(String parameters) {
-        Date d = new Date();
-        this.mTemperature.resetMeasurementList(d);
-        this.mHumidity.resetMeasurementList(d);
-        this.mAtmospheric.resetMeasurementList(d);
-        this.mCO.resetMeasurementList(d);
-        this.mCO2.resetMeasurementList(d);
-    }
-    public SensorConfig getSensor(int resource) {
-        SensorConfig result = null;
-        switch (resource) {
-            case R0:  result =  this.mTemperature;
-                     break;
-            case R1:  result =  this.mHumidity;
-                     break;
-            case R2:  result =  this.mAtmospheric;
-                     break;
-            case R3:  result =  this.mCO2;
-                     break;
-            case R4:  result =  this.mCO;
-                     break;
+        this.mSensors.put(R0, new SensorConfig(-20d, 32d, 10d, 2d, "01011000"));
+        this.mSensors.put(R1, new SensorConfig(30d, 70d, 10d, 1d, "00100000"));
+        this.mSensors.put(R2, new SensorConfig(990d, 1030d, 2d, 0.5d, "01011000"));
+        this.mSensors.put(R3, new SensorConfig(0d, 20, 2d, 0.5d, "01011000"));
+        this.mSensors.put(R4, new SensorConfig(450d, 1800d, 50d, 15d, "01000000"));
+        this.mSensors.put(R5, new SensorConfig(0d, 500d, 30, 5d, "01000000"));
+
+        for(Map.Entry<Integer, SensorConfig> entry : mSensors.entrySet() ) {
+            entry.getValue().setSensorReadings(this);  
         }
-        return result;
+    }
+
+    public void setEvent(CustomEvent customEvent) {
+        if(customEvent.getEventCode().name().equals(CodeWrapper.EventCode.TEMP_EVENT.name())) {
+            this.getSensor(R0).setEvent(customEvent);
+        } else if(customEvent.getEventCode().name().equals(CodeWrapper.EventCode.HUMID_EVENT.name())) {
+            this.getSensor(R1).setEvent(customEvent);
+        } else if(customEvent.getEventCode().name().equals(CodeWrapper.EventCode.PRESS_EVENT.name())) {
+            this.getSensor(R2).setEvent(customEvent);
+        } else if(customEvent.getEventCode().name().equals(CodeWrapper.EventCode.CO2_EVENT.name())) {
+            this.getSensor(R3).setEvent(customEvent);
+        } else if(customEvent.getEventCode().name().equals(CodeWrapper.EventCode.IAQ_EVEN.name())) {
+            this.getSensor(R5).setEvent(customEvent);
+        } 
+    }
+
+    public void clearEvent() {
+        for(Map.Entry<Integer, SensorConfig> entry : mSensors.entrySet() ) {
+            entry.getValue().clearEvent();    
+        }
+    }
+
+    public SensorConfig getSensor(int resourceId) {
+        return this.mSensors.get(resourceId);
+    }
+
+    public void setGroupSensors(GroupSensors groupSensors) {
+        this.mGroupSensors = groupSensors;
+    }
+
+    public GroupSensors getGroupSensors() {
+        return this.mGroupSensors;
+    }
+
+    public void clearData(String parameters) {
+        Date d = new Date(); //todo add correct clear date
+        for(Map.Entry<Integer, SensorConfig> entry : mSensors.entrySet() ) {
+            entry.getValue().resetMeasurementList(d);    
+        }
     }
 
     @Override
     public synchronized ReadResponse read(ServerIdentity identity, int resourceId) {
-        SensorConfig s = getSensor(resourceId);
+        SensorConfig s = this.getSensor(resourceId);
         if(s != null) {
             // enum MeasType : uint8_t {
             //     INT8 = 0,
@@ -117,12 +137,12 @@ public class SensorReadings extends BaseInstanceEnabler {
             };
             //INT32 / 8 = 4 bytes
             //INT16 / 8 = 2 bytes
-            int size = CFG_BYTES.get(bitStringToInt(s.getCfg().substring(0, 3), false));
+            int size = CFG_BYTES.get(ByteUtil.bitStringToInt(s.getCfg().substring(0, 3), false));
             byte[] measurementBytes = new byte[itemsArray.length * size];
             int count = 0;
             for(Double o : itemsArray) {
                 int val = 0;
-                if(bitStringToInt(s.getCfg().substring(3, 6), true) < 0) {
+                if(ByteUtil.bitStringToInt(s.getCfg().substring(3, 6), true) < 0) {
                     val = (int)(GroupSensors.getDigitValue((double)o, 2) * 100);
                 } else {
                     val = o.intValue();
@@ -139,25 +159,11 @@ public class SensorReadings extends BaseInstanceEnabler {
                 }
                 count++;
             }
-            result = GroupSensors.concatenate(result, measurementBytes);
+            result = ByteUtil.concatenate(result, measurementBytes);
             return ReadResponse.success(resourceId, result);
         } else {
             return super.read(identity, resourceId);
         }
-    }
-
-    public static int bitStringToInt(String b, boolean isSign) {
-        int value = 0;
-        for (int i = 0; i < b.length(); i++) {
-            if(b.charAt(i) == '1') { 
-                int add = (int) Math.pow(2, (b.length() - 1 - i));
-                if(isSign && i == 0) { //first sing minus
-                    add *=-1;
-                }
-                value += add;
-            }
-        }
-        return value;
     }
 
     @Override

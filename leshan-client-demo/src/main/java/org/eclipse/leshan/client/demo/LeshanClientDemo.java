@@ -76,7 +76,6 @@ public class LeshanClientDemo {
     private static MyLocation locationInstance;
 
     public static void main(final String[] args) {
-
         // Define options for command line tools
         Options options = new Options();
 
@@ -378,9 +377,9 @@ public class LeshanClientDemo {
         //gs.setGroupSensors("SN00000000001", "SN00000000002", "SN00000000003", "SN00000000004", "SN00000000005", "SN00000000006","SN00000000007","SN00000000008","SN00000000009");
         gs.setGroupSensors("SN00000000001", "SN00000000002", "SN00000000003");
         initializer.setInstancesForObject(OBJECT_ID_GROUP_DATA, gs);
-        initializer.setInstancesForObject(OBJECT_ID_SENSORS, gs.getSensorReadings().toArray(new SensorReadings[gs.getSensorReadings().size()]));
-        initializer.setInstancesForObject(OBJECT_ID_SMOKE, gs.getAlarmReadings().toArray(new AlarmStatus[gs.getAlarmReadings().size()]));
-        initializer.setInstancesForObject(OBJECT_ID_DEVICES, gs.getDevices().toArray(new Devices[gs.getDevices().size()]));
+        initializer.setInstancesForObject(OBJECT_ID_SENSORS, gs.getSensorReadings());
+        initializer.setInstancesForObject(OBJECT_ID_SMOKE, gs.getAlarmReadings());
+        initializer.setInstancesForObject(OBJECT_ID_DEVICES, gs.getDevices());
         List<LwM2mObjectEnabler> enablers = initializer.createAll();
         //<<<//additional sensors
         // Create CoAP Config

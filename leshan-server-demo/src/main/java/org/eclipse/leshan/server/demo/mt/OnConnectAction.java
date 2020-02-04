@@ -19,6 +19,7 @@ import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.network.interceptors.MessageInterceptorAdapter;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.leshan.Link;
+import org.eclipse.leshan.core.model.ResourceModel;
 import org.eclipse.leshan.core.model.ResourceModel.Type;
 import org.eclipse.leshan.core.node.LwM2mMultipleResource;
 import org.eclipse.leshan.core.node.LwM2mNode;
@@ -40,8 +41,13 @@ import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.ResponseCallback;
 import org.eclipse.leshan.server.californium.LeshanServer;
 import org.eclipse.leshan.server.demo.mt.utils.ByteUtil;
+import org.eclipse.leshan.server.demo.mt.utils.CodeWrapper;
 import org.eclipse.leshan.server.demo.mt.utils.CustomEvent;
+import org.eclipse.leshan.server.demo.mt.utils.OutputStateConfig;
 import org.eclipse.leshan.server.demo.mt.utils.PredefinedEvent;
+import org.eclipse.leshan.server.demo.mt.utils.CodeWrapper.EventCode;
+import org.eclipse.leshan.server.demo.mt.utils.CodeWrapper.OutputPolarity;
+import org.eclipse.leshan.server.demo.mt.utils.CodeWrapper.OutputTriggerType;
 import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeDeserializer;
 import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeSerializer;
 import org.eclipse.leshan.server.observation.ObservationListener;
@@ -339,12 +345,15 @@ public class OnConnectAction {
                     byte[] cfg = getOpaque(groupObj.getInstance(PATH_GROUP_EVENT_CFG.getObjectInstanceId()), PATH_GROUP_EVENT_CFG.getResourceId());   
                     cfg = getEndpointCfg(registration, cfg);//get byte cfg
                     writeOpaque(registration, PATH_GROUP_EVENT_CFG, cfg);//write byte cfg
-
                 }
 
                 devicesObject = (LwM2mObject)readRequest(registration, PATH_DEVICES);
                 if(devicesObject != null) {
                     putLwM2mObjectInMemory(registration.getEndpoint(), devicesObject);
+                    Map<Integer, byte[]> cfg = getEndpointOutputCfg(registration);
+                    for(Map.Entry<Integer, LwM2mObjectInstance> entry : devicesObject.getInstances().entrySet()) {
+                        writeOpaque(registration, new LwM2mPath(devicesObject.getId(),entry.getKey(), 10), cfg);
+                    }
                 }
             }
             if(events == null) {
@@ -367,6 +376,11 @@ public class OnConnectAction {
                     if(payload.isData()) {
                         if(devicesObject == null) {
                             devicesObject = getLwM2mObjectFromMemory(registration.getEndpoint(), OBJECT_ID_DEVICES);
+                            if(devicesObject != null) {
+                                byte[] b = getOpaque(devicesObject.getInstance(0), 20);
+                                int inttest = ByteUtil.byteToInt(b);
+                                LOG.info("test value:{}",inttest);
+                            }
                         }
                         if(devicesObject == null) {
                             devicesObject = (LwM2mObject)readRequest(registration, PATH_DEVICES);
@@ -407,15 +421,21 @@ public class OnConnectAction {
         }
         LOG.error("currentByteCfg: {}", sb.toString());
         // //todo get uniq cfg for each endpoint?
-        CustomEvent ev1 = new CustomEvent(CustomEvent.ConfEventCode.TEMP_EVENT,
-            CustomEvent.EventTriggerType.UP, true, 20.34f, 0, 1, 2);
-        CustomEvent ev2 = new CustomEvent(CustomEvent.ConfEventCode.HUMID_EVENT,
-            CustomEvent.EventTriggerType.BOTH, false, -50.88f, 0, 1, 2, 4);
-        CustomEvent ev3 = new CustomEvent(CustomEvent.ConfEventCode.CO2_EVENT,
-            CustomEvent.EventTriggerType.DOWN, true, 800f, 0, 1, 2);
-        return ByteUtil.concatenate(ev1.toByte(), ev2.toByte(), ev3.toByte());
+        CustomEvent ev1 = new CustomEvent(CodeWrapper.EventCode.TEMP_EVENT,
+            CustomEvent.EventTriggerType.UP, true, 20.34f, 1, 2);
+        CustomEvent ev2 = new CustomEvent(CodeWrapper.EventCode.TEMP_EVENT,
+            CustomEvent.EventTriggerType.BOTH, false, 10.88f, 0, 2, 4);
+        CustomEvent ev3 = new CustomEvent(CodeWrapper.EventCode.TEMP_EVENT,
+            CustomEvent.EventTriggerType.DOWN, true, -5, 0, 1);
+        return ByteUtil.concatenate(ev1.toWriteByte(), ev2.toWriteByte(), ev3.toWriteByte());
     }
 
+    public Map<Integer, byte[]> getEndpointOutputCfg(Registration registration) {
+        Map<Integer, byte[]> output = new HashMap<Integer, byte[]>();
+        output.put(0, new OutputStateConfig(OutputPolarity.HIGH, EventCode.ALARM, 1l, OutputTriggerType.EQUAL_OR_GREATER).toWriteByte());
+        output.put(0, new OutputStateConfig(OutputPolarity.LOW, EventCode.ALARM, 1l, OutputTriggerType.EQUAL_OR_GREATER).toWriteByte());
+        return output;
+    }
 
     private void putLwM2mObjectInMemory(String endpoint, LwM2mObject obj) {
         if(this.mSimpleStorage != null) {
@@ -538,11 +558,12 @@ public class OnConnectAction {
         if (object != null && object instanceof LwM2mObject) {
             LwM2mObject obj = (LwM2mObject) object;
             for (Map.Entry<Integer, LwM2mObjectInstance> entry : obj.getInstances().entrySet()) {
-                processDataSub(payload, entry.getValue(), 0);
-                processDataSub(payload, entry.getValue(), 1);
-                processDataSub(payload, entry.getValue(), 2);
-                processDataSub(payload, entry.getValue(), 3);
-                processDataSub(payload, entry.getValue(), 4);
+                processDataSub(payload, entry.getValue(), 0); //temperateure
+                processDataSub(payload, entry.getValue(), 1); //humidity
+                processDataSub(payload, entry.getValue(), 2); //Preasure
+                processDataSub(payload, entry.getValue(), 3); //CO2
+                processDataSub(payload, entry.getValue(), 4); //CO
+                processDataSub(payload, entry.getValue(), 5); //IAQ
             }
         }
     }
@@ -702,6 +723,13 @@ public class OnConnectAction {
             resourceLink.getResourceId(), byteValue);
         return writeRequest(registration, r);
     }
+    private boolean writeOpaque(Registration registration, LwM2mPath resourceLink,  Map<Integer, byte[]> map) {
+        WriteRequest r = new WriteRequest(resourceLink.getObjectId(), 
+            resourceLink.getObjectInstanceId(), 
+            resourceLink.getResourceId(), map, 
+            ResourceModel.Type.OPAQUE);
+        return writeRequest(registration, r);
+    }
 
     private Boolean readBooleanResource(Registration registration, String resourceLink) {
         Boolean value = null;
@@ -787,11 +815,9 @@ public class OnConnectAction {
     static protected  byte[] getOpaque(LwM2mObjectInstance instObj, int res) {
         LwM2mResource resource = instObj.getResources().get(res);
         if(resource != null && resource instanceof LwM2mSingleResource) {
-            @SuppressWarnings("unchecked")
+            //@SuppressWarnings("unchecked")
             byte[] resourceMap = (byte[])((LwM2mSingleResource)resource).getValue();
             return resourceMap;
-        } else {
-            LOG.error("Error on getOpaque. {}", resource);
         }
         return null;
     }

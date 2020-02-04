@@ -34,7 +34,7 @@
 				<Name>Atmospheric Pressure Data</Name>
 				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
-				<Mandatory>Mandatory</Mandatory>
+				<Mandatory>Optional</Mandatory>
 				<Type>Opaque</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units>Pa</Units>
@@ -44,7 +44,7 @@
 				<Name>Atmospheric CO2 Concentration Data</Name>
 				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
-				<Mandatory>Mandatory</Mandatory>
+				<Mandatory>Optional</Mandatory>
 				<Type>Opaque</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
@@ -54,11 +54,21 @@
 				<Name>Atmospheric CO Concentration Data</Name>
 				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
-				<Mandatory>Mandatory</Mandatory>
+				<Mandatory>Optional</Mandatory>
 				<Type>Opaque</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
 				<Description><![CDATA[List of measurements. CO concentration ppm. First resource being oldest measurement.]]></Description>
+			</Item>
+			<Item ID="5">
+				<Name>Indoor Air Quality Data</Name>
+				<Operations>R</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>Opaque</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[List of measurements. Indoor Air Quality data. First resource being oldest measurement.]]></Description>
 			</Item>
 		</Resources>
 		<Description2 />

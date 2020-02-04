@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.commons.codec.binary.Hex;
 import org.eclipse.leshan.core.node.LwM2mMultipleResource;
 import org.eclipse.leshan.core.node.LwM2mNode;
 import org.eclipse.leshan.core.node.LwM2mObject;
@@ -36,11 +37,9 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonPrimitive;
 
 public class LwM2mNodeDeserializer implements JsonDeserializer<LwM2mNode> {
-
     @Override
     public LwM2mNode deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
             throws JsonParseException {
-
         if (json == null) {
             return null;
         }
@@ -76,17 +75,33 @@ public class LwM2mNodeDeserializer implements JsonDeserializer<LwM2mNode> {
 
             } else if (object.has("value")) {
                 // single value resource
-                JsonPrimitive val = object.get("value").getAsJsonPrimitive();
-                org.eclipse.leshan.core.model.ResourceModel.Type expectedType = getTypeFor(val);
-                node = LwM2mSingleResource.newResource(id, deserializeValue(val, expectedType), expectedType);
+                Object objVal;
+                org.eclipse.leshan.core.model.ResourceModel.Type expectedType = null;
+                JsonElement element = object.get("value");
+                if(element.isJsonPrimitive()) {
+                    JsonPrimitive val = element.getAsJsonPrimitive();
+                    expectedType = getTypeFor(val);
+                    objVal = deserializeValue(val, expectedType);
+                } else {
+                    objVal = getOpaque(context, element);
+                    expectedType = org.eclipse.leshan.core.model.ResourceModel.Type.OPAQUE;
+                }
+                node = LwM2mSingleResource.newResource(id, objVal, expectedType);
             } else if (object.has("values")) {
                 // multi-instances resource
                 Map<Integer, Object> values = new HashMap<>();
                 org.eclipse.leshan.core.model.ResourceModel.Type expectedType = null;
                 for (Entry<String, JsonElement> entry : object.get("values").getAsJsonObject().entrySet()) {
-                    JsonPrimitive pval = entry.getValue().getAsJsonPrimitive();
-                    expectedType = getTypeFor(pval);
-                    values.put(Integer.valueOf(entry.getKey()), deserializeValue(pval, expectedType));
+                    Object objVal;
+                    if(entry.getValue().isJsonPrimitive()) {
+                        JsonPrimitive pval = entry.getValue().getAsJsonPrimitive();
+                        expectedType = getTypeFor(pval);
+                        objVal = deserializeValue(pval, expectedType);
+                    } else {
+                        objVal = getOpaque(context, entry.getValue());
+                        expectedType = org.eclipse.leshan.core.model.ResourceModel.Type.OPAQUE;
+                    }
+                    values.put(Integer.valueOf(entry.getKey()), objVal);
                 }
                 // use string by default;
                 if (expectedType == null)
@@ -133,6 +148,14 @@ public class LwM2mNodeDeserializer implements JsonDeserializer<LwM2mNode> {
         default:
             // TODO we need to better handle this.
             return val.getAsString();
+        }
+    }
+    
+    private byte[] getOpaque(JsonDeserializationContext context, JsonElement element) {
+        try {
+            return Hex.decodeHex((char[]) context.deserialize(element,  char[].class));
+        } catch (Exception e) {
+            return null;
         }
     }
 }

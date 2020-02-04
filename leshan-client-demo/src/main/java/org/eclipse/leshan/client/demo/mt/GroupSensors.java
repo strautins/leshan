@@ -7,7 +7,6 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -24,9 +23,11 @@ import javax.xml.datatype.XMLGregorianCalendar;
 
 import org.eclipse.leshan.client.californium.LeshanClient;
 import org.eclipse.leshan.client.demo.mt.utils.ByteUtil;
+import org.eclipse.leshan.client.demo.mt.utils.CodeWrapper;
 import org.eclipse.leshan.client.demo.mt.utils.CustomEvent;
 import org.eclipse.leshan.client.demo.mt.utils.PredefinedEvent;
-import org.eclipse.leshan.client.demo.mt.utils.PredefinedEvent.PredefinedEventCode;
+import org.eclipse.leshan.client.demo.mt.utils.PushEvent;
+import org.eclipse.leshan.client.demo.mt.utils.CodeWrapper.EventCode;
 import org.eclipse.leshan.client.request.ServerIdentity;
 import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
 import org.eclipse.leshan.core.model.ObjectModel;
@@ -55,16 +56,15 @@ public class GroupSensors extends BaseInstanceEnabler {
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Group object"));
 
-    private HashMap<PredefinedEventCode, PredefinedEvent> mEventList = new HashMap<PredefinedEventCode, PredefinedEvent>();
-    private HashMap<Integer, String> mSerialMap = new HashMap<Integer, String>();
-    private ArrayList<SensorReadings> mSensorList = new ArrayList<SensorReadings>();
-    private ArrayList<AlarmStatus> mAlarmStatusList = new ArrayList<AlarmStatus>();
-    private ArrayList<Devices> mDevicesList = new ArrayList<Devices>();
+    private final Map<Integer, PushEvent> mEventList = new HashMap<Integer, PushEvent>();
+    private final Map<Integer, String> mSerialMap = new HashMap<Integer, String>();
+    private final Map<Integer, SensorReadings> mSensorMap = new HashMap<Integer, SensorReadings>();
+    private final ArrayList<AlarmStatus> mAlarmStatusList = new ArrayList<AlarmStatus>();
+    private final ArrayList<Devices> mDevicesList = new ArrayList<Devices>();
     private static final List<Integer> supportedResources = Arrays.asList(R0, R1, R2, R3, R4, R5, R6, R7);
     private final Random mRnd = new Random();
 
-
-    private int mNotifyDelay = 10;
+    private int mNotifyDelay = 30;
     private Date mLastEventRead;
     public void setGroupSensors(String... serialNrs) {
         scheduleNext();
@@ -73,7 +73,8 @@ public class GroupSensors extends BaseInstanceEnabler {
             this.mSerialMap.put(i, serial); 
             SensorReadings t = new SensorReadings();
             t.setId(i);
-            mSensorList.add(t);
+            t.setGroupSensors(this);
+            mSensorMap.put(i, t);
 
             AlarmStatus a = new AlarmStatus();
             a.setSensors(t);
@@ -92,23 +93,46 @@ public class GroupSensors extends BaseInstanceEnabler {
         scheduler.schedule(new Runnable() {
             @Override
             public void run() {
-                createEvent();
+                createPredefinedEvent();
                 scheduleNext();
             }
         }, 10 + mRnd.nextInt(30), TimeUnit.SECONDS);
     }
-    public void createEvent() {
-        //get random event, first event = no event??
-        PredefinedEventCode ev = PredefinedEvent.PREDEFINED_EVENT_VALUE.get(1 + mRnd.nextInt(10));
-        PredefinedEvent e = mEventList.get(ev);
-        if(e == null) {
-            e = new PredefinedEvent(ev);
-            mEventList.put(ev, e);
+
+    //todo concurrent lock separate add/ clear //read
+    public synchronized void pushEvent(PushEvent... events) {
+        if(events[0] != null) {
+            for(PushEvent ev : events) {
+                PushEvent eventInList = mEventList.get(ev.getId());
+                if(eventInList == null) {
+                    mEventList.put(ev.getId(), ev);
+                    eventInList = ev;
+                } else {
+                    eventInList.addInstance(ev.getInstance());    
+                }
+
+                if(eventInList.isImmediateNotify() && this.mLastEventRead != null
+                    && (this.mLastEventRead.getTime() / 1000) + mNotifyDelay 
+                    <= (System.currentTimeMillis() / 1000)) {
+                    this.mLeshanClient.triggerRegistrationUpdate();
+                    LOG.info("Trigger Registration Update from EVENT!");
+                } else if(eventInList.isImmediateNotify() && this.mLastEventRead != null) {
+                    long waitTimeSec = ((this.mLastEventRead.getTime() / 1000) + mNotifyDelay) - (System.currentTimeMillis() / 1000); 
+                    LOG.info("Trigger Registration Update skipped! WaitTimeLeft:{}", waitTimeSec);
+                }
+            }
+        } else {
+            mEventList.clear();  
         }
-        LOG.info("Creating EVENT:{}; Is Registration Update:{}", e.getCode(), e.isImmediateNotify());
-        //rnd instance!
+    }
+
+    public void createPredefinedEvent() {
+        //get random event, first event = no event??
+        EventCode ev = CodeWrapper.EVENT_CODE_VALUE.get(1 + mRnd.nextInt(10));
         int instance = mRnd.nextInt(mSerialMap.size());
-        e.addParam2(instance);
+        PushEvent e = new PredefinedEvent(ev);
+        e.addInstance(instance);
+   
         //todo change resource for event
         // switch(e.getId()) {
         //     case 1:
@@ -120,24 +144,26 @@ public class GroupSensors extends BaseInstanceEnabler {
         //     default:
         //     // do nothing
         // }
-        if(e.isImmediateNotify() && this.mLastEventRead!= null
-             && (this.mLastEventRead.getTime() / 1000) + mNotifyDelay 
-             <= (System.currentTimeMillis() / 1000)) {
-            this.mLeshanClient.triggerRegistrationUpdate();
-            LOG.info("Trigger Registration Update from EVENT!");
+        LOG.info("Creating Random EVENT:{};", e.getEventCode().name());
+        pushEvent(e);
+    }
+
+    public SensorReadings[] getSensorReadings() {
+        SensorReadings[] arr = new SensorReadings[mSensorMap.size()];
+        int pos = 0;
+        for(Map.Entry<Integer, SensorReadings> entry: mSensorMap.entrySet()) {
+            arr[pos] = entry.getValue();
+            pos++;
         }
+        return arr;
     }
 
-    public ArrayList<SensorReadings> getSensorReadings() {
-        return this.mSensorList;
+    public AlarmStatus[] getAlarmReadings() {
+        return mAlarmStatusList.toArray(new AlarmStatus[mAlarmStatusList.size()]);
     }
 
-    public ArrayList<AlarmStatus> getAlarmReadings() {
-        return this.mAlarmStatusList;
-    }
-
-    public ArrayList<Devices> getDevices() {
-        return this.mDevicesList;
+    public Devices[] getDevices() {
+        return mDevicesList.toArray(new Devices[mDevicesList.size()]);
     }
 
     public void setLeshanClient(LeshanClient client) {
@@ -149,13 +175,19 @@ public class GroupSensors extends BaseInstanceEnabler {
         switch (resourceId) {
         case R0:
             this.mLastEventRead = new Date();
-            byte[] bEvent = new byte[0];
+            byte[] bEvent;
+
+            //todo: concurrent execute clear and read??
             if(!mEventList.isEmpty()) {
-                for(Map.Entry<PredefinedEventCode, PredefinedEvent> entry: mEventList.entrySet()) {
-                    bEvent = GroupSensors.concatenate(bEvent, entry.getValue().toByte());
+                byte[][] concat = new byte[mEventList.size()][];
+                int pos = 0;
+                for(Map.Entry<Integer, PushEvent> entry: mEventList.entrySet()) {
+                    concat[pos] = entry.getValue().toEventListByte();
+                    pos++;
                 }
+                bEvent = ByteUtil.concatenate(concat);
             } else {
-                bEvent = GroupSensors.concatenate(bEvent, new PredefinedEvent(PredefinedEventCode.NO_EVENT).toByte());
+                bEvent = new PredefinedEvent(CodeWrapper.EventCode.NO_EVENT).toEventListByte();
             }
             return ReadResponse.success(resourceId, bEvent);
         case R1:
@@ -186,8 +218,8 @@ public class GroupSensors extends BaseInstanceEnabler {
                 for(SensorReadings sensor: getSensorReadings()) {
                     sensor.clearData(params);   
                 }
-                //clear all events with data!
-                this.mEventList.clear();
+                //if null clear all events!
+                this.pushEvent((PushEvent)null);
                 return ExecuteResponse.success();
             default:
                 return ExecuteResponse.notFound();
@@ -203,13 +235,27 @@ public class GroupSensors extends BaseInstanceEnabler {
         case R1:
             if(value.getType().equals(ResourceModel.Type.OPAQUE)) {
                 byte[] bCfg = (byte[])value.getValue();  
-                StringBuilder sb = new StringBuilder();
-                for(byte bs: bCfg) {
-                    sb.append(String.format("%8s", Integer.toBinaryString(bs & 0xFF)).replace(' ', '0')); 
-                }
-                LOG.error("Received:{}", sb.toString());
+                // StringBuilder sb = new StringBuilder();
+                // for(byte bs: bCfg) {
+                //     sb.append(String.format("%8s", Integer.toBinaryString(bs & 0xFF)).replace(' ', '0')); 
+                // }
+                // LOG.error("Received:{}", sb.toString());
+                // //clear current events
+                // for(SensorReadings i : getSensorReadings()) { 
+                //     i.clearEvent();
+                // }
+
                 for(byte[] b : ByteUtil.split(bCfg, 8)) {
-                    LOG.error("data:{}:{}", b.length, new CustomEvent(b).toString());
+                    CustomEvent customEvent = new CustomEvent(b);
+                    LOG.error("data:{}", customEvent.toString());
+
+                    for(int i : customEvent.getInstance()) {
+                        LOG.info("Instances: {}", i);
+                        SensorReadings s = mSensorMap.get(i);
+                        if(s != null) {
+                            s.setEvent(customEvent);   
+                        }   
+                    }
                 };
                 return WriteResponse.success();
             } else {
@@ -321,15 +367,4 @@ public class GroupSensors extends BaseInstanceEnabler {
         }
         return result;
     } 
-    
-    public static byte[] concatenate(byte[] a, byte[] b) {
-        int aLen = a.length;
-        int bLen = b.length;
-    
-        byte[] c = (byte[]) Array.newInstance(a.getClass().getComponentType(), aLen + bLen);
-        System.arraycopy(a, 0, c, 0, aLen);
-        System.arraycopy(b, 0, c, aLen, bLen);
-
-        return c;
-    }
 }

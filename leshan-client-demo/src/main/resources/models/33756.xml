@@ -111,6 +111,16 @@
 				<Description><![CDATA[Set, read digital output logic state.]]></Description>
 			</Item>
 			<Item ID="10">
+				<Name>Output Config</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Multiple</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>Opaque</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[Config for Output State control.]]></Description>
+			</Item>
+			<Item ID="11">
 				<Name>Detach</Name>
 				<Operations>E</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -120,7 +130,7 @@
 				<Units></Units>
 				<Description><![CDATA[Detach device from group]]></Description>
 			</Item>
-			<Item ID="11">
+			<Item ID="12">
 				<Name>Temperature Measurement Interval</Name>
 				<Operations>RW</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -130,7 +140,7 @@
 				<Units>s</Units>
 				<Description><![CDATA[Measurement interval.]]></Description>
 			</Item>
-			<Item ID="12">
+			<Item ID="13">
 				<Name>Humidity Measurement Interval</Name>
 				<Operations>RW</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -140,7 +150,7 @@
 				<Units>s</Units>
 				<Description><![CDATA[Measurement interval.]]></Description>
 			</Item>
-			<Item ID="13">
+			<Item ID="14">
 				<Name>Pressure Measurement Interval</Name>
 				<Operations>RW</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -150,7 +160,7 @@
 				<Units>s</Units>
 				<Description><![CDATA[Measurement interval.]]></Description>
 			</Item>
-			<Item ID="14">
+			<Item ID="15">
 				<Name>CO2 Measurement Interval</Name>
 				<Operations>RW</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -160,7 +170,7 @@
 				<Units>s</Units>
 				<Description><![CDATA[Measurement interval.]]></Description>
 			</Item>
-			<Item ID="15">
+			<Item ID="16">
 				<Name>CO Measurement Interval</Name>
 				<Operations>RW</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -170,7 +180,17 @@
 				<Units>s</Units>
 				<Description><![CDATA[Measurement interval.]]></Description>
 			</Item>
-			<Item ID="16">
+			<Item ID="17">
+				<Name>Indoor Air Quality Interval</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>Integer</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units>s</Units>
+				<Description><![CDATA[Measurement interval.]]></Description>
+			</Item>
+			<Item ID="18">
 				<Name>Docked</Name>
 				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -180,7 +200,7 @@
 				<Units></Units>
 				<Description><![CDATA[Idicates phisical state of device. True when device is placed in the dock.]]></Description>
 			</Item>
-			<Item ID="17">
+			<Item ID="19">
 				<Name>External Power Source</Name>
 				<Operations>R</Operations>
 				<MultipleInstances>Single</MultipleInstances>
@@ -189,6 +209,16 @@
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
 				<Description><![CDATA[Idicates if device is plugged to external power source.]]></Description>
+			</Item>
+			<Item ID="20">
+				<Name>Test Opaque</Name>
+				<Operations>RW</Operations>
+				<MultipleInstances>Single</MultipleInstances>
+				<Mandatory>Optional</Mandatory>
+				<Type>Opaque</Type>
+				<RangeEnumeration></RangeEnumeration>
+				<Units></Units>
+				<Description><![CDATA[test resource for testing]]></Description>
 			</Item>
 		</Resources>
 		<Description2><![CDATA[]]></Description2>
