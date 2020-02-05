@@ -1,6 +1,4 @@
-package org.eclipse.leshan.server.demo.mt;
-
-import java.util.Iterator;
+package org.eclipse.leshan.server.demo.mt.memory;
 
 import com.eclipsesource.json.JsonObject;
 import com.google.gson.Gson;
@@ -119,13 +117,5 @@ public class RedisRequestLink {
     // }
     public static String ifNotNull(String string, String prefix) {
         return string != null ? (prefix + string) : "";
-    }
-    public static boolean isInt(String strNum) {
-        try {
-            Integer.parseInt(strNum);
-        } catch (NumberFormatException | NullPointerException nfe) {
-            return false;
-        }
-        return true;
     }
 } 

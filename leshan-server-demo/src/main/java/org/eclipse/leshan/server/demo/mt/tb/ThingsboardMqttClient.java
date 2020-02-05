@@ -1,4 +1,4 @@
-package org.eclipse.leshan.server.demo.mt;
+package org.eclipse.leshan.server.demo.mt.tb;
 
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 
 public class ThingsboardMqttClient implements ThingsboardSend {
 
-    private static final Logger LOG = LoggerFactory.getLogger(OnConnectAction.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ThingsboardMqttClient.class);
     private final String HOST;
     private final Integer PORT;
     private final Integer TIMEOUT;

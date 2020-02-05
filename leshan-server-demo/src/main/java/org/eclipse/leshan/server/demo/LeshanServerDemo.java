@@ -61,12 +61,10 @@ import org.eclipse.leshan.core.node.codec.LwM2mNodeDecoder;
 import org.eclipse.leshan.server.californium.LeshanServer;
 import org.eclipse.leshan.server.californium.LeshanServerBuilder;
 import org.eclipse.leshan.server.demo.mt.FileResource;
-import org.eclipse.leshan.server.demo.mt.OnConnectAction;
-import org.eclipse.leshan.server.demo.mt.RedisRequestLink;
-import org.eclipse.leshan.server.demo.mt.RedisStorage;
-import org.eclipse.leshan.server.demo.mt.ThingsboardHttpClient;
-import org.eclipse.leshan.server.demo.mt.ThingsboardMqttClient;
-import org.eclipse.leshan.server.demo.mt.ThingsboardSend;
+import org.eclipse.leshan.server.demo.mt.SDProcessor;
+import org.eclipse.leshan.server.demo.mt.tb.ThingsboardHttpClient;
+import org.eclipse.leshan.server.demo.mt.tb.ThingsboardMqttClient;
+import org.eclipse.leshan.server.demo.mt.tb.ThingsboardSend;
 import org.eclipse.leshan.server.demo.servlet.ClientServlet;
 import org.eclipse.leshan.server.demo.servlet.EventServlet;
 import org.eclipse.leshan.server.demo.servlet.ObjectSpecServlet;
@@ -79,6 +77,7 @@ import org.eclipse.leshan.server.redis.RedisSecurityStore;
 import org.eclipse.leshan.server.security.EditableSecurityStore;
 import org.eclipse.leshan.server.security.FileSecurityStore;
 import org.eclipse.leshan.util.SecurityUtil;
+import org.mikrotik.iot.sd.utils.ByteUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -421,7 +420,7 @@ public class LeshanServerDemo {
         if(tbUrl != null) {
             String[] link = tbUrl.split(":");
             //prefix:ip:port
-            if(link.length == 3 && RedisRequestLink.isInt(link[2]) && (link[0].equals("http") || link[0].equals("tcp"))) {
+            if(link.length == 3 && ByteUtil.isInt(link[2]) && (link[0].equals("http") || link[0].equals("tcp"))) {
                 if (link[0].equals("http")) {
                     thingsboardSend = new ThingsboardHttpClient(link[0] + ":" + link[1], Integer.valueOf(link[2]), 3);
                 } else if(link[0].equals("tcp")) {
@@ -436,7 +435,7 @@ public class LeshanServerDemo {
         if(filePath != null) {
             rootFile = new File(filePath);
             if (!rootFile.exists() && !rootFile.isDirectory()) {
-                LOG.error("File location {} doesn't exists or is no directory!", rootFile.getAbsolutePath());
+                LOG.error("File location {} doesn't exists or is not directory!", rootFile.getAbsolutePath());
                 rootFile = null;
             }
         }
@@ -447,7 +446,7 @@ public class LeshanServerDemo {
         }
 
         //start logic for device read
-        OnConnectAction processSD = new OnConnectAction(lwServer, thingsboardSend, jedis);
+        SDProcessor processSD = new SDProcessor(lwServer, thingsboardSend, jedis);
 
         // Now prepare Jetty
         InetSocketAddress jettyAddr;

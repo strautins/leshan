@@ -1,4 +1,7 @@
-package org.eclipse.leshan.client.demo.mt.utils;
+package org.mikrotik.iot.sd.utils;
+
+import java.lang.reflect.Array;
+import java.util.Arrays;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -100,6 +103,6 @@ public class CustomEvent extends CodeWrapper implements PushEvent {
     public String toString() {
         return new StringBuffer().append(super.getEventCode().name()).append("/")
             .append(this.getEventTriggerType().name()).append("/").append(this.isImmediateNotify())
-            .append("/").append(this.getInstance()).append("/").append(mValue).toString(); 
+            .append("/").append(Arrays.toString(this.getInstance())).append("/").append(mValue).toString(); 
     }
 }

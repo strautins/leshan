@@ -1,6 +1,6 @@
-package org.eclipse.leshan.server.demo.mt.utils;
+package org.mikrotik.iot.sd.utils;
 
-import org.eclipse.leshan.server.demo.mt.utils.CodeWrapper.EventCode;
+import org.mikrotik.iot.sd.utils.CodeWrapper.EventCode;
 
 public interface PushEvent {
     public int getId(); 

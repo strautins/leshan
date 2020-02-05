@@ -22,12 +22,6 @@ import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.XMLGregorianCalendar;
 
 import org.eclipse.leshan.client.californium.LeshanClient;
-import org.eclipse.leshan.client.demo.mt.utils.ByteUtil;
-import org.eclipse.leshan.client.demo.mt.utils.CodeWrapper;
-import org.eclipse.leshan.client.demo.mt.utils.CustomEvent;
-import org.eclipse.leshan.client.demo.mt.utils.PredefinedEvent;
-import org.eclipse.leshan.client.demo.mt.utils.PushEvent;
-import org.eclipse.leshan.client.demo.mt.utils.CodeWrapper.EventCode;
 import org.eclipse.leshan.client.request.ServerIdentity;
 import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
 import org.eclipse.leshan.core.model.ObjectModel;
@@ -37,6 +31,12 @@ import org.eclipse.leshan.core.response.ExecuteResponse;
 import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.WriteResponse;
 import org.eclipse.leshan.util.NamedThreadFactory;
+import org.mikrotik.iot.sd.utils.ByteUtil;
+import org.mikrotik.iot.sd.utils.PredefinedEvent;
+import org.mikrotik.iot.sd.utils.PushEvent;
+import org.mikrotik.iot.sd.utils.CodeWrapper.EventCode;
+import org.mikrotik.iot.sd.utils.CodeWrapper;
+import org.mikrotik.iot.sd.utils.CustomEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -247,10 +247,8 @@ public class GroupSensors extends BaseInstanceEnabler {
 
                 for(byte[] b : ByteUtil.split(bCfg, 8)) {
                     CustomEvent customEvent = new CustomEvent(b);
-                    LOG.error("data:{}", customEvent.toString());
-
+                    LOG.info("data:{}", customEvent.toString());
                     for(int i : customEvent.getInstance()) {
-                        LOG.info("Instances: {}", i);
                         SensorReadings s = mSensorMap.get(i);
                         if(s != null) {
                             s.setEvent(customEvent);   
@@ -265,20 +263,6 @@ public class GroupSensors extends BaseInstanceEnabler {
             //NOT FOUND
             return super.write(identity, resourceId, value);
         }
-    }
-
-    public static int byteToInt(byte[] b) {
-        int value = 0;
-        for (int i = 0; i < b.length; i++) {
-            //value = (value << 8) + (b[i] & 0xff); //BIG_ENDIAN
-            value += ((int) b[i] & 0xffL) << (8 * i); //LITTLE_ENDIAN
-        }
-        return value;
-    }
-
-    public static float byteArrayToFloat(byte[] bytes) {
-        int intBits = byteToInt(bytes);
-        return Float.intBitsToFloat(intBits);  
     }
     
     @Override
@@ -337,11 +321,6 @@ public class GroupSensors extends BaseInstanceEnabler {
     
     public static Date getDate(LwM2mResource value) {
        return getDate(value.getValue().toString());
-    }
-    
-    public static double getDigitValue(double value, int round) {
-        BigDecimal toBeTruncated = BigDecimal.valueOf(value);
-        return toBeTruncated.setScale(round, RoundingMode.HALF_UP).doubleValue();
     }
 
     public static Boolean isIntervalValid(String value) {

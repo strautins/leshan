@@ -1,17 +1,16 @@
-package org.eclipse.leshan.server.demo.mt;
+package org.eclipse.leshan.server.demo.mt.memory;
 
-import java.util.ArrayList;
 import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+//import org.slf4j.Logger;
+//import org.slf4j.LoggerFactory;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.util.Pool;
 
 public class RedisStorage implements SimpleStorage {
 
-    private static final Logger LOG = LoggerFactory.getLogger(OnConnectAction.class);
+    //private static final Logger LOG = LoggerFactory.getLogger(RedisStorage.class);
     
     private Pool<Jedis> mJedisPool = null;
     // Redis key prefixes

@@ -1,4 +1,6 @@
-package org.eclipse.leshan.client.demo.mt.utils;
+package org.mikrotik.iot.sd.utils;
+
+import java.util.Arrays;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,6 +76,6 @@ public class PredefinedEvent extends CodeWrapper implements PushEvent {
     public String toString() {
         return new StringBuffer().append(this.getId()).append("/")
             .append(this.getEventCode().name()).append("/").append(this.isImmediateNotify())
-            .append("/").append(this.mParam1).append("/").append(this.getInstance()).toString(); 
+            .append("/").append(this.mParam1).append("/").append(Arrays.toString(this.getInstance())).toString(); 
     }
 }

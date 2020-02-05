@@ -7,14 +7,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.eclipse.leshan.client.demo.mt.utils.ByteUtil;
-import org.eclipse.leshan.client.demo.mt.utils.CodeWrapper;
-import org.eclipse.leshan.client.demo.mt.utils.CustomEvent;
 import org.eclipse.leshan.client.request.ServerIdentity;
 import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
 import org.eclipse.leshan.core.response.ExecuteResponse;
 import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.WriteResponse;
+import org.mikrotik.iot.sd.utils.ByteUtil;
+import org.mikrotik.iot.sd.utils.CodeWrapper;
+import org.mikrotik.iot.sd.utils.CustomEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.eclipse.leshan.core.node.LwM2mResource;
@@ -29,7 +29,7 @@ public class SensorReadings extends BaseInstanceEnabler {
     public static final int R3 = 3;
     public static final int R4 = 4;
     public static final int R5 = 5;
-    private final Map<Integer, SensorConfig> mSensors = new HashMap<Integer, SensorConfig>();
+    private final Map<Integer, SensorEngine> mSensors = new HashMap<Integer, SensorEngine>();
     private static final List<Integer> supportedResources = Arrays.asList(R0, R1, R2, R3, R4);
 
     // enum MeasType : uint8_t {
@@ -50,14 +50,14 @@ public class SensorReadings extends BaseInstanceEnabler {
     }
 
     public SensorReadings() {
-        this.mSensors.put(R0, new SensorConfig(-20d, 32d, 10d, 2d, "01011000"));
-        this.mSensors.put(R1, new SensorConfig(30d, 70d, 10d, 1d, "00100000"));
-        this.mSensors.put(R2, new SensorConfig(990d, 1030d, 2d, 0.5d, "01011000"));
-        this.mSensors.put(R3, new SensorConfig(0d, 20, 2d, 0.5d, "01011000"));
-        this.mSensors.put(R4, new SensorConfig(450d, 1800d, 50d, 15d, "01000000"));
-        this.mSensors.put(R5, new SensorConfig(0d, 500d, 30, 5d, "01000000"));
+        this.mSensors.put(R0, new SensorEngine(-20d, 32d, 10d, 2d, "01011000"));
+        this.mSensors.put(R1, new SensorEngine(30d, 70d, 10d, 1d, "00100000"));
+        this.mSensors.put(R2, new SensorEngine(990d, 1030d, 2d, 0.5d, "01011000"));
+        this.mSensors.put(R3, new SensorEngine(450d, 1800d, 50d, 15d, "01000000"));
+        this.mSensors.put(R4, new SensorEngine(0d, 20, 2d, 0.5d, "01011000"));
+        this.mSensors.put(R5, new SensorEngine(0d, 500d, 30, 5d, "01000000"));
 
-        for(Map.Entry<Integer, SensorConfig> entry : mSensors.entrySet() ) {
+        for(Map.Entry<Integer, SensorEngine> entry : mSensors.entrySet() ) {
             entry.getValue().setSensorReadings(this);  
         }
     }
@@ -77,18 +77,18 @@ public class SensorReadings extends BaseInstanceEnabler {
     }
 
     public void clearEvent() {
-        for(Map.Entry<Integer, SensorConfig> entry : mSensors.entrySet() ) {
+        for(Map.Entry<Integer, SensorEngine> entry : mSensors.entrySet() ) {
             entry.getValue().clearEvent();    
         }
     }
 
-    public SensorConfig getSensor(int resourceId) {
+    public SensorEngine getSensor(int resourceId) {
         return this.mSensors.get(resourceId);
     }
 
     public void setGroupSensors(GroupSensors groupSensors) {
         this.mGroupSensors = groupSensors;
-    }
+}
 
     public GroupSensors getGroupSensors() {
         return this.mGroupSensors;
@@ -96,14 +96,14 @@ public class SensorReadings extends BaseInstanceEnabler {
 
     public void clearData(String parameters) {
         Date d = new Date(); //todo add correct clear date
-        for(Map.Entry<Integer, SensorConfig> entry : mSensors.entrySet() ) {
+        for(Map.Entry<Integer, SensorEngine> entry : mSensors.entrySet() ) {
             entry.getValue().resetMeasurementList(d);    
         }
     }
 
     @Override
     public synchronized ReadResponse read(ServerIdentity identity, int resourceId) {
-        SensorConfig s = this.getSensor(resourceId);
+        SensorEngine s = this.getSensor(resourceId);
         if(s != null) {
             // enum MeasType : uint8_t {
             //     INT8 = 0,
@@ -143,7 +143,7 @@ public class SensorReadings extends BaseInstanceEnabler {
             for(Double o : itemsArray) {
                 int val = 0;
                 if(ByteUtil.bitStringToInt(s.getCfg().substring(3, 6), true) < 0) {
-                    val = (int)(GroupSensors.getDigitValue((double)o, 2) * 100);
+                    val = (int)(ByteUtil.getDoubleRound((double)o, 2) * 100);
                 } else {
                     val = o.intValue();
                 }

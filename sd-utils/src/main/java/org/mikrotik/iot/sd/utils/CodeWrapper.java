@@ -1,4 +1,4 @@
-package org.eclipse.leshan.client.demo.mt.utils;
+package org.mikrotik.iot.sd.utils;
 
 import java.util.Collections;
 import java.util.HashMap;

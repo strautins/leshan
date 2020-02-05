@@ -1,4 +1,4 @@
-package org.eclipse.leshan.server.demo.mt;
+package org.eclipse.leshan.server.demo.mt.memory;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

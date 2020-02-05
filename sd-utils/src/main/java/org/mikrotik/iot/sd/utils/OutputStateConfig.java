@@ -1,4 +1,4 @@
-package org.eclipse.leshan.client.demo.mt.utils;
+package org.mikrotik.iot.sd.utils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,14 +102,12 @@ public class OutputStateConfig extends CodeWrapper {
     @Override
     public String toString() {
         return new StringBuffer().append(this.getId()).append("/")
-            .append(this.getEventCode().name()).append("/")
-            .append(this.getEventCode().name()).append("/")
-            .append(this.getEventCode().name()).append("/")
-            .append(this.getEventCode().name()).append("/")
-            
-            
-            
-            
-            .toString(); 
+        .append(this.getEventCode().name()).append("/")
+        .append(this.mValue).append("/")
+        .append(EVENT_CODE.get(this.m2Code)).append("/")
+        .append(this.m2Code.name()).append("/")
+        .append(this.m2Value).append("/")
+        .append(ByteUtil.byteToString(getConfig())).append("/")
+        .toString(); 
     }
 }

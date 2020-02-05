@@ -1,6 +1,5 @@
 package org.eclipse.leshan.client.demo.mt;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
@@ -11,16 +10,16 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.eclipse.californium.elements.util.NamedThreadFactory;
-import org.eclipse.leshan.client.demo.mt.utils.ByteUtil;
-import org.eclipse.leshan.client.demo.mt.utils.OutputStateConfig;
-import org.eclipse.leshan.client.demo.mt.utils.CodeWrapper.EventCode;
-import org.eclipse.leshan.client.demo.mt.utils.CodeWrapper.OutputPolarity;
-import org.eclipse.leshan.client.demo.mt.utils.CodeWrapper.OutputTriggerType;
 import org.eclipse.leshan.client.request.ServerIdentity;
 import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
 import org.eclipse.leshan.core.response.ExecuteResponse;
 import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.WriteResponse;
+import org.mikrotik.iot.sd.utils.ByteUtil;
+import org.mikrotik.iot.sd.utils.OutputStateConfig;
+import org.mikrotik.iot.sd.utils.CodeWrapper.EventCode;
+import org.mikrotik.iot.sd.utils.CodeWrapper.OutputPolarity;
+import org.mikrotik.iot.sd.utils.CodeWrapper.OutputTriggerType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.eclipse.leshan.core.model.ObjectModel;
@@ -51,7 +50,6 @@ public class Devices extends BaseInstanceEnabler {
     private static final int R17 = 17;
     private static final int R18 = 18;
     private static final int R19 = 19;
-    private static final int R20 = 20; //test!
 
     private static final List<Integer> supportedResources = Arrays.asList(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9,
         R10, R11, R12, R13, R14, R15, R16, R17, R18, R19);
@@ -149,13 +147,11 @@ public class Devices extends BaseInstanceEnabler {
         case R16:
             return ReadResponse.success(resourceId, this.mSensor.getSensor(SensorReadings.R4).getInterval());
         case R17:
-            return ReadResponse.success(resourceId, this.mSensor.getSensor(SensorReadings.R4).getInterval());
+            return ReadResponse.success(resourceId, this.mSensor.getSensor(SensorReadings.R5).getInterval());
         case R18:
             return ReadResponse.success(resourceId, this.R18Value);
         case R19:
             return ReadResponse.success(resourceId, this.R19Value);
-        case R20:
-            return ReadResponse.success(resourceId, this.R20Value);
         default:
             return super.read(identity, resourceId);
         }
@@ -191,6 +187,7 @@ public class Devices extends BaseInstanceEnabler {
             if(value instanceof LwM2mMultipleResource 
                     && value.isMultiInstances() && value.getType().equals(ResourceModel.Type.OPAQUE)) {
                     Map<Integer, byte[]> tmpArr = (Map<Integer, byte[]>)value.getValues();
+                    
                 for(Map.Entry<Integer, byte[]> entry : tmpArr.entrySet()) {
                     this.R10Values.put(entry.getKey(), new OutputStateConfig(entry.getValue()));
                 }

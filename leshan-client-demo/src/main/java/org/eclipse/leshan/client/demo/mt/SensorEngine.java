@@ -10,13 +10,14 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.eclipse.californium.elements.util.NamedThreadFactory;
-import org.eclipse.leshan.client.demo.mt.utils.CustomEvent;
+import org.mikrotik.iot.sd.utils.ByteUtil;
+import org.mikrotik.iot.sd.utils.CustomEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SensorConfig {
+public class SensorEngine {
     
-    private static final Logger LOG = LoggerFactory.getLogger(SensorConfig.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SensorEngine.class);
     private SensorReadings mSensorReadings;
     private final List<CustomEvent> mCustomEvents = Collections.synchronizedList(new ArrayList<CustomEvent>());
     private final ScheduledExecutorService mScheduler;
@@ -36,7 +37,7 @@ public class SensorConfig {
 
     private List<Double> mMeasurementList = new ArrayList<Double>();
 
-    public SensorConfig(double low, double high, double delta, double adjust, String cfg) {
+    public SensorEngine(double low, double high, double delta, double adjust, String cfg) {
         this.mLow = low;
         this.mHigh = high;
         this.mCurrentValue = low + (mRnd.nextDouble() * (high - low));
@@ -179,7 +180,12 @@ public class SensorConfig {
                     ev.getEventTriggerType(), ev.isImmediateNotify(),
                     ev.getValue(), this.mSensorReadings.getId()));
             }
-            LOG.error("Adjust:{}; Current:{}; Delta:{}; Value:{}; {}", ev.getEventTriggerType().name(),currentValue, delta, ev.getValue(), isEventTriggered);
+            LOG.info("Adjust:{}; delta:{}; sensor:{} ~ {}; value:{}; {}", 
+                ev.getEventTriggerType().name(), 
+                ByteUtil.getDoubleRound(delta, 2), 
+                ByteUtil.getDoubleRound(currentValue, 2), 
+                ByteUtil.getDoubleRound(currentValue + delta, 2), 
+                ev.getValue(), isEventTriggered);
         }
 
         if(newEvents.size() > 0) {
@@ -188,6 +194,6 @@ public class SensorConfig {
     }
 
     public double getCurrentValue(int round) {
-        return GroupSensors.getDigitValue(this.mCurrentValue, round);
+        return ByteUtil.getDoubleRound(this.mCurrentValue, round);
     }
 }

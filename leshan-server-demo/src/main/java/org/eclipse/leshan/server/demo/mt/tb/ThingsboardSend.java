@@ -1,4 +1,4 @@
-package org.eclipse.leshan.server.demo.mt;
+package org.eclipse.leshan.server.demo.mt.tb;
 
 import java.util.ArrayList;
 

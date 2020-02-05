@@ -1,6 +1,8 @@
-package org.eclipse.leshan.client.demo.mt.utils;
+package org.mikrotik.iot.sd.utils;
 
 import java.lang.reflect.Array;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -129,4 +131,18 @@ public class ByteUtil {
 
     //     return c;
     // }
+
+    public static boolean isInt(String strNum) {
+        try {
+            Integer.parseInt(strNum);
+        } catch (NumberFormatException | NullPointerException nfe) {
+            return false;
+        }
+        return true;
+    }
+
+    public static double getDoubleRound(double value, int round) {
+        BigDecimal toBeTruncated = BigDecimal.valueOf(value);
+        return toBeTruncated.setScale(round, RoundingMode.HALF_UP).doubleValue();
+    }
 }
