@@ -21,7 +21,7 @@ import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.model.ObjectModel;
 
 public class SensorReadings extends BaseInstanceEnabler {
-    public GroupSensors mGroupSensors;
+    private GroupSensors mGroupSensors;
     private static final Logger LOG = LoggerFactory.getLogger(SensorReadings.class);
     public static final int R0 = 0;
     public static final int R1 = 1;
@@ -50,7 +50,7 @@ public class SensorReadings extends BaseInstanceEnabler {
     }
 
     public SensorReadings() {
-        this.mSensors.put(R0, new SensorEngine(-20d, 32d, 10d, 2d, "01011000"));
+        this.mSensors.put(R0, new SensorEngine(-20d, 32d, 2d, 0.5d, "01011000"));
         this.mSensors.put(R1, new SensorEngine(30d, 70d, 10d, 1d, "00100000"));
         this.mSensors.put(R2, new SensorEngine(990d, 1030d, 2d, 0.5d, "01011000"));
         this.mSensors.put(R3, new SensorEngine(450d, 1800d, 50d, 15d, "01000000"));
@@ -76,6 +76,12 @@ public class SensorReadings extends BaseInstanceEnabler {
         } 
     }
 
+    public void clearTarget() {
+        for(Map.Entry<Integer, SensorEngine> entry : mSensors.entrySet() ) {
+            entry.getValue().setTarget(null);
+        }
+    }
+
     public void clearEvent() {
         for(Map.Entry<Integer, SensorEngine> entry : mSensors.entrySet() ) {
             entry.getValue().clearEvent();    
@@ -88,7 +94,7 @@ public class SensorReadings extends BaseInstanceEnabler {
 
     public void setGroupSensors(GroupSensors groupSensors) {
         this.mGroupSensors = groupSensors;
-}
+    }
 
     public GroupSensors getGroupSensors() {
         return this.mGroupSensors;

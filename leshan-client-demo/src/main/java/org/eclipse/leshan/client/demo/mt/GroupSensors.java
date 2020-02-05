@@ -1,8 +1,4 @@
 package org.eclipse.leshan.client.demo.mt;
-
-import java.lang.reflect.Array;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -13,9 +9,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
@@ -30,7 +23,6 @@ import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.response.ExecuteResponse;
 import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.WriteResponse;
-import org.eclipse.leshan.util.NamedThreadFactory;
 import org.mikrotik.iot.sd.utils.ByteUtil;
 import org.mikrotik.iot.sd.utils.PredefinedEvent;
 import org.mikrotik.iot.sd.utils.PushEvent;
@@ -54,7 +46,7 @@ public class GroupSensors extends BaseInstanceEnabler {
 
     private LeshanClient mLeshanClient;
 
-    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Group object"));
+    // private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Group object"));
 
     private final Map<Integer, PushEvent> mEventList = new HashMap<Integer, PushEvent>();
     private final Map<Integer, String> mSerialMap = new HashMap<Integer, String>();
@@ -64,10 +56,11 @@ public class GroupSensors extends BaseInstanceEnabler {
     private static final List<Integer> supportedResources = Arrays.asList(R0, R1, R2, R3, R4, R5, R6, R7);
     private final Random mRnd = new Random();
 
+    private byte[] mEventConfig = new byte[0];
     private int mNotifyDelay = 30;
     private Date mLastEventRead;
     public void setGroupSensors(String... serialNrs) {
-        scheduleNext();
+        // scheduleNext();
         int i = 0;
         for (String serial : serialNrs) {
             this.mSerialMap.put(i, serial); 
@@ -77,30 +70,32 @@ public class GroupSensors extends BaseInstanceEnabler {
             mSensorMap.put(i, t);
 
             AlarmStatus a = new AlarmStatus();
-            a.setSensors(t);
             a.setId(i);
+            a.setGroupSensors(this);
             mAlarmStatusList.add(a);
 
             Devices d = new Devices();
             d.setSerialNumber(serial);
             d.setSensorReadings(t);
             d.setId(i);
+            d.setGroupSensors(this);
             mDevicesList.add(d);
             i++;
         }
     }
-    private void scheduleNext() {
-        scheduler.schedule(new Runnable() {
-            @Override
-            public void run() {
-                createPredefinedEvent();
-                scheduleNext();
-            }
-        }, 10 + mRnd.nextInt(30), TimeUnit.SECONDS);
-    }
+
+    // private void scheduleNext() {
+    //     scheduler.schedule(new Runnable() {
+    //         @Override
+    //         public void run() {
+    //             createPredefinedEvent();
+    //             scheduleNext();
+    //         }
+    //     }, 10 + mRnd.nextInt(30), TimeUnit.SECONDS);
+    // }
 
     //todo concurrent lock separate add/ clear //read
-    public synchronized void pushEvent(PushEvent... events) {
+    public synchronized void pushEvents(final PushEvent... events) {
         if(events[0] != null) {
             for(PushEvent ev : events) {
                 PushEvent eventInList = mEventList.get(ev.getId());
@@ -126,26 +121,8 @@ public class GroupSensors extends BaseInstanceEnabler {
         }
     }
 
-    public void createPredefinedEvent() {
-        //get random event, first event = no event??
-        EventCode ev = CodeWrapper.EVENT_CODE_VALUE.get(1 + mRnd.nextInt(10));
-        int instance = mRnd.nextInt(mSerialMap.size());
-        PushEvent e = new PredefinedEvent(ev);
-        e.addInstance(instance);
-   
-        //todo change resource for event
-        // switch(e.getId()) {
-        //     case 1:
-        //         this.mDevicesList.get(instance).setId(id);
-        //     break;
-        //     case 2:
-        //         this.mDevicesList.get(instance).setId(id);
-        //     break;
-        //     default:
-        //     // do nothing
-        // }
-        LOG.info("Creating Random EVENT:{};", e.getEventCode().name());
-        pushEvent(e);
+    public Map<Integer, SensorReadings> getSensorMap() {
+        return mSensorMap;
     }
 
     public SensorReadings[] getSensorReadings() {
@@ -191,8 +168,7 @@ public class GroupSensors extends BaseInstanceEnabler {
             }
             return ReadResponse.success(resourceId, bEvent);
         case R1:
-            byte[] bCfg = new byte[0];
-            return ReadResponse.success(resourceId, bCfg);
+            return ReadResponse.success(resourceId, this.mEventConfig);
         case R2:
             return super.read(identity, resourceId);    
         case R3:
@@ -219,7 +195,7 @@ public class GroupSensors extends BaseInstanceEnabler {
                     sensor.clearData(params);   
                 }
                 //if null clear all events!
-                this.pushEvent((PushEvent)null);
+                this.pushEvents((PushEvent)null);
                 return ExecuteResponse.success();
             default:
                 return ExecuteResponse.notFound();
@@ -230,22 +206,11 @@ public class GroupSensors extends BaseInstanceEnabler {
     public synchronized WriteResponse write(ServerIdentity identity, int resourceId, LwM2mResource value) {
         switch (resourceId) {
         case R0:
-            //NOT FOUND
             return super.write(identity, resourceId, value);
         case R1:
             if(value.getType().equals(ResourceModel.Type.OPAQUE)) {
-                byte[] bCfg = (byte[])value.getValue();  
-                // StringBuilder sb = new StringBuilder();
-                // for(byte bs: bCfg) {
-                //     sb.append(String.format("%8s", Integer.toBinaryString(bs & 0xFF)).replace(' ', '0')); 
-                // }
-                // LOG.error("Received:{}", sb.toString());
-                // //clear current events
-                // for(SensorReadings i : getSensorReadings()) { 
-                //     i.clearEvent();
-                // }
-
-                for(byte[] b : ByteUtil.split(bCfg, 8)) {
+                this.mEventConfig = (byte[])value.getValue();  
+                for(byte[] b : ByteUtil.split(this.mEventConfig, 8)) {
                     CustomEvent customEvent = new CustomEvent(b);
                     LOG.info("data:{}", customEvent.toString());
                     for(int i : customEvent.getInstance()) {

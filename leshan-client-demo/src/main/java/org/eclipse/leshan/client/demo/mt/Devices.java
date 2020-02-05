@@ -5,6 +5,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -17,6 +18,7 @@ import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.WriteResponse;
 import org.mikrotik.iot.sd.utils.ByteUtil;
 import org.mikrotik.iot.sd.utils.OutputStateConfig;
+import org.mikrotik.iot.sd.utils.PredefinedEvent;
 import org.mikrotik.iot.sd.utils.CodeWrapper.EventCode;
 import org.mikrotik.iot.sd.utils.CodeWrapper.OutputPolarity;
 import org.mikrotik.iot.sd.utils.CodeWrapper.OutputTriggerType;
@@ -54,51 +56,108 @@ public class Devices extends BaseInstanceEnabler {
     private static final List<Integer> supportedResources = Arrays.asList(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9,
         R10, R11, R12, R13, R14, R15, R16, R17, R18, R19);
     private final ScheduledExecutorService scheduler;
-    private Integer mInterval = 60;
 
     private String R0Value = "1.2.0";
     private String R1Value = "1.1.0r2";
     private String R2Value= "";
     private Boolean R3Value= true;
     /**Last Active Time */
-    private Date R4Value = new Date();
-    private long R5Value = -67l;
+    private Date R4Value;
+    private long R5Value;
     private long R6Value = 0l;
     private Map<Integer, Double> R7Value = new HashMap<Integer, Double>();
     private Map<Integer, Boolean> R9Values = new HashMap<Integer, Boolean>();
     private Map<Integer, OutputStateConfig> R10Values = new HashMap<Integer, OutputStateConfig>();
     private Boolean R18Value = true;
     private Boolean R19Value = true;
-    private byte[] R20Value = ByteUtil.intToByte(12345678);
 
     private SensorReadings mSensor = null;
 
+    private GroupSensors mGroupSensors;
+    
+    private final Random mRnd = new Random();
+
     public Devices() {
         this.scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Devices"));
-        R9Values.put(0, true);
-        R9Values.put(1, false);
-
-        R7Value.put(0, 1.3412d);
-        R7Value.put(1, 0.942d);
-
+        initDefault();
+        R7Value.put(0, ByteUtil.getDoubleRound(1 + mRnd.nextDouble(), 3)); //Battery Level 
+        R7Value.put(1, ByteUtil.getDoubleRound(1 + mRnd.nextDouble(), 3));
         R10Values.put(0, new OutputStateConfig(OutputPolarity.HIGH, EventCode.ALARM, 1l, OutputTriggerType.EQUAL_OR_GREATER));
         R10Values.put(1, new OutputStateConfig(OutputPolarity.LOW, EventCode.ALARM, 1l, OutputTriggerType.EQUAL_OR_GREATER));
 
-        pulse();
+        scheduleEvent();
     }
-    private void pulse() {
+
+    public void initDefault() {
+        R3Value = true; //Reachable
+        R4Value = new Date(); //Last Active Time
+        R5Value = -60l + (long)(-10 * mRnd.nextDouble()); //Bluetooth Signal Strength
+        
+        //R9Values.put(0, true); //Output State
+        //R9Values.put(1, false);
+    }
+
+    public void setGroupSensors(GroupSensors groupSensors) {
+        this.mGroupSensors = groupSensors;
+    }
+
+    private void scheduleEvent() {
         scheduler.schedule(new Runnable() {
             @Override
             public void run() {
-                adjustValues();
+                scheduleEvent();  
+                initDefault();
+                double d = mRnd.nextDouble();
+                if(d < 0.6) {
+                    PredefinedEvent ev = new PredefinedEvent(EventCode.NO_EVENT);
+                    ev.addInstance(getId());
+                    if(d < 0.1) {
+                        ev.setEventCode(EventCode.BATTERY_PROB);
+                        if(d < 0.05) {
+                            R7Value.put(0, 0d);
+                        } else {
+                            R7Value.put(1, 0d);
+                        }
+                    } else if(d < 0.2) {
+                        ev.setEventCode(EventCode.CRIT_BAT);
+                        if(R6Value != 2) {
+                            R6Value = 2;
+                            R7Value.put(0, ByteUtil.getDoubleRound(mRnd.nextDouble(), 3));
+                            R7Value.put(1, ByteUtil.getDoubleRound(mRnd.nextDouble(), 3));
+                        } else {
+                            R6Value = 0;
+                            R7Value.put(0, ByteUtil.getDoubleRound(0.5 + mRnd.nextDouble(), 3));
+                            R7Value.put(1, ByteUtil.getDoubleRound(0.5 + mRnd.nextDouble(), 3));   
+                        }
+                    } else if(d < 0.3) {
+                        ev.setEventCode(EventCode.NOT_REACHABLE);
+                        R3Value = false;
+                        R4Value = new Date(System.currentTimeMillis() - (long)(mRnd.nextDouble() * 60000d));
+                    } else if(d < 0.4) {
+                        if(R19Value) {
+                            ev.setEventCode(EventCode.EXT_PWR_OFF);
+                            R19Value = false;
+                        } else {
+                            ev.setEventCode(EventCode.EXT_PWR_ON);
+                            R19Value = true;
+                        }
+                    }  else if(d < 0.5) {
+                        R5Value = -100 + (long)(-20 * mRnd.nextDouble());
+                        ev.setEventCode(EventCode.LOW_BT_SIGNAL);
+                    } else {
+                        if(R18Value) {
+                            ev.setEventCode(EventCode.UNDOCKED);
+                            R18Value = false;
+                        } else {
+                            ev.setEventCode(EventCode.DOCKED);
+                            R18Value = true;
+                        }
+                    }
+                    LOG.info("Creating Device EVENT:{};", ev.toString());
+                    mGroupSensors.pushEvents(ev); 
+                }
             }
-        }, mInterval, TimeUnit.SECONDS);
-        //fireResourcesChange(R0, R1, R2, R3, R4, R5, R6, R7, R8);
-    }
-    private void adjustValues() {
-        pulse();
-        this.R4Value = new Date();
-        fireResourcesChange(R3);
+        }, 10 + mRnd.nextInt(30), TimeUnit.SECONDS);
     }
 
     public void setSerialNumber(String serialNr) {

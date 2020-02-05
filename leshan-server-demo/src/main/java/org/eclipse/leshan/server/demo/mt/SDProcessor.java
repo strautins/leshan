@@ -19,26 +19,11 @@ import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.network.interceptors.MessageInterceptorAdapter;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.leshan.Link;
-import org.eclipse.leshan.core.model.ResourceModel;
-import org.eclipse.leshan.core.model.ResourceModel.Type;
-import org.eclipse.leshan.core.node.LwM2mMultipleResource;
 import org.eclipse.leshan.core.node.LwM2mNode;
 import org.eclipse.leshan.core.node.LwM2mObject;
 import org.eclipse.leshan.core.node.LwM2mObjectInstance;
 import org.eclipse.leshan.core.node.LwM2mPath;
-import org.eclipse.leshan.core.node.LwM2mResource;
-import org.eclipse.leshan.core.node.LwM2mSingleResource;
 import org.eclipse.leshan.core.observation.Observation;
-import org.eclipse.leshan.core.request.ExecuteRequest;
-import org.eclipse.leshan.core.request.ObserveRequest;
-import org.eclipse.leshan.core.request.ReadRequest;
-import org.eclipse.leshan.core.request.WriteRequest;
-import org.eclipse.leshan.core.response.ErrorCallback;
-import org.eclipse.leshan.core.response.ExecuteResponse;
-import org.eclipse.leshan.core.response.LwM2mResponse;
-import org.eclipse.leshan.core.response.ObserveResponse;
-import org.eclipse.leshan.core.response.ReadResponse;
-import org.eclipse.leshan.core.response.ResponseCallback;
 import org.eclipse.leshan.server.californium.LeshanServer;
 import org.eclipse.leshan.server.demo.mt.tb.ThingsboardSend;
 import org.eclipse.leshan.server.demo.mt.memory.InMemoryStorage;
@@ -47,7 +32,6 @@ import org.eclipse.leshan.server.demo.mt.memory.SimpleStorage;
 import org.eclipse.leshan.server.demo.mt.tb.Payload;
 import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeDeserializer;
 import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeSerializer;
-import org.eclipse.leshan.server.observation.ObservationListener;
 import org.eclipse.leshan.server.registration.Registration;
 import org.eclipse.leshan.server.registration.RegistrationListener;
 import org.eclipse.leshan.server.registration.RegistrationUpdate;
@@ -336,11 +320,14 @@ public class SDProcessor {
             }
            
             if (events != null) {
-                needToClearData = true;
+                
                 //do something wise on received events
                 for(byte[] b: ByteUtil.split(events, 4)) {
                     PredefinedEvent ev = new PredefinedEvent(b);
                     LOG.info("EVENT: {}", ev.toString());
+                    if(!ev.getEventCode().equals(EventCode.NO_EVENT)) {
+                        needToClearData = true;
+                    }
                     if(ev.getEventCode().equals(EventCode.ALARM)) {
                         AlarmObj = (LwM2mObject)Lwm2mHelper.readRequest(this.mLeshanServer, registration, PATH_ALARM, this.mTimeout);     
                         if(AlarmObj != null) {
@@ -485,6 +472,7 @@ public class SDProcessor {
         StringBuilder sb = new StringBuilder();
         for(byte bs: opaque) {
             sb.append(ByteUtil.byteToString(bs)); 
+            sb.append(" "); 
         }
         LOG.debug("Config: {}:{}:{}:{}:{}::{}", unixTime, interval, count, cfgStr, validCount, sb.toString());
          //<-dbg

@@ -77,7 +77,7 @@ public class ByteUtil {
         int intBits =  Float.floatToIntBits(f);
         return intToByte(intBits);
     }
-    
+  
     //from LITTLE_ENDIAN to BIG_ENDIAN
     public static String byteToString(byte[] b) {
         StringBuilder sb = new StringBuilder();

@@ -27,6 +27,7 @@ public class SensorEngine {
     private final Random mRnd = new Random();
     private boolean mIsBottom = false;
 
+    private Double mTarget;
     private double mCurrentValue;
     private double mLow;
     private double mHigh;
@@ -64,6 +65,10 @@ public class SensorEngine {
 
     public void setSensorReadings(SensorReadings sensorReadings) {
         this.mSensorReadings = sensorReadings;
+    }
+
+    public void setTarget(Double value) {
+        this.mTarget = value;
     }
 
     public boolean isEnable() {
@@ -143,7 +148,12 @@ public class SensorEngine {
 
     public void adjustMeasurements() {
         if(this.isEnable()) {
+           
             double delta = (mRnd.nextDouble() - 0.5) * this.mDelta;
+
+            if(mTarget != null) {
+                delta = (this.mTarget - this.mCurrentValue) * mRnd.nextDouble();      
+            }
            
             if(this.mCurrentValue + delta <= this.mLow || this.getMeasurementList().isEmpty() && delta < 0) {
                 this.mIsBottom = true;
@@ -189,7 +199,7 @@ public class SensorEngine {
         }
 
         if(newEvents.size() > 0) {
-            this.mSensorReadings.getGroupSensors().pushEvent(newEvents.toArray(new CustomEvent[newEvents.size()]));    
+            this.mSensorReadings.getGroupSensors().pushEvents(newEvents.toArray(new CustomEvent[newEvents.size()]));    
         }
     }
 
