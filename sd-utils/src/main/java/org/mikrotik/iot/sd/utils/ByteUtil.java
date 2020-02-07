@@ -105,6 +105,20 @@ public class ByteUtil {
         return res;
     }
 
+    public static boolean bitLevel(int value, int bit) {
+        return (value & (1L << bit)) == 1;
+    }
+
+    public static byte[] cut(byte[] bArray, int position, int count) {
+        if(bArray.length >= position + count) {
+            byte[] result = new byte[count];   
+            System.arraycopy(bArray, position, result, 0, count);   
+            return result; 
+        } else {
+            return bArray;
+        }
+    }
+
     public static byte[][] split(byte[] bArray, int len) {
         if(bArray.length > len && bArray.length % len == 0) {
             byte[][] result = new byte[bArray.length / len][];   
@@ -144,5 +158,10 @@ public class ByteUtil {
     public static double getDoubleRound(double value, int round) {
         BigDecimal toBeTruncated = BigDecimal.valueOf(value);
         return toBeTruncated.setScale(round, RoundingMode.HALF_UP).doubleValue();
+    }
+    
+    public static double getDoubleRoundUp(double value, int round) {
+        BigDecimal toBeTruncated = BigDecimal.valueOf(value);
+        return toBeTruncated.setScale(round, RoundingMode.UP).doubleValue();
     }
 }

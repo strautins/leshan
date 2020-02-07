@@ -66,7 +66,7 @@ public class PredefinedEvent extends CodeWrapper implements PushEvent {
     @Override
     public void addInstance(int... instances) {
         for(int i : instances) {
-            if ((this.mParam2 & (1L << i)) == 0) {
+            if (!ByteUtil.bitLevel(this.mParam2, i)) {
                 this.mParam2 += (int) Math.pow(2, i);
             }
         }    

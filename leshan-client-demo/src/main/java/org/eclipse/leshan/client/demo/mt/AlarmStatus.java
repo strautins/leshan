@@ -64,20 +64,20 @@ public class AlarmStatus extends BaseInstanceEnabler {
                 initDefault();
                 mGroupSensors.getSensorMap().get(getId()).clearTarget();
                 double d = mRnd.nextDouble();
-                if(d < 0.2) {
+                if(d < 0.1) {
                     SensorReadings sr = mGroupSensors.getSensorMap().get(getId());
-                    if(d < 0.05) {
+                    if(d < 0.02) {
                         mAlarmStatus = 2l;
                         sr.getSensor(SensorReadings.R0).setTarget(80d);
                         sr.getSensor(SensorReadings.R1).setTarget(10d);
                         sr.getSensor(SensorReadings.R3).setTarget(3000d);
                         fireResourcesChange(AlarmStatus.R0);
-                    } else if(d < 0.1) {
+                    } else if(d < 0.04) {
                         mAlarmStatus = 1l;
                         mHushed = true;
                         sr.getSensor(SensorReadings.R3).setTarget(3000d);
                         fireResourcesChange(AlarmStatus.R0, AlarmStatus.R3);
-                    } else if(d < 0.15) {
+                    } else if(d < 0.06) {
                         mCoAlarm = true;  
                         sr.getSensor(SensorReadings.R4).setTarget(80d); 
                         fireResourcesChange(AlarmStatus.R1);
@@ -94,7 +94,7 @@ public class AlarmStatus extends BaseInstanceEnabler {
                     mGroupSensors.pushEvents(ev); 
                 }
             }
-        }, 60 + mRnd.nextInt(180), TimeUnit.SECONDS);
+        }, 180 + mRnd.nextInt(180), TimeUnit.SECONDS);
     }
 
     public void setGroupSensors(GroupSensors groupSensors) {

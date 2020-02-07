@@ -57,7 +57,7 @@ public class GroupSensors extends BaseInstanceEnabler {
     private final Random mRnd = new Random();
 
     private byte[] mEventConfig = new byte[0];
-    private int mNotifyDelay = 30;
+    private int mNotifyDelay = 180;
     private Date mLastEventRead;
     public void setGroupSensors(String... serialNrs) {
         // scheduleNext();
@@ -107,12 +107,13 @@ public class GroupSensors extends BaseInstanceEnabler {
                 }
 
                 if(eventInList.isImmediateNotify() && this.mLastEventRead != null
-                    && (this.mLastEventRead.getTime() / 1000) + mNotifyDelay 
-                    <= (System.currentTimeMillis() / 1000)) {
+                    && (this.mLastEventRead.getTime() / 1000) + this.mNotifyDelay 
+                        <= (System.currentTimeMillis() / 1000)) {
+                    this.mLastEventRead = new Date(); //locks Registration trigger
                     this.mLeshanClient.triggerRegistrationUpdate();
                     LOG.info("Trigger Registration Update from EVENT!");
                 } else if(eventInList.isImmediateNotify() && this.mLastEventRead != null) {
-                    long waitTimeSec = ((this.mLastEventRead.getTime() / 1000) + mNotifyDelay) - (System.currentTimeMillis() / 1000); 
+                    long waitTimeSec = ((this.mLastEventRead.getTime() / 1000) + this.mNotifyDelay) - (System.currentTimeMillis() / 1000); 
                     LOG.info("Trigger Registration Update skipped! WaitTimeLeft:{}", waitTimeSec);
                 }
             }
@@ -153,7 +154,6 @@ public class GroupSensors extends BaseInstanceEnabler {
         case R0:
             this.mLastEventRead = new Date();
             byte[] bEvent;
-
             //todo: concurrent execute clear and read??
             if(!mEventList.isEmpty()) {
                 byte[][] concat = new byte[mEventList.size()][];

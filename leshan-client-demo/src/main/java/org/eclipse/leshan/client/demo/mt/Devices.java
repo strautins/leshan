@@ -134,22 +134,20 @@ public class Devices extends BaseInstanceEnabler {
                         R3Value = false;
                         R4Value = new Date(System.currentTimeMillis() - (long)(mRnd.nextDouble() * 60000d));
                     } else if(d < 0.4) {
+                        ev.setEventCode(EventCode.EXT_PWR);
                         if(R19Value) {
-                            ev.setEventCode(EventCode.EXT_PWR_OFF);
                             R19Value = false;
                         } else {
-                            ev.setEventCode(EventCode.EXT_PWR_ON);
                             R19Value = true;
                         }
                     }  else if(d < 0.5) {
                         R5Value = -100 + (long)(-20 * mRnd.nextDouble());
                         ev.setEventCode(EventCode.LOW_BT_SIGNAL);
                     } else {
+                        ev.setEventCode(EventCode.DAMPER);
                         if(R18Value) {
-                            ev.setEventCode(EventCode.UNDOCKED);
                             R18Value = false;
                         } else {
-                            ev.setEventCode(EventCode.DOCKED);
                             R18Value = true;
                         }
                     }
@@ -157,7 +155,7 @@ public class Devices extends BaseInstanceEnabler {
                     mGroupSensors.pushEvents(ev); 
                 }
             }
-        }, 10 + mRnd.nextInt(30), TimeUnit.SECONDS);
+        }, 180 + mRnd.nextInt(180), TimeUnit.SECONDS);
     }
 
     public void setSerialNumber(String serialNr) {

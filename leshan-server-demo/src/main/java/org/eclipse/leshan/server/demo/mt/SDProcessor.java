@@ -1,23 +1,14 @@
 package org.eclipse.leshan.server.demo.mt;
-
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
-import org.eclipse.californium.core.coap.MessageObserver;
-import org.eclipse.californium.core.coap.Request;
-import org.eclipse.californium.core.coap.Response;
-import org.eclipse.californium.core.network.interceptors.MessageInterceptorAdapter;
-import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.leshan.Link;
 import org.eclipse.leshan.core.node.LwM2mNode;
 import org.eclipse.leshan.core.node.LwM2mObject;
@@ -135,79 +126,6 @@ public class SDProcessor {
         this.gson = gsonBuilder.create();
     }
 
-    private final MessageInterceptorAdapter messageInterceptorAdapter = new MessageInterceptorAdapter() {
-        @Override
-        public void sendRequest(final Request request) {
-            request.setNanoTimestamp(System.currentTimeMillis());
-            request.addMessageObserver(new MessageObserver() {
-                @Override
-                public void onTimeout() {
-                    LOG.debug("timeout at {} : {}", System.currentTimeMillis(), request);
-                }
-
-                @Override
-                public void onSendError(Throwable error) {
-                    LOG.debug("sent error {} at {} : {}", error, System.currentTimeMillis(), request);
-                }
-
-                @Override
-                public void onRetransmission() {
-                    LOG.debug("retransmission at {} : {}", System.currentTimeMillis(), request);
-                }
-
-                @Override
-                public void onResponse(Response response) {
-                    LOG.debug("get response {} at {} : {}", response, System.currentTimeMillis(), request);
-                }
-
-                @Override
-                public void onReject() {
-                    LOG.debug("rejected at {} : {}", System.currentTimeMillis(), request);
-                }
-
-                @Override
-                public void onReadyToSend() {
-                    LOG.debug("ready to send at {} : {}", System.currentTimeMillis(), request);
-                }
-
-                @Override
-                public void onDtlsRetransmission(int flight) {
-                    LOG.debug("retransmit flight {}  at {} : {}", flight, System.currentTimeMillis(), request);
-                }
-
-                @Override
-                public void onContextEstablished(EndpointContext endpointContext) {
-                    LOG.debug("context establiched at {} : {}", System.currentTimeMillis(), request);
-                }
-
-                @Override
-                public void onConnecting() {
-                    LOG.debug("connecting at {} : {}", System.currentTimeMillis(), request);
-                }
-
-                @Override
-                public void onComplete() {
-                    LOG.debug("completed at {} : {}", System.currentTimeMillis(), request);
-                }
-
-                @Override
-                public void onCancel() {
-                    LOG.debug("cancelled at {} : {}", System.currentTimeMillis(), request);
-                }
-
-                @Override
-                public void onAcknowledgement() {
-                    LOG.debug("acknowledged at {} : {}", System.currentTimeMillis(), request);
-                }
-
-                @Override
-                public void onSent(boolean retransmission) {
-                    LOG.debug("sent at {} : {} : {}", System.currentTimeMillis(), request, retransmission);
-                }
-            });
-        };
-    };
-
     private final RegistrationListener registrationListener = new RegistrationListener() {
 
         @Override
@@ -245,7 +163,9 @@ public class SDProcessor {
     }
 
     public void stop() {
-        this.mThingsboardSend.stop();
+        if(this.mThingsboardSend != null) {
+            this.mThingsboardSend.stop();
+        }
         this.mLeshanServer.getRegistrationService().removeListener(this.registrationListener);
         // this.mLeshanServer.getObservationService().removeListener(this.observationListener);
         // this.mLeshanServer.coap().getUnsecuredEndpoint().removeInterceptor(this.messageInterceptorAdapter);
@@ -258,7 +178,9 @@ public class SDProcessor {
     private void wrapperGetResources(Registration registration, String event) {
         if (event.equals(EVENT_REGISTRATION) || event.equals(EVENT_UPDATED)) {          
             if(registration.getObjectLinks() != null) {
+                long start = System.currentTimeMillis();
                 getResources(registration, event);
+                LOG.info("Process of Endpoint {} took {} ms", registration.getEndpoint(), (System.currentTimeMillis() - start));
             }
         }
     }
@@ -284,14 +206,8 @@ public class SDProcessor {
                 isDevices = true;
             }
         }
-        // testing
-        // if (isDevices) {
-        //     ResourceModel resourceModel = this.mLeshanServer.getModelProvider().getObjectModel(registration)
-        //         .getObjectModel(OBJECT_ID_DEVICES).resources.get(9);
-        //     multiWriteRequest(registration);
-        // }
+
         if (isMainObj && isDevices) {
-            
             LwM2mObject devicesObject = null;
             LwM2mObject groupObj = null; 
             LwM2mObject AlarmObj = null; 
@@ -315,7 +231,7 @@ public class SDProcessor {
                         Lwm2mHelper.writeOpaque(this.mLeshanServer, registration, new LwM2mPath(devicesObject.getId(),entry.getKey(), 10), cfg, this.mTimeout);
                     }
                 }
-            } else if(events == null) {
+            } else {
                 events = Lwm2mHelper.readOpaque(this.mLeshanServer, registration, PATH_GROUP_EVENTS, this.mTimeout);
             }
            
@@ -401,9 +317,7 @@ public class SDProcessor {
         Map<Integer, byte[]> output = new HashMap<Integer, byte[]>();
         OutputStateConfig c = new OutputStateConfig(OutputPolarity.HIGH, EventCode.ALARM, 1l, OutputTriggerType.EQUAL_OR_GREATER);
         output.put(0, c.toWriteByte());
-        LOG.info(c.toString());
         c =  new OutputStateConfig(OutputPolarity.LOW, EventCode.ALARM, 1l, OutputTriggerType.EQUAL_OR_GREATER);
-        LOG.info(c.toString());
         output.put(1, c.toWriteByte());
         
         return output;
@@ -432,9 +346,9 @@ public class SDProcessor {
         if (object != null && object instanceof LwM2mObject) {
             LwM2mObject obj = (LwM2mObject) object;
             for (Map.Entry<Integer, LwM2mObjectInstance> entry : obj.getInstances().entrySet()) {
-                processDataSub(payload, entry.getValue(), 0); //temperateure
+                processDataSub(payload, entry.getValue(), 0); //temperature
                 processDataSub(payload, entry.getValue(), 1); //humidity
-                processDataSub(payload, entry.getValue(), 2); //Preasure
+                processDataSub(payload, entry.getValue(), 2); //Pressure
                 processDataSub(payload, entry.getValue(), 3); //CO2
                 processDataSub(payload, entry.getValue(), 4); //CO
                 processDataSub(payload, entry.getValue(), 5); //IAQ
@@ -450,54 +364,69 @@ public class SDProcessor {
     }
     //LITTLE_ENDIAN byte decode //use ByteBuffer??
     //4B unixtime, 2B interval, 1B count, 1B cfg, else data
-    private void processSensorData(Payload payload,int instance, int resource, byte[] opaque) {
-        byte[] rawTime = ByteUtil.getEmptyByteArray(0);
-        rawTime[0] = opaque[0]; rawTime[1] = opaque[1];
-        rawTime[2] = opaque[2]; rawTime[3] = opaque[3];
-        byte[] rawInterval = ByteUtil.getEmptyByteArray(2);//add last fake bytes for parsing
-        rawInterval[0] = opaque[4]; rawInterval[1] = opaque[5];
-        int count = opaque[6];
-        int unixTime = ByteUtil.byteToInt(rawTime, false);
-        int interval = ByteUtil.byteToInt(rawInterval, false);
-        //config as string
-        String cfgStr = String.format("%8s", Integer.toBinaryString(opaque[7] & 0xFF)).replace(' ', '0');
-        boolean repeatCall = ByteUtil.bitStringToInt(cfgStr.substring(6, 7), false) == 1;
-        payload.setIfIsRepeatCall(repeatCall);
-        int pow = ByteUtil.bitStringToInt(cfgStr.substring(3, 6), true); //floating point
-        double floatingPoint = Math.pow(10, pow);
-        int byteOfValue = CFG_BYTES.get(ByteUtil.bitStringToInt(cfgStr.substring(0,3), false)); //value bytes
-        double validCount = ((double)(opaque.length - ByteUtil.CFG_HEADER_BYTES)) / byteOfValue;
-
+    private void processSensorData(Payload payload, int instance, int resource, byte[] opaque) {
         //->dbg
-        StringBuilder sb = new StringBuilder();
-        for(byte bs: opaque) {
-            sb.append(ByteUtil.byteToString(bs)); 
-            sb.append(" "); 
-        }
-        LOG.debug("Config: {}:{}:{}:{}:{}::{}", unixTime, interval, count, cfgStr, validCount, sb.toString());
-         //<-dbg
-      
-        if(opaque.length > ByteUtil.CFG_HEADER_BYTES && count == validCount) {
-            Map<Integer, Object> collect = new HashMap<Integer, Object>();
-            int posInList = 0;
-            int offset = ByteUtil.VALUE_BYTES - byteOfValue;
-            byte[] rawValue = ByteUtil.getEmptyByteArray(offset);
-            for (int i = 0; i + ByteUtil.CFG_HEADER_BYTES < opaque.length; i++) {   
-                rawValue[(i % byteOfValue)] = opaque[ByteUtil.CFG_HEADER_BYTES + i];
-                if(offset + (i % byteOfValue) == ByteUtil.VALUE_BYTES - 1) { //last byte in array is added, create value
-                    //int value = ByteBuffer.wrap(rawValue).order(ByteOrder.LITTLE_ENDIAN).getInt(); 
-                    int value = ByteUtil.byteToInt(rawValue);
-                    int valueTim = unixTime + (posInList * interval);
-                    if(pow < 0) {//@floatingPoint must be 0.1,0.01.. //double, round remove 12.2300000000001
-                        collect.put(valueTim, ByteUtil.getDoubleRound((double)value * floatingPoint, Math.abs(pow)));
-                    } else {//int @floatingPoint must be 1,10..
-                        collect.put(valueTim, value * (int)floatingPoint);
-                    }
-                    //next item
-                    posInList++;
-                    rawValue = ByteUtil.getEmptyByteArray(offset);
+        // StringBuilder sb = new StringBuilder();
+        // for(byte bs: opaque) {
+        //     sb.append(ByteUtil.byteToString(bs)); 
+        //     sb.append(" "); 
+        // }
+        //LOG.debug("Instance:{};Resource:{};Opaque.length:{};Byte[]:{};",instance,resource, opaque.length, sb.toString());
+        int posStart = 0;
+        Map<Integer, Object> collect = null;
+        int maxPacketCount = 5; //safety, do we need?
+        int currentPacket = 0; 
+        while (posStart != opaque.length && currentPacket < maxPacketCount) {
+            currentPacket++;
+            byte[] byteArray = ByteUtil.getEmptyByteArray(0);
+            byteArray[0] = opaque[posStart + 0]; byteArray[1] = opaque[posStart + 1];
+            byteArray[2] = opaque[posStart + 2]; byteArray[3] = opaque[posStart + 3];
+            int unixTime = ByteUtil.byteToInt(byteArray, false);
+
+            byteArray[0] = opaque[posStart + 4]; byteArray[1] = opaque[posStart + 5];
+            byteArray[2] = 0; byteArray[3] = 0;
+            int interval = ByteUtil.byteToInt(byteArray, false);
+            int valueCount = opaque[posStart + 6];
+            //config as string
+            String cfgStr = ByteUtil.byteToString(opaque[posStart + 7]);
+            boolean repeatCall = ByteUtil.bitStringToInt(cfgStr.substring(6, 7), false) == 1;
+            payload.setIfIsRepeatCall(repeatCall);
+            int pow = ByteUtil.bitStringToInt(cfgStr.substring(3, 6), true); //floating point
+            double powValue = Math.pow(10, pow);
+            int byteOfValue = CFG_BYTES.get(ByteUtil.bitStringToInt(cfgStr.substring(0,3), false)); //value bytes
+
+            int packetByteSize = ByteUtil.CFG_HEADER_BYTES + valueCount * byteOfValue;
+            // LOG.debug("HEADER: {} : {} : {} : {} : {} : {} : {}",posStart, unixTime, interval, valueCount, pow, byteOfValue, packetByteSize);
+            if(opaque.length >= posStart + packetByteSize && valueCount > 0) {
+                if(collect == null) {
+                    collect = new HashMap<Integer, Object>();
                 }
+                int posInList = 0;
+                int offset = ByteUtil.VALUE_BYTES - byteOfValue;
+                byteArray[0] = 0; byteArray[1] = 0;byteArray[2] = 0; byteArray[3] = 0;
+                for (int i = 0; i  < (valueCount * byteOfValue); i++) {   
+                    int payloadPos = posStart + ByteUtil.CFG_HEADER_BYTES + i;
+                    int valuePos = (i % byteOfValue);
+                    byteArray[valuePos] = opaque[payloadPos];
+                    if(offset + valuePos == ByteUtil.VALUE_BYTES - 1) { //last byte in value array is added, create value
+                        //int value = ByteBuffer.wrap(rawValue).order(ByteOrder.LITTLE_ENDIAN).getInt(); 
+                        int value = ByteUtil.byteToInt(byteArray);
+                        int valueTim = unixTime + (posInList * interval);
+                        if(pow < 0) {//@floatingPoint must be 0.1,0.01.. //double, round remove 12.2300000000001
+                            collect.put(valueTim, ByteUtil.getDoubleRound((double)value * powValue, Math.abs(pow)));
+                        } else {//int @floatingPoint must be 1,10..
+                            collect.put(valueTim, value * (int)powValue);
+                        }
+                        posInList++;
+                    }
+                }
+                posStart += packetByteSize;
+            } else { //if something wrong with packet or only header provided
+                posStart = opaque.length;
             }
+        }
+
+        if(collect != null) {
             payload.add(instance, resource, collect);
         }
     }

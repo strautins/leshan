@@ -38,13 +38,13 @@ public class SensorEngine {
 
     private List<Double> mMeasurementList = new ArrayList<Double>();
 
-    public SensorEngine(double low, double high, double delta, double adjust, String cfg) {
+    public SensorEngine(int interval, double low, double high, double delta, double adjust, String cfg) {
         this.mLow = low;
         this.mHigh = high;
         this.mCurrentValue = low + (mRnd.nextDouble() * (high - low));
         this.mDelta = delta;
         this.mAdjust = adjust;
-        this.mInterval = 10 + mRnd.nextInt(50);
+        this.mInterval = interval;
         //3 bits value byte size 
         //3 bits value for floating point
         //1 bit is more data
@@ -69,6 +69,15 @@ public class SensorEngine {
 
     public void setTarget(Double value) {
         this.mTarget = value;
+    }
+
+    public void reset() {
+        double avg =  ByteUtil.getDoubleRound(this.mLow + (this.mHigh - this.mLow) / 2, 0);
+        if(this.mTarget != null && this.mTarget == avg) {
+            this.mTarget = null; //clear target
+        } else if (this.mTarget != null) {
+            this.mTarget  = avg;
+        }
     }
 
     public boolean isEnable() {
@@ -152,7 +161,7 @@ public class SensorEngine {
             double delta = (mRnd.nextDouble() - 0.5) * this.mDelta;
 
             if(mTarget != null) {
-                delta = (this.mTarget - this.mCurrentValue) * mRnd.nextDouble();      
+                delta = (this.mTarget - this.mCurrentValue) * mRnd.nextDouble() * 0.8d;      
             }
            
             if(this.mCurrentValue + delta <= this.mLow || this.getMeasurementList().isEmpty() && delta < 0) {

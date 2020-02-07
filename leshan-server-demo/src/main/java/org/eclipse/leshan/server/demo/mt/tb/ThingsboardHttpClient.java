@@ -64,7 +64,7 @@ public class ThingsboardHttpClient implements ThingsboardSend {
         //"http://123.123.123.123:8080/api/v1/" + token + "/telemetry"
         ArrayList<HttpPost> httpPostList = new ArrayList<HttpPost>();
         for(String payload: msg) {
-            LOG.debug("Http create payload for {} : {} at {}",token, payload, System.currentTimeMillis());
+            //LOG.debug("Http create payload for {} : {} at {}",token, payload, System.currentTimeMillis());
             HttpPost request = new HttpPost(this.HOST + ":" + String.valueOf(this.PORT) + mLink1 + token + mLink2);
             StringEntity params = new StringEntity(payload);
             request.addHeader("content-type", "application/json");
@@ -74,19 +74,19 @@ public class ThingsboardHttpClient implements ThingsboardSend {
        
         final CountDownLatch latch = new CountDownLatch(msg.size());
         for (final HttpPost request: httpPostList) {
-            LOG.debug("Http Send request at {} : {}", System.currentTimeMillis(), request);
+            //LOG.debug("Http Send request at {} : {}", System.currentTimeMillis(), request);
             httpClient.execute(request, new FutureCallback<HttpResponse>() {
 
                 @Override
                 public void completed(final HttpResponse response) {
-                    LOG.debug("Http completed at {} : {}", System.currentTimeMillis(), response);
+                    //LOG.debug("Http completed at {} : {}", System.currentTimeMillis(), response);
                     request.releaseConnection();
                     latch.countDown();
                 }
 
                 @Override
                 public void failed(final Exception ex) {
-                    LOG.debug("Http failed at {} : {}", System.currentTimeMillis(), ex);
+                    //LOG.debug("Http failed at {} : {}", System.currentTimeMillis(), ex);
                     request.releaseConnection();
                     latch.countDown();
                     
@@ -94,13 +94,13 @@ public class ThingsboardHttpClient implements ThingsboardSend {
 
                 @Override
                 public void cancelled() {
-                    LOG.debug("Http cancelled at {} : {}", System.currentTimeMillis(), request.getRequestLine());
+                    //LOG.debug("Http cancelled at {} : {}", System.currentTimeMillis(), request.getRequestLine());
                     request.releaseConnection();
                     latch.countDown();
                 }
             });
         }
         latch.await();
-        LOG.debug("Http done at {} : {}", System.currentTimeMillis(), token);
+        //LOG.debug("Http done at {} : {}", System.currentTimeMillis(), token);
     }
 }

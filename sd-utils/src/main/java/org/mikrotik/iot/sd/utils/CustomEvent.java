@@ -1,6 +1,5 @@
 package org.mikrotik.iot.sd.utils;
 
-import java.lang.reflect.Array;
 import java.util.Arrays;
 
 import org.slf4j.Logger;
@@ -93,7 +92,7 @@ public class CustomEvent extends CodeWrapper implements PushEvent {
     @Override
     public void addInstance(int... instances) {
         for(int i : instances) {
-            if ((this.mInstances & (1L << i)) == 0) {
+            if (!ByteUtil.bitLevel(this.mInstances, i)) {
                 this.mInstances += (int) Math.pow(2, i);
             }
         }    

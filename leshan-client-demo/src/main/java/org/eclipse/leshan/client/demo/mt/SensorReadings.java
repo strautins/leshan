@@ -50,12 +50,12 @@ public class SensorReadings extends BaseInstanceEnabler {
     }
 
     public SensorReadings() {
-        this.mSensors.put(R0, new SensorEngine(-20d, 32d, 2d, 0.5d, "01011000"));
-        this.mSensors.put(R1, new SensorEngine(30d, 70d, 10d, 1d, "00100000"));
-        this.mSensors.put(R2, new SensorEngine(990d, 1030d, 2d, 0.5d, "01011000"));
-        this.mSensors.put(R3, new SensorEngine(450d, 1800d, 50d, 15d, "01000000"));
-        this.mSensors.put(R4, new SensorEngine(0d, 20, 2d, 0.5d, "01011000"));
-        this.mSensors.put(R5, new SensorEngine(0d, 500d, 30, 5d, "01000000"));
+        this.mSensors.put(R0, new SensorEngine(60, -20d, 32d, 2d, 0.5d, "01011000"));
+        this.mSensors.put(R1, new SensorEngine(60, 30d, 70d, 10d, 1d, "00100000"));
+        this.mSensors.put(R2, new SensorEngine(60, 990d, 1030d, 2d, 0.5d, "01011000"));
+        this.mSensors.put(R3, new SensorEngine(60, 450d, 1800d, 50d, 15d, "01000000"));
+        this.mSensors.put(R4, new SensorEngine(60, 0d, 20, 2d, 0.5d, "01011000"));
+        this.mSensors.put(R5, new SensorEngine(60, 0d, 500d, 30, 5d, "01000000"));
 
         for(Map.Entry<Integer, SensorEngine> entry : mSensors.entrySet() ) {
             entry.getValue().setSensorReadings(this);  
@@ -78,7 +78,7 @@ public class SensorReadings extends BaseInstanceEnabler {
 
     public void clearTarget() {
         for(Map.Entry<Integer, SensorEngine> entry : mSensors.entrySet() ) {
-            entry.getValue().setTarget(null);
+            entry.getValue().reset();
         }
     }
 
@@ -111,12 +111,50 @@ public class SensorReadings extends BaseInstanceEnabler {
     public synchronized ReadResponse read(ServerIdentity identity, int resourceId) {
         SensorEngine s = this.getSensor(resourceId);
         if(s != null) {
-            // enum MeasType : uint8_t {
-            //     INT8 = 0,
-            //     INT16,
-            //     INT32,
-            //     FLOAT,
-            // };
+            int valuesInPacket = 5; //set max values in packet(testing server decode)
+            int packetValueCount = Math.min(valuesInPacket, s.getMeasurementList().size());
+            int packetCount = packetValueCount == 0 ? 1 : (int)ByteUtil.getDoubleRoundUp((double)s.getMeasurementList().size() / (double)packetValueCount, 0);
+            byte[] result = new byte[0]; 
+            int pow = ByteUtil.bitStringToInt(s.getCfg().substring(3, 6), true);
+            //-3 to 3;1 to -1;...
+            pow = -pow; //reverse sign for encode 
+            double powValue = Math.pow(10, pow);
+            for (int i = 0; i < packetCount; i++) {
+                byte[] valueArray;
+                //left values or packetValueCount
+                int localPacketValueCount = Math.min(s.getMeasurementList().size() - i * packetValueCount, packetValueCount);
+                if(localPacketValueCount != 0) {
+                    int valueByteSize = CFG_BYTES.get(ByteUtil.bitStringToInt(s.getCfg().substring(0, 3), false));
+                    valueArray = new byte[localPacketValueCount * valueByteSize];
+                    for (int j = 0; j < localPacketValueCount; j++) {
+                        //(0*5 = 0) + j(0,1,2...); (1*5 = 5) + j(0,1,2...);...
+                        Double o = s.getMeasurementList().get(i * localPacketValueCount + j);
+                        //encode 3.21321 and pow = -3/reverse = 3; powValue = 10^3 = 1000; round (3)3.213 * powValue; result 3213
+                        //decode 3213 * (10 ^ -3 = 0.001) = 3.213;
+                        //encode 4321 and pow = 1/reverse = -1; powValue 10^-1= 0.1; 4321 round (-1)4320 * powValue; result 432.0
+                        //decode = 432 * (10 ^ 1 = 10) = 4320
+                        int val = (int)(ByteUtil.getDoubleRound((double)o, pow) * powValue);
+                        //fill bytes
+                        for(int k = 0; k < valueByteSize; k++) {
+                            int shift = k * 8;
+                            if(shift != 0) {
+                                valueArray[j * valueByteSize + k] = (byte) ((val >> shift) & 0xFF);
+                            } else {
+                                valueArray[j * valueByteSize + k] = (byte) (val & 0xFF);
+                            }
+                        }
+                    }
+                } else {
+                    valueArray = new byte[0];   
+                }
+                result = ByteUtil.concatenate(result, getHeader(s, i, localPacketValueCount), valueArray);    
+            }
+            return ReadResponse.success(resourceId, result);
+        } else {
+            return super.read(identity, resourceId);
+        }
+    }
+    private byte[] getHeader(SensorEngine s, int packet, int packetCount) {
             // Structure size = 8B
             // struct MeasResHeader {
             //     uint32_t time;              // first measurement time
@@ -127,49 +165,19 @@ public class SensorReadings extends BaseInstanceEnabler {
             //     uint8_t have_more_data : 1; // have more buffered measurements
             //     uint8_t reserved : 1;       // not used
             // }__packed;
-            Double[] itemsArray = new Double[s.getMeasurementList().size()];
-            itemsArray = s.getMeasurementList().toArray(itemsArray);
-            int unixTime = (int)(s.getFMT().getTime() / 1000);
+            //1 * 5 * 60s = 300sec to next packet
             int interval = s.getInterval();
-            byte[] result = new byte[] { //LITTLE_ENDIAN
-                    (byte) ((unixTime) & 0xFF),
-                    (byte) ((unixTime >> 8) & 0xFF),
-                    (byte) ((unixTime >> 16) & 0xFF),
-                    (byte) ((unixTime >> 24) & 0xFF), //uint32_t
-                    (byte) (interval & 0xFF),
-                    (byte) (interval >> 8 & 0xFF), //uint16_t
-                    (byte) itemsArray.length,//uint8_t
-                    Byte.parseByte(s.getCfg(), 2) //else uint8_t
+            int unixTime = (int)(s.getFMT().getTime() / 1000) + (packet * packetCount * s.getInterval());
+            return new byte[] { //LITTLE_ENDIAN
+                (byte) ((unixTime) & 0xFF),
+                (byte) ((unixTime >> 8) & 0xFF),
+                (byte) ((unixTime >> 16) & 0xFF),
+                (byte) ((unixTime >> 24) & 0xFF),
+                (byte) (interval & 0xFF),
+                (byte) (interval >> 8 & 0xFF),
+                (byte) packetCount,
+                Byte.parseByte(s.getCfg(), 2)
             };
-            //INT32 / 8 = 4 bytes
-            //INT16 / 8 = 2 bytes
-            int size = CFG_BYTES.get(ByteUtil.bitStringToInt(s.getCfg().substring(0, 3), false));
-            byte[] measurementBytes = new byte[itemsArray.length * size];
-            int count = 0;
-            for(Double o : itemsArray) {
-                int val = 0;
-                if(ByteUtil.bitStringToInt(s.getCfg().substring(3, 6), true) < 0) {
-                    val = (int)(ByteUtil.getDoubleRound((double)o, 2) * 100);
-                } else {
-                    val = o.intValue();
-                }
-                //LOG.info("Start value:{}", val);
-                for(int i = 0; i < size; i++) {
-                    int shift = i * 8;
-                    if(shift != 0) {
-                        measurementBytes[count * size + i] = (byte) ((val >> shift) & 0xFF);
-                    } else {
-                        measurementBytes[count * size + i] = (byte) (val & 0xFF);
-                    }
-                    //LOG.info("shift:{}:{}:{}", shift, count * size + i, String.format("%8s", Integer.toBinaryString(measurementBytes[count * size + i] & 0xFF)).replace(' ', '0'));
-                }
-                count++;
-            }
-            result = ByteUtil.concatenate(result, measurementBytes);
-            return ReadResponse.success(resourceId, result);
-        } else {
-            return super.read(identity, resourceId);
-        }
     }
 
     @Override

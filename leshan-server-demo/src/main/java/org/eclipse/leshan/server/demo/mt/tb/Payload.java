@@ -4,13 +4,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 public class Payload {
-    
-    private static final Logger LOG = LoggerFactory.getLogger(Payload.class);
-
     public static enum SensorDataNaming {
         temperature, humidity, atmospheric, co2, co, air_quality
     }
@@ -45,8 +39,13 @@ public class Payload {
         if(instResources == null) {
             instResources = new HashMap<Integer, Map<Integer, Object>>();
             mCollections.put(instance, instResources);
-        }    
-        instResources.put(resource, values);
+        }  
+        Map<Integer, Object> res = instResources.get(resource);
+        if(res == null) {
+            instResources.put(resource, values);
+        }  else {
+            res.putAll(values);
+        }  
     }
     public void setIfIsRepeatCall(boolean value) {
         mRepeatCall = value ? value : mRepeatCall;
@@ -69,9 +68,7 @@ public class Payload {
             //resource:<time:value>
             for(Map.Entry<Integer,  Map<Integer, Object>> entry : instMap.entrySet()) {
                 //time:value
-                //LOG.error("===>{}:{}", entry.getKey(), entry.getValue());
                 for(Map.Entry<Integer, Object> res : entry.getValue().entrySet()) {
-                    //LOG.error("==================>{}:{}", res.getKey(), res.getValue());
                     //resource,value
                     Map<Integer, Object> resInTime = serialize.get(res.getKey());
                     if(resInTime == null) {
@@ -111,7 +108,6 @@ public class Payload {
                 payload.append("}}");
             }
             payload.append("]");
-            //LOG.error("payload:{}", payload.toString());
             return payload.toString();
         }
         return null;
