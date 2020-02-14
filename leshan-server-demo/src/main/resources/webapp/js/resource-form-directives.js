@@ -59,7 +59,7 @@ angular.module('resourceFormDirectives', [])
                     while (i--) // map to hex
                         a[i] = (u[i] < 16 ? '0' : '') + u[i].toString(16);
                     u = null; // free memory
-                    resolve(a.join(''), false);
+                    resolve(a.join(''));
                 }
                 reader.readAsArrayBuffer(file);
             }
@@ -70,7 +70,7 @@ angular.module('resourceFormDirectives', [])
                     if (scope.resource.fileValue){
                         toByteArray(scope.resource.fileValue, resolve);
                     } else {
-                        resolve(scope.resource.stringValue, false);
+                        resolve(scope.resource.stringValue);
                     }
                 });
             }
