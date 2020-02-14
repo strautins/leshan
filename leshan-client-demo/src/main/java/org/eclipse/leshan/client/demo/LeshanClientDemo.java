@@ -62,7 +62,7 @@ public class LeshanClientDemo {
     private final static String[] modelPaths = new String[] { "3303.xml",
         "33755.xml" , "33756.xml", "33757.xml", "33758.xml"};
 
-    private static final int OBJECT_ID_TEMPERATURE_SENSOR = 3303;
+    //private static final int OBJECT_ID_TEMPERATURE_SENSOR = 3303;
     private static final int OBJECT_ID_GROUP_DATA = 33755;
     private static final int OBJECT_ID_DEVICES = 33756;
     private static final int OBJECT_ID_SENSORS = 33758;
@@ -349,7 +349,7 @@ public class LeshanClientDemo {
         } else {
             if (pskIdentity != null) {
                 initializer.setInstancesForObject(SECURITY, psk(serverURI, 123, pskIdentity, pskKey));
-                initializer.setInstancesForObject(SERVER, new Server(123, 30 * 20, BindingMode.U, false));
+                initializer.setInstancesForObject(SERVER, new Server(123, 30 * 3, BindingMode.UQ, false));
             } else if (clientPublicKey != null) {
                 initializer.setInstancesForObject(SECURITY, rpk(serverURI, 123, clientPublicKey.getEncoded(),
                         clientPrivateKey.getEncoded(), serverPublicKey.getEncoded()));

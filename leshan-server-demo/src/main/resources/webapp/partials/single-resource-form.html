@@ -1,0 +1,20 @@
+<div>
+	<div ng-show="writable()" class="form-group">
+        <div id="resource-instance-list">
+            <div id="resource-instance0" class="resource-instances">
+                <label for="value"  id="resource-label0" class="col-sm-4 control-label">{{resource.def.name}}</label>
+                <div class="col-sm-8">
+                    <input class="form-control resource-input-class" id="resource-input0" type="text" style="margin: 5px 0px;" name="resource-value" ng-model="resource.stringValue" placeholder="{{resource.placeholder}}">
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-4" ng-if="resource.def.type == 'opaque'"></div>
+        <div class="col-sm-8" ng-if="resource.def.type == 'opaque'" ng-submit="submit()">
+            <input class="file-input-class" id="file-input0" type="file" file-model="resource.fileValue">
+        </div>
+		<div class="col-sm-4 control-label" ng-if="resource.def.instancetype == 'multiple'">
+			<button type="button" ng-click="add()">+</button>
+			<button type="button" ng-click="rm()">-</button>
+		</div>
+	</div>
+</div>

@@ -28,6 +28,7 @@ import org.eclipse.leshan.core.node.LwM2mNode;
 import org.eclipse.leshan.core.observation.Observation;
 import org.eclipse.leshan.core.response.ObserveResponse;
 import org.eclipse.leshan.server.californium.LeshanServer;
+import org.eclipse.leshan.server.demo.mt.scheduler.ScheduleRequest;
 import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeSerializer;
 import org.eclipse.leshan.server.demo.servlet.json.RegistrationSerializer;
 import org.eclipse.leshan.server.demo.servlet.log.CoapMessage;
@@ -179,6 +180,15 @@ public class EventServlet extends EventSourceServlet {
             if (eventSource.getEndpoint() == null || eventSource.getEndpoint().equals(endpoint)) {
                 eventSource.sentEvent(event, data);
             }
+        }
+    }
+    //jst 11.02.2020 testing schedule push
+    public void pushEvent(Registration registration, ScheduleRequest response) {
+        if (registration != null && response.getReadResponse() != null) {
+            String data = new StringBuilder("{\"ep\":\"").append(registration.getEndpoint()).append("\",\"res\":\"")
+                    .append(response.getLwM2mPath().toString()).append("\",\"val\":")
+                    .append(gson.toJson(response.getReadResponse())).append("}").toString();
+            sendEvent(EVENT_NOTIFICATION, data, registration.getEndpoint());
         }
     }
 

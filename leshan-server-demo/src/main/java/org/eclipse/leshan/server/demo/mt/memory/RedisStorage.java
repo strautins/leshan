@@ -18,8 +18,8 @@ public class RedisStorage implements SimpleStorage {
     private static final String RESPONSE_EP = "RESPONSE:EP:"; /**Endpoint => response hashmap  */
     private static final String EP_RESOURCE = "EP:RESOURCE:"; /** key:value */
 
-    private static final String NX_OPTION = "NX"; // set the key if it does not already exist
-    private static final String PX_OPTION = "PX"; // expire time in millisecond
+    //private static final String NX_OPTION = "NX"; // set the key if it does not already exist
+    //private static final String PX_OPTION = "PX"; // expire time in millisecond
     
     public RedisStorage(Pool<Jedis> jedisPool) {
         this.mJedisPool = jedisPool;
@@ -62,15 +62,27 @@ public class RedisStorage implements SimpleStorage {
         return payLoadMap;
     }
 
-    public void sendResponse(String endpoint, Map<String, String> responseList) {
+    public void setEndpointRequest(String endpoint, String hashLink, String payload) {
         try (Jedis jedis = mJedisPool.getResource()) {
-            for (Map.Entry<String, String> entry : responseList.entrySet()) {
-                Long res = jedis.hdel(getKey(REQUEST_EP, endpoint), entry.getKey());
-                //request still actual, add in processed list
-                if(res == 1) {
-                    jedis.hset(getKey(RESPONSE_EP, endpoint), entry.getKey(), entry.getValue());       
-                }
-            }
+            jedis.hset(getKey(REQUEST_EP, endpoint), hashLink, payload);
         }
     }
+
+    public void deleteEndpointRequest(String endpoint, String hashLink) {
+        try (Jedis jedis = mJedisPool.getResource()) {
+            jedis.hdel(getKey(REQUEST_EP, endpoint), hashLink);
+        }
+    }
+
+    // public void sendResponse(String endpoint, Map<String, String> responseList) {
+    //     try (Jedis jedis = mJedisPool.getResource()) {
+    //         for (Map.Entry<String, String> entry : responseList.entrySet()) {
+    //             Long res = jedis.hdel(getKey(REQUEST_EP, endpoint), entry.getKey());
+    //             //request still actual, add in processed list
+    //             if(res == 1) {
+    //                 jedis.hset(getKey(RESPONSE_EP, endpoint), entry.getKey(), entry.getValue());       
+    //             }
+    //         }
+    //     }
+    // }
 }

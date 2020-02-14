@@ -37,6 +37,7 @@ public class OutputStateConfig extends CodeWrapper {
 
     public OutputStateConfig(byte[] b) {
         super(EventCode.NO_EVENT);
+        LOG.warn("bytes:{}", b);
         if(b.length == 11) {
             byte[] code = ByteUtil.getEmptyByteArray(3);
             code[0] = b[0];  
@@ -96,7 +97,17 @@ public class OutputStateConfig extends CodeWrapper {
     }
 
     public float get2Value() {
-        return this.mValue;
+        return this.m2Value;
+    }
+
+    @Override
+    public boolean isValid() {
+        return super.getEventCode() != null 
+            && this.mOutputTriggerType != null
+            && this.mOutputLogic != null
+            && this.mOutputPolarity != null
+            && this.m2Code != null
+            && this.m2OutputTriggerType != null;
     }
 
     @Override

@@ -82,6 +82,8 @@ public class Devices extends BaseInstanceEnabler {
         initDefault();
         R7Value.put(0, ByteUtil.getDoubleRound(1 + mRnd.nextDouble(), 3)); //Battery Level 
         R7Value.put(1, ByteUtil.getDoubleRound(1 + mRnd.nextDouble(), 3));
+        R9Values.put(0, true); //Output State
+        R9Values.put(1, false);
         R10Values.put(0, new OutputStateConfig(OutputPolarity.HIGH, EventCode.ALARM, 1l, OutputTriggerType.EQUAL_OR_GREATER));
         R10Values.put(1, new OutputStateConfig(OutputPolarity.LOW, EventCode.ALARM, 1l, OutputTriggerType.EQUAL_OR_GREATER));
 
@@ -92,7 +94,7 @@ public class Devices extends BaseInstanceEnabler {
         R3Value = true; //Reachable
         R4Value = new Date(); //Last Active Time
         R5Value = -60l + (long)(-10 * mRnd.nextDouble()); //Bluetooth Signal Strength
-        
+        fireResourcesChange(R4, R5);
         //R9Values.put(0, true); //Output State
         //R9Values.put(1, false);
     }
@@ -108,7 +110,7 @@ public class Devices extends BaseInstanceEnabler {
                 scheduleEvent();  
                 initDefault();
                 double d = mRnd.nextDouble();
-                if(d < 0.6) {
+                if(d < 0.3) {
                     PredefinedEvent ev = new PredefinedEvent(EventCode.NO_EVENT);
                     ev.addInstance(getId());
                     if(d < 0.1) {
@@ -118,7 +120,7 @@ public class Devices extends BaseInstanceEnabler {
                         } else {
                             R7Value.put(1, 0d);
                         }
-                    } else if(d < 0.2) {
+                    } else if(d < 0.1) {
                         ev.setEventCode(EventCode.CRIT_BAT);
                         if(R6Value != 2) {
                             R6Value = 2;
@@ -129,18 +131,18 @@ public class Devices extends BaseInstanceEnabler {
                             R7Value.put(0, ByteUtil.getDoubleRound(0.5 + mRnd.nextDouble(), 3));
                             R7Value.put(1, ByteUtil.getDoubleRound(0.5 + mRnd.nextDouble(), 3));   
                         }
-                    } else if(d < 0.3) {
+                    } else if(d < 0.15) {
                         ev.setEventCode(EventCode.NOT_REACHABLE);
                         R3Value = false;
                         R4Value = new Date(System.currentTimeMillis() - (long)(mRnd.nextDouble() * 60000d));
-                    } else if(d < 0.4) {
+                    } else if(d < 0.2) {
                         ev.setEventCode(EventCode.EXT_PWR);
                         if(R19Value) {
                             R19Value = false;
                         } else {
                             R19Value = true;
                         }
-                    }  else if(d < 0.5) {
+                    }  else if(d < 0.25) {
                         R5Value = -100 + (long)(-20 * mRnd.nextDouble());
                         ev.setEventCode(EventCode.LOW_BT_SIGNAL);
                     } else {
@@ -155,7 +157,7 @@ public class Devices extends BaseInstanceEnabler {
                     mGroupSensors.pushEvents(ev); 
                 }
             }
-        }, 180 + mRnd.nextInt(180), TimeUnit.SECONDS);
+        }, 90 + mRnd.nextInt(90), TimeUnit.SECONDS);
     }
 
     public void setSerialNumber(String serialNr) {
@@ -237,6 +239,7 @@ public class Devices extends BaseInstanceEnabler {
         case R9:
             if(value instanceof LwM2mMultipleResource && value.isMultiInstances()) {
                 this.R9Values = (Map<Integer, Boolean>)value.getValues();
+                return WriteResponse.success();
             } else {
                 return WriteResponse.notFound();
             }
@@ -244,17 +247,29 @@ public class Devices extends BaseInstanceEnabler {
             if(value instanceof LwM2mMultipleResource 
                     && value.isMultiInstances() && value.getType().equals(ResourceModel.Type.OPAQUE)) {
                     Map<Integer, byte[]> tmpArr = (Map<Integer, byte[]>)value.getValues();
-                    
+                Map<Integer, OutputStateConfig> tmpList = new HashMap<Integer, OutputStateConfig>();
                 for(Map.Entry<Integer, byte[]> entry : tmpArr.entrySet()) {
-                    this.R10Values.put(entry.getKey(), new OutputStateConfig(entry.getValue()));
+                    OutputStateConfig ops = new OutputStateConfig(entry.getValue());
+                    if(ops.isValid()) {
+                        tmpList.put(entry.getKey(), ops);
+                    } else {
+                        //do nothing?      
+                    }
                 }
 
-                for(Map.Entry<Integer, OutputStateConfig> entry : this.R10Values.entrySet()) {
-                    LOG.info("OutputStateConfig:{}", entry.getValue().toString());
+                if(tmpList.size() == tmpArr.size()) {
+                    this.R10Values.clear();
+                    this.R10Values.putAll(tmpList);
+                    
+                    for(Map.Entry<Integer, OutputStateConfig> entry : this.R10Values.entrySet()) {
+                        LOG.info("OutputStateConfig for instance {}; Config{}", getId(), entry.getValue().toString());
+                    }
+                    return WriteResponse.success();
+                } else {
+                    return WriteResponse.badRequest("Corrupted configuration");    
                 }
-                return WriteResponse.success();
             } else {
-                return WriteResponse.notFound();
+                return WriteResponse.badRequest("Not multiple, Not OPAQUE");
             }
         case R12:
             if(intVal != null) {

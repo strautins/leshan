@@ -41,11 +41,11 @@ angular.module('resourceDirectives', [])
             };
            
             scope.writable = function() {
-                if(scope.resource.def.instancetype != "multiple") {
+                //if(scope.resource.def.instancetype != "multiple") {
                     if(scope.resource.def.hasOwnProperty("operations")) {
                         return scope.resource.def.operations.indexOf("W") != -1;
                     }
-                }
+                //}
                 return false;
             };
 
@@ -149,8 +149,12 @@ angular.module('resourceDirectives', [])
                         // Build payload
                         var payload = {};
                         payload["id"] = resource.id;
-                        payload["value"] = lwResources.getTypedValue(resourceValue, resource.def.type);
-
+                        if(resource.def.instancetype == "multiple") {
+                            payload["values"] = resourceValue;
+                        } else {  
+                            payload["value"] = lwResources.getTypedValue(resourceValue, resource.def.type);
+                        }
+                        console.log(resource, payload);
                         // Send request
                         var format = scope.settings.multi.format;
                         $http({method: 'PUT', url: "api/clients/" + $routeParams.clientId + scope.resource.path, data: payload, headers:{'Content-Type': 'application/json'},params:{format:format}})

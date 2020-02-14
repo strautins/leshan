@@ -431,6 +431,7 @@ public class LeshanServerBuilder {
             coapConfig = createDefaultNetworkConfig();
         if (awakeTimeProvider == null) {
             int maxTransmitWait = coapConfig.getInt(Keys.MAX_TRANSMIT_WAIT);
+            LOG.warn("awakeTimeProvider Californium MAX_TRANSMIT_WAIT is {}", maxTransmitWait);
             if (maxTransmitWait == 0) {
                 LOG.warn(
                         "No value available for MAX_TRANSMIT_WAIT in CoAP NetworkConfig. Fallback with a default 93s value.");

@@ -43,7 +43,6 @@ public class GroupSensors extends BaseInstanceEnabler {
     private static final int R6 = 6;
     private static final int R7 = 7;
 
-
     private LeshanClient mLeshanClient;
 
     // private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Group object"));
@@ -57,7 +56,7 @@ public class GroupSensors extends BaseInstanceEnabler {
     private final Random mRnd = new Random();
 
     private byte[] mEventConfig = new byte[0];
-    private int mNotifyDelay = 180;
+    private int mNotifyDelay = 60 * 8; //min * x
     private Date mLastEventRead;
     public void setGroupSensors(String... serialNrs) {
         // scheduleNext();
@@ -97,6 +96,7 @@ public class GroupSensors extends BaseInstanceEnabler {
     //todo concurrent lock separate add/ clear //read
     public synchronized void pushEvents(final PushEvent... events) {
         if(events[0] != null) {
+            boolean isServerNotify = false;
             for(PushEvent ev : events) {
                 PushEvent eventInList = mEventList.get(ev.getId());
                 if(eventInList == null) {
@@ -106,17 +106,23 @@ public class GroupSensors extends BaseInstanceEnabler {
                     eventInList.addInstance(ev.getInstance());    
                 }
 
-                if(eventInList.isImmediateNotify() && this.mLastEventRead != null
-                    && (this.mLastEventRead.getTime() / 1000) + this.mNotifyDelay 
-                        <= (System.currentTimeMillis() / 1000)) {
-                    this.mLastEventRead = new Date(); //locks Registration trigger
-                    this.mLeshanClient.triggerRegistrationUpdate();
-                    LOG.info("Trigger Registration Update from EVENT!");
-                } else if(eventInList.isImmediateNotify() && this.mLastEventRead != null) {
-                    long waitTimeSec = ((this.mLastEventRead.getTime() / 1000) + this.mNotifyDelay) - (System.currentTimeMillis() / 1000); 
-                    LOG.info("Trigger Registration Update skipped! WaitTimeLeft:{}", waitTimeSec);
+                if(eventInList.isImmediateNotify() ){
+                    isServerNotify = true;
                 }
             }
+            
+            if(isServerNotify 
+                && this.mLastEventRead != null
+                && (this.mLastEventRead.getTime() / 1000) + this.mNotifyDelay 
+                    <= (System.currentTimeMillis() / 1000)) {
+                this.mLastEventRead = new Date(); //locks Registration trigger
+                this.mLeshanClient.triggerRegistrationUpdate();
+                LOG.info("Trigger Registration Update from EVENT!");
+            } else if(isServerNotify && this.mLastEventRead != null) {
+                long waitTimeSec = ((this.mLastEventRead.getTime() / 1000) + this.mNotifyDelay) - (System.currentTimeMillis() / 1000); 
+                LOG.info("Trigger Registration Update skipped! WaitTimeLeft:{}", waitTimeSec);
+            }
+            fireResourcesChange(R0);
         } else {
             mEventList.clear();  
         }
@@ -209,17 +215,21 @@ public class GroupSensors extends BaseInstanceEnabler {
             return super.write(identity, resourceId, value);
         case R1:
             if(value.getType().equals(ResourceModel.Type.OPAQUE)) {
-                this.mEventConfig = (byte[])value.getValue();  
-                for(byte[] b : ByteUtil.split(this.mEventConfig, 8)) {
+                for(byte[] b : ByteUtil.split((byte[])value.getValue(), 8)) {
                     CustomEvent customEvent = new CustomEvent(b);
-                    LOG.info("data:{}", customEvent.toString());
-                    for(int i : customEvent.getInstance()) {
-                        SensorReadings s = mSensorMap.get(i);
-                        if(s != null) {
-                            s.setEvent(customEvent);   
-                        }   
+                    if(customEvent.isValid()) {
+                        LOG.info("data:{}", customEvent.toString());
+                        for(int i : customEvent.getInstance()) {
+                            SensorReadings s = mSensorMap.get(i);
+                            if(s != null) {
+                                s.setEvent(customEvent);   
+                            }   
+                        }
+                    } else {
+                        return WriteResponse.badRequest("Corrupted configuration");
                     }
                 };
+                this.mEventConfig = (byte[])value.getValue();  
                 return WriteResponse.success();
             } else {
                 return super.write(identity, resourceId, value);

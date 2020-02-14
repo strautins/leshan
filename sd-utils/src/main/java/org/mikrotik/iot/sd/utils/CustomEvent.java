@@ -40,6 +40,7 @@ public class CustomEvent extends CodeWrapper implements PushEvent {
             this.mInstances = ByteUtil.byteToInt(instances, false);
             this.mValue = ByteUtil.byteArrayToFloat(value);
         }
+        LOG.warn("CustomEvent:{}:{}:{}:{}:{}:{}",b.length, super.getEventCode(),  this.mType, this.mImmediateNotify, this.mInstances, this.mValue);
     }
 
     public float getValue() {
@@ -53,7 +54,7 @@ public class CustomEvent extends CodeWrapper implements PushEvent {
     public byte[] toWriteByte() {
         String  evType = ByteUtil.byteToString((byte) (EVENT_TRIGGER.get(this.mType) & 0xFF));
         byte bCfg = Byte.parseByte("0000" + evType.substring(6) + (this.mImmediateNotify ? "1":"0") , 2);
-        int intBits =  Float.floatToIntBits(mValue);
+        int intBits =  Float.floatToIntBits(this.mValue);
         byte[] result = new byte[] {
             (byte) (super.getId() & 0xFF),
             (byte) bCfg,
@@ -96,6 +97,12 @@ public class CustomEvent extends CodeWrapper implements PushEvent {
                 this.mInstances += (int) Math.pow(2, i);
             }
         }    
+    }
+
+    @Override
+    public boolean isValid() {
+        return super.getEventCode() != null 
+            && this.mType != null;
     }
 
     @Override

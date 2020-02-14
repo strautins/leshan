@@ -1,4 +1,5 @@
 package org.eclipse.leshan.server.demo.mt;
+
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -15,12 +16,17 @@ import org.eclipse.leshan.core.node.LwM2mObject;
 import org.eclipse.leshan.core.node.LwM2mObjectInstance;
 import org.eclipse.leshan.core.node.LwM2mPath;
 import org.eclipse.leshan.core.observation.Observation;
+import org.eclipse.leshan.core.response.LwM2mResponse;
+import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.server.californium.LeshanServer;
 import org.eclipse.leshan.server.demo.mt.tb.ThingsboardSend;
-import org.eclipse.leshan.server.demo.mt.memory.InMemoryStorage;
-import org.eclipse.leshan.server.demo.mt.memory.RedisStorage;
+import org.eclipse.leshan.server.demo.mt.scheduler.ScheduleRequest;
+import org.eclipse.leshan.server.demo.mt.scheduler.ScheduleRequestDeserializer;
+import org.eclipse.leshan.server.demo.mt.scheduler.ScheduleRequestSerializer;
+import org.eclipse.leshan.server.demo.mt.scheduler.ScheduleRequest.ActionType;
 import org.eclipse.leshan.server.demo.mt.memory.SimpleStorage;
 import org.eclipse.leshan.server.demo.mt.tb.Payload;
+import org.eclipse.leshan.server.demo.servlet.EventServlet;
 import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeDeserializer;
 import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeSerializer;
 import org.eclipse.leshan.server.registration.Registration;
@@ -37,9 +43,6 @@ import org.mikrotik.iot.sd.utils.CodeWrapper.OutputTriggerType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import redis.clients.jedis.Jedis;
-import redis.clients.util.Pool;
-
 public class SDProcessor {
     private static final Logger LOG = LoggerFactory.getLogger(SDProcessor.class);
 
@@ -49,18 +52,14 @@ public class SDProcessor {
 
     private static final String EVENT_REGISTRATION = "REGISTRATION";
 
-    private static final String PATH_DEVICES = "/33756/";
-    public static final int OBJECT_ID_DEVICES = 33756;
+    private static final LwM2mPath PATH_DEVICES = new LwM2mPath("/33756/");
+    private static final LwM2mPath PATH_GROUP = new LwM2mPath("/33755/");
+    private static final LwM2mPath PATH_SENSORS = new LwM2mPath("/33758/");
+    private static final LwM2mPath PATH_ALARM = new LwM2mPath("/33757/"); 
 
-    protected static final int OBJECT_ID_GROUP = 33755;
-    private static final String PATH_GROUP = "/33755/";
     private static final LwM2mPath PATH_GROUP_EVENTS = new LwM2mPath("33755/0/0");
     private static final LwM2mPath PATH_GROUP_EVENT_CFG = new LwM2mPath("33755/0/1");
     private static final LwM2mPath PATH_GROUP_CLEAR_DATA = new LwM2mPath("33755/0/2");
-    /** Sensor object temperature */
-    private static final String PATH_SENSORS = "/33758/";
-    /** Alarm object path */
-    private static final String PATH_ALARM = "/33757/";
     /** Devices resource names */
     protected static final String NAME_BATTERY = "battery";
     protected static final String NAME_BATTERY_LEVEL = "battery_level";
@@ -80,25 +79,18 @@ public class SDProcessor {
     protected static final String NAME_TEMPERATURE_ALARM = "temperature_alarm";
     protected static final String NAME_CO_ALARM = "co_alarm";
 
-    protected static final String NAME_ALARM_TEMPERATURE = "alarm_temperature";
-    protected static final String NAME_ALARM_HUMIDITY = "alarm_humidity";
-    protected static final String NAME_ALARM_CO2 = "alarm_co2";
-    protected static final String NAME_ALARM_CO = "alarm_co";
-    protected static final String NAME_ALARM_ATMOSPHERIC = "alarm_atmospheric";
-
     /** Alarm object resource ID */
     protected static final int RESOURCE_ID_SMOKE_ALARM = 0;
-    protected static final int RESOURCE_ID_HUSHED = 1;
-    protected static final int RESOURCE_ID_CO_ALARM = 2;
-    protected static final int RESOURCE_ID_TEMPERATURE = 3;
-    protected static final int RESOURCE_ID_HUMIDITY = 4;
-    protected static final int RESOURCE_ID_PRESSURE = 5;
-    protected static final int RESOURCE_ID_CO2 = 6;
-    protected static final int RESOURCE_ID_CO = 7;
+    protected static final int RESOURCE_ID_CO_ALARM = 1;
+    protected static final int RESOURCE_ID_TEMPERATURE = 2;
+    protected static final int RESOURCE_ID_HUSHED = 3;
 
     private final LeshanServer mLeshanServer;
     private final ThingsboardSend mThingsboardSend;
     private final SimpleStorage mSimpleStorage;
+    // to push scheduled Read to interace
+    private EventServlet mEventServlet = null; 
+
     private final long mTimeout;
 
     private static final Map<Integer, Integer> CFG_BYTES;
@@ -113,15 +105,17 @@ public class SDProcessor {
 
     private final Gson gson;
 
-    public SDProcessor(LeshanServer leshanServer, ThingsboardSend thingsboardSend, Pool<Jedis> jedis) throws URISyntaxException {
+    public SDProcessor(LeshanServer leshanServer, ThingsboardSend thingsboardSend, SimpleStorage simpleStorage) throws URISyntaxException {
         this.mLeshanServer = leshanServer;
-        this.mSimpleStorage = jedis != null ? new RedisStorage(jedis) : new InMemoryStorage();
+        this.mSimpleStorage = simpleStorage;
         this.mThingsboardSend = thingsboardSend;
         this.mTimeout = 10000;
         
         GsonBuilder gsonBuilder = new GsonBuilder();
         gsonBuilder.registerTypeHierarchyAdapter(LwM2mNode.class, new LwM2mNodeSerializer());
         gsonBuilder.registerTypeHierarchyAdapter(LwM2mNode.class, new LwM2mNodeDeserializer());
+        gsonBuilder.registerTypeHierarchyAdapter(ScheduleRequest.class, new ScheduleRequestSerializer());
+        gsonBuilder.registerTypeHierarchyAdapter(ScheduleRequest.class, new ScheduleRequestDeserializer());
         gsonBuilder.setDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
         this.gson = gsonBuilder.create();
     }
@@ -147,19 +141,15 @@ public class SDProcessor {
         }
     };
 
+    public void setEventServlet(EventServlet event) {
+        this.mEventServlet = event;     
+    }
+
     public void start() {
         if(this.mThingsboardSend != null) {
             this.mThingsboardSend.start();
         }
         this.mLeshanServer.getRegistrationService().addListener(this.registrationListener);
-        // this.mLeshanServer.getObservationService().addListener(this.observationListener);
-        // this.mLeshanServer.coap().getUnsecuredEndpoint().addInterceptor(this.messageInterceptorAdapter);
-
-        // MyCoapMessageTracer coapMessageTracer = new MyCoapMessageTracer();
-        // for (Endpoint endpoint :
-        // this.mLeshanServer.coap().getServer().getEndpoints()) {
-        // endpoint.addInterceptor(coapMessageTracer);
-        // }
     }
 
     public void stop() {
@@ -167,12 +157,6 @@ public class SDProcessor {
             this.mThingsboardSend.stop();
         }
         this.mLeshanServer.getRegistrationService().removeListener(this.registrationListener);
-        // this.mLeshanServer.getObservationService().removeListener(this.observationListener);
-        // this.mLeshanServer.coap().getUnsecuredEndpoint().removeInterceptor(this.messageInterceptorAdapter);
-        // for (Endpoint endpoint :
-        // this.mLeshanServer.coap().getServer().getEndpoints()) {
-        // endpoint.removeInterceptor(coapMessageTracer);
-        // }
     }
 
     private void wrapperGetResources(Registration registration, String event) {
@@ -196,13 +180,13 @@ public class SDProcessor {
         boolean isSensors = false;
         boolean isAlarm = false;
         for (Link i : registration.getObjectLinks()) {
-            if (i.getUrl().contains(PATH_GROUP)) {
+            if (i.getUrl().contains(PATH_GROUP.toString())) {
                 isMainObj = true;
-            } else if (i.getUrl().contains(PATH_SENSORS)) {
+            } else if (i.getUrl().contains(PATH_SENSORS.toString())) {
                 isSensors = true;
-            } else if (i.getUrl().contains(PATH_ALARM)) {
+            } else if (i.getUrl().contains(PATH_ALARM.toString())) {
                 isAlarm = true;
-            } else if (i.getUrl().contains(PATH_DEVICES)) {
+            } else if (i.getUrl().contains(PATH_DEVICES.toString())) {
                 isDevices = true;
             }
         }
@@ -214,7 +198,7 @@ public class SDProcessor {
             boolean needToClearData = false;
             byte[] events = null;
             if(event.equals(EVENT_REGISTRATION)) {
-                groupObj = (LwM2mObject)Lwm2mHelper.readRequest(this.mLeshanServer, registration, PATH_GROUP, this.mTimeout);
+                groupObj = (LwM2mObject)Lwm2mHelper.readRequest(this.mLeshanServer, registration, PATH_GROUP.toString(), this.mTimeout);
                 if(groupObj != null) {
                     putLwM2mObjectInMemory(registration.getEndpoint(), groupObj);  
                     events = Lwm2mHelper.getOpaque(groupObj.getInstance(PATH_GROUP_EVENTS.getObjectInstanceId()), PATH_GROUP_EVENTS.getResourceId());   
@@ -223,7 +207,7 @@ public class SDProcessor {
                     Lwm2mHelper.writeOpaque(this.mLeshanServer, registration, PATH_GROUP_EVENT_CFG, cfg, this.mTimeout);//write byte cfg
                 }
 
-                devicesObject = (LwM2mObject)Lwm2mHelper.readRequest(this.mLeshanServer, registration, PATH_DEVICES, this.mTimeout);
+                devicesObject = (LwM2mObject)Lwm2mHelper.readRequest(this.mLeshanServer, registration, PATH_DEVICES.toString(), this.mTimeout);
                 if(devicesObject != null) {
                     putLwM2mObjectInMemory(registration.getEndpoint(), devicesObject);
                     Map<Integer, byte[]> cfg = getEndpointOutputCfg(registration);
@@ -236,7 +220,6 @@ public class SDProcessor {
             }
            
             if (events != null) {
-                
                 //do something wise on received events
                 for(byte[] b: ByteUtil.split(events, 4)) {
                     PredefinedEvent ev = new PredefinedEvent(b);
@@ -244,8 +227,8 @@ public class SDProcessor {
                     if(!ev.getEventCode().equals(EventCode.NO_EVENT)) {
                         needToClearData = true;
                     }
-                    if(ev.getEventCode().equals(EventCode.ALARM)) {
-                        AlarmObj = (LwM2mObject)Lwm2mHelper.readRequest(this.mLeshanServer, registration, PATH_ALARM, this.mTimeout);     
+                    if(ev.getEventCode().equals(EventCode.ALARM) && isAlarm) {
+                        AlarmObj = (LwM2mObject)Lwm2mHelper.readRequest(this.mLeshanServer, registration, PATH_ALARM.toString(), this.mTimeout);     
                         if(AlarmObj != null) {
                             putLwM2mObjectInMemory(registration.getEndpoint(), AlarmObj); 
                         }
@@ -260,13 +243,13 @@ public class SDProcessor {
                 while(payload.isRepeatCall() && safety < 3) {
                     safety++;
                     payload.init();
-                    processData(this.mLeshanServer, registration, PATH_SENSORS, payload, this.mTimeout);
+                    processData(this.mLeshanServer, registration, PATH_SENSORS.toString(), payload, this.mTimeout);
                     if(payload.isData()) {
                         if(devicesObject == null) {
-                            devicesObject = getLwM2mObjectFromMemory(registration.getEndpoint(), OBJECT_ID_DEVICES);
+                            devicesObject = getLwM2mObjectFromMemory(registration.getEndpoint(), PATH_DEVICES.getObjectId());
                         }
                         if(devicesObject == null) {
-                            devicesObject = (LwM2mObject)Lwm2mHelper.readRequest(this.mLeshanServer, registration, PATH_DEVICES, this.mTimeout);
+                            devicesObject = (LwM2mObject)Lwm2mHelper.readRequest(this.mLeshanServer, registration, PATH_DEVICES.toString(), this.mTimeout);
                         }
                         //get device serial info, parse collected data in array
                         if(devicesObject != null) {
@@ -283,7 +266,7 @@ public class SDProcessor {
                             sendAll(data);
                             //clear read data 
                             needToClearData = false;
-                            Lwm2mHelper.createExecuteRequest(this.mLeshanServer, registration, PATH_GROUP_CLEAR_DATA.toString(), null, this.mTimeout);
+                            Lwm2mHelper.asyncExecuteRequest(this.mLeshanServer, registration, PATH_GROUP_CLEAR_DATA.toString(), null, this.mTimeout);
                         } else {
                             LOG.error("Could not get serial info from endpoint:{}", registration.getEndpoint());
                             break;
@@ -294,13 +277,11 @@ public class SDProcessor {
 
             //clear read event data
             if(needToClearData) {
-                Lwm2mHelper.createExecuteRequest(this.mLeshanServer, registration, PATH_GROUP_CLEAR_DATA.toString(), null, this.mTimeout);  
+                Lwm2mHelper.asyncExecuteRequest(this.mLeshanServer, registration, PATH_GROUP_CLEAR_DATA.toString(), null, this.mTimeout);  
             }
         }
-        // collecting request from redis
-        // if (this.mSimpleStorage != null) {
-        //     processRedisRequests(registration);
-        // }
+        //check for scheduled calls
+        processScheduledOperations(registration);
     }
 
     public byte[] getEndpointCfg(Registration registration,  byte[] currentByteCfg) {
@@ -441,99 +422,58 @@ public class SDProcessor {
         }
     }
 
-    //================================================================================
-    // For Redis instructions!
-    //================================================================================
-    // private void processRedisRequests(Registration registration) {
-    //     Map<String, String> requestPayload = this.mRedisStorage.getEndpointRequests(registration.getEndpoint());
-    //     if (requestPayload != null) {
-    //         for (Map.Entry<String, String> entry : requestPayload.entrySet()) {
-    //             RedisRequestLink requestLink = new RedisRequestLink(entry.getKey(), entry.getValue());
-    //             if (!requestLink.isError()) {
-    //                 sendRequest(registration, requestLink);
-    //             }
-    //             entry.setValue(requestLink.getResponse());
-    //         }
-    //         this.mRedisStorage.sendResponse(registration.getEndpoint(), requestPayload);
-    //     }
-    // }
+    private void processScheduledOperations(Registration registration) {
+        Map<String, String> requestPayload = this.mSimpleStorage.getEndpointRequests(registration.getEndpoint());
+        if (requestPayload != null) {
+            for (Map.Entry<String, String> entry : requestPayload.entrySet()) {
+                ScheduleRequest request;
+                try {
+                   request = this.gson.fromJson(entry.getValue(), ScheduleRequest.class);    
+                   if (request.isValid()) {
+                        boolean result = sendRequest(registration, request);
+                        LOG.info("Process scheduled request for {} of {} is {} : {}", registration.getEndpoint(), entry.getKey(), result, request.getReadResponse());
+                        if(result && this.mEventServlet != null) {
+                            if(result && request.isRead()) {
+                                mEventServlet.pushEvent(registration, request);
+                            } else if(request.isWrite()) {
+                                request.setActionType(ActionType.read);
+                                result = sendRequest(registration, request); 
+                                if(result) {
+                                    mEventServlet.pushEvent(registration, request);
+                                }   
+                            } 
+                        }
+                    } 
+                } catch(Exception e) {
+                    LOG.error("Error processing scheduled request {} for {}:{}", entry.getKey(), registration.getEndpoint(), entry.getValue());
+                }
+                this.mSimpleStorage.deleteEndpointRequest(registration.getEndpoint(), entry.getKey());
+            }
+        }
+    }
 
-    // private void sendRequest(Registration registration, RedisRequestLink objLink) {
-    //     try {
-    //         if (objLink.isRead()) {
-    //             ReadResponse response = this.mLeshanServer.send(registration, new ReadRequest(objLink.getLink()),
-    //                     this.mTimeout);
-    //             // set read values
-    //             if (response == null) {
-    //                 JSONObject res = new JSONObject();
-    //                 res.put("error", "timeout");
-    //                 objLink.setResponse(res);
-    //             } else if (response.isSuccess()) {
-    //                 objLink.setResponse(OnConnectAction.this.gson.toJson(response.getContent()));
-    //             } else {
-    //                 JSONObject res = new JSONObject();
-    //                 res.put("error", response.getErrorMessage());
-    //                 res.put("code", response.getCode());
-    //                 objLink.setResponse(res);
-    //             }
-    //         } else if (objLink.isWrite()) {
-    //             ResourceModel resourceModel = this.mLeshanServer.getModelProvider().getObjectModel(registration)
-    //                     .getObjectModel(objLink.getObjectId()).resources.get(objLink.getResourceId());
-    //                     String version = this.mLeshanServer.getModelProvider().getObjectModel(registration)
-    //                     .getObjectModel(objLink.getObjectId()).getVersion();
-    //             if (resourceModel != null) {
-    //                 try {
-    //                     Object value = null;
-    //                     if (resourceModel.type.equals(org.eclipse.leshan.core.model.ResourceModel.Type.BOOLEAN)) {
-    //                         value = Boolean.valueOf(objLink.getValue().toString());
-    //                     } else if (resourceModel.type
-    //                             .equals(org.eclipse.leshan.core.model.ResourceModel.Type.INTEGER)) {
-    //                         value = Long.valueOf(objLink.getValue().toString());
-    //                     } else if (resourceModel.type.equals(org.eclipse.leshan.core.model.ResourceModel.Type.STRING)) {
-    //                         value = String.valueOf(objLink.getValue().toString());
-    //                     }
-    //                     if (value != null) {
-    //                         WriteRequest request = new WriteRequest(WriteRequest.Mode.UPDATE, objLink.getObjectId(),
-    //                                 objLink.getInstanceId(), LwM2mSingleResource.newResource(objLink.getResourceId(),
-    //                                         value, resourceModel.type));
-    //                         // blocking request
-    //                         WriteResponse response = this.mLeshanServer.send(registration, request, this.mTimeout);
-    //                         if (response == null) {
-    //                             JSONObject res = new JSONObject();
-    //                             res.put("error", "timeout");
-    //                             objLink.setResponse(res);
-    //                         } else if (response.isSuccess()) {
-    //                             JSONObject res = new JSONObject();
-    //                             res.put("result", response.getCoapResponse().toString());
-    //                             objLink.setResponse(res);
-    //                         } else {
-    //                             JSONObject res = new JSONObject();
-    //                             res.put("error", response.getErrorMessage());
-    //                             res.put("code", response.getCode());
-    //                             objLink.setResponse(res);
-    //                         }
-    //                     } else {
-    //                         JSONObject res = new JSONObject();
-    //                         res.put("error", "Resource type not implemented! " + resourceModel.type);
-    //                         objLink.setResponse(res);
-    //                     }
-    //                 } catch (Exception e) {
-    //                     JSONObject res = new JSONObject();
-    //                     res.put("error", "Write value cast error: " + objLink.getValue());
-    //                     objLink.setResponse(res);
-    //                 }
-    //             } else {
-    //                 JSONObject res = new JSONObject();
-    //                 res.put("error", "Resource model not found! " + objLink.getObjectId() + objLink.getResourceId());
-    //                 objLink.setResponse(res);
-    //             }
-    //         } else {
-    //             JSONObject res = new JSONObject();
-    //             res.put("error", "Action not implemented!");
-    //             objLink.setResponse(res);
-    //         }
-    //     } catch (InterruptedException e) {
-    //         e.printStackTrace();
-    //     }
-    // }
+    private boolean sendRequest(Registration registration, ScheduleRequest request) {
+        try {
+            if (request.isRead()) {
+                LwM2mResponse obj = Lwm2mHelper.send(this.mLeshanServer, registration, request.getReadRequest(), this.mTimeout);
+                if(obj != null && obj instanceof ReadResponse) {
+                    LwM2mNode node = ((ReadResponse)obj).getContent();
+                    request.setReadResponse(node);
+                    return true;
+                }
+            } else if (request.isWrite()) {
+                LwM2mResponse obj = Lwm2mHelper.send(this.mLeshanServer, registration, request.getWriteRequest(), this.mTimeout);
+                return obj != null && obj.isSuccess();
+            } else if (request.isExecute()) {
+                LwM2mResponse obj = Lwm2mHelper.send(this.mLeshanServer, registration, request.getExecuteRequest(), this.mTimeout);
+                return obj != null && obj.isSuccess();
+            } else if (request.isObserve()) {
+                LwM2mResponse obj = Lwm2mHelper.send(this.mLeshanServer, registration, request.getObserveRequest(), this.mTimeout);
+                return obj != null && obj.isSuccess();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
 }

@@ -31,6 +31,7 @@ import org.apache.commons.lang.StringUtils;
 import org.eclipse.leshan.core.attributes.AttributeSet;
 import org.eclipse.leshan.core.node.LwM2mNode;
 import org.eclipse.leshan.core.node.LwM2mObjectInstance;
+import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.node.LwM2mSingleResource;
 import org.eclipse.leshan.core.node.codec.CodecException;
 import org.eclipse.leshan.core.request.ContentFormat;
@@ -58,6 +59,10 @@ import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.WriteAttributesResponse;
 import org.eclipse.leshan.core.response.WriteResponse;
 import org.eclipse.leshan.server.californium.LeshanServer;
+import org.eclipse.leshan.server.demo.mt.memory.SimpleStorage;
+import org.eclipse.leshan.server.demo.mt.scheduler.ScheduleRequest;
+import org.eclipse.leshan.server.demo.mt.scheduler.ScheduleRequestSerializer;
+import org.eclipse.leshan.server.demo.mt.scheduler.ScheduleRequest.ActionType;
 import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeDeserializer;
 import org.eclipse.leshan.server.demo.servlet.json.LwM2mNodeSerializer;
 import org.eclipse.leshan.server.demo.servlet.json.RegistrationSerializer;
@@ -87,8 +92,11 @@ public class ClientServlet extends HttpServlet {
 
     private final Gson gson;
 
-    public ClientServlet(LeshanServer server) {
+    private final  SimpleStorage simpleStorage;
+
+    public ClientServlet(LeshanServer server, SimpleStorage simpleStorage) {
         this.server = server;
+        this.simpleStorage = simpleStorage;
 
         GsonBuilder gsonBuilder = new GsonBuilder();
         gsonBuilder.registerTypeHierarchyAdapter(Registration.class,
@@ -96,6 +104,7 @@ public class ClientServlet extends HttpServlet {
         gsonBuilder.registerTypeHierarchyAdapter(LwM2mResponse.class, new ResponseSerializer());
         gsonBuilder.registerTypeHierarchyAdapter(LwM2mNode.class, new LwM2mNodeSerializer());
         gsonBuilder.registerTypeHierarchyAdapter(LwM2mNode.class, new LwM2mNodeDeserializer());
+        gsonBuilder.registerTypeHierarchyAdapter(ScheduleRequest.class, new ScheduleRequestSerializer());
         gsonBuilder.setDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
         this.gson = gsonBuilder.create();
     }
@@ -175,9 +184,18 @@ public class ClientServlet extends HttpServlet {
 
                 // create & process request
                 ReadRequest request = new ReadRequest(contentFormat, target);
-                ReadResponse cResponse = server.send(registration, request, TIMEOUT);
-            
-                processDeviceResponse(req, resp, cResponse);
+                try {
+                    ReadResponse cResponse = server.send(registration, request, TIMEOUT);
+                    processDeviceResponse(req, resp, cResponse);
+                } catch (ClientSleepingException e) {
+                    ScheduleRequest schedule = new ScheduleRequest(ActionType.read, request.getPath(), null);
+                    String payload = this.gson.toJson(schedule);
+                    LOG.error("Schedule Read create:{}:{}:{}",registration.getEndpoint(), schedule.getLink(), payload);
+                    this.simpleStorage.setEndpointRequest(registration.getEndpoint(), schedule.getLink(), payload);
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    resp.getWriter().append("Client is sleeping, scheduled Read for execution in next registration!").flush();
+                    //processDeviceResponse(req, resp, null);
+                }
             } else {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 resp.getWriter().format("No registered client with id '%s'", clientEndpoint).flush();
@@ -250,8 +268,21 @@ public class ClientServlet extends HttpServlet {
                     // create & process request
                     LwM2mNode node = extractLwM2mNode(target, req);
                     WriteRequest request = new WriteRequest(Mode.REPLACE, contentFormat, target, node);
-                    WriteResponse cResponse = server.send(registration, request, TIMEOUT);
-                    processDeviceResponse(req, resp, cResponse);
+                    try {
+                        WriteResponse cResponse = server.send(registration, request, TIMEOUT);
+                        processDeviceResponse(req, resp, cResponse);
+                    } catch (ClientSleepingException e) {
+                        if(node instanceof LwM2mResource) {
+                            ScheduleRequest schedule = new ScheduleRequest(ActionType.write, request.getPath(), (LwM2mResource)node);
+                            String payload = this.gson.toJson(schedule);
+                            LOG.error("Schedule Write create:{}:{}:{}",registration.getEndpoint(), schedule.getLink(), payload);
+                            this.simpleStorage.setEndpointRequest(registration.getEndpoint(), schedule.getLink(), payload);
+                            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                            resp.getWriter().append("Client is sleeping, scheduled Write for execution in next registration!").flush();
+                        } else {
+                            throw e;
+                        }
+                    }
                 }
             } else {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -284,8 +315,17 @@ public class ClientServlet extends HttpServlet {
 
                     // create & process request
                     ObserveRequest request = new ObserveRequest(contentFormat, target);
-                    ObserveResponse cResponse = server.send(registration, request, TIMEOUT);
-                    processDeviceResponse(req, resp, cResponse);
+                    try {
+                        ObserveResponse cResponse = server.send(registration, request, TIMEOUT);
+                        processDeviceResponse(req, resp, cResponse);
+                    } catch (ClientSleepingException e) {
+                        ScheduleRequest schedule = new ScheduleRequest(ActionType.observe, request.getPath(), null);
+                        String payload = this.gson.toJson(schedule);
+                        LOG.error("Schedule Observe create:{}:{}:{}", registration.getEndpoint(), schedule.getLink(), payload);
+                        this.simpleStorage.setEndpointRequest(registration.getEndpoint(), schedule.getLink(), payload);
+                        resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        resp.getWriter().append("Client is sleeping, scheduled Observe for execution in next registration!").flush();
+                    }
                 } else {
                     resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                     resp.getWriter().format("no registered client with id '%s'", clientEndpoint).flush();
@@ -304,8 +344,21 @@ public class ClientServlet extends HttpServlet {
                 Registration registration = server.getRegistrationService().getByEndpoint(clientEndpoint);
                 if (registration != null) {
                     ExecuteRequest request = new ExecuteRequest(target, IOUtils.toString(req.getInputStream()));
-                    ExecuteResponse cResponse = server.send(registration, request, TIMEOUT);
-                    processDeviceResponse(req, resp, cResponse);
+                    try {
+                        ExecuteResponse cResponse = server.send(registration, request, TIMEOUT);
+                        processDeviceResponse(req, resp, cResponse);
+                    } catch (ClientSleepingException e) {
+                        LwM2mSingleResource param = null;
+                        if(request.getParameters() != null) {
+                            param = LwM2mSingleResource.newStringResource(request.getPath().getResourceId(), request.getParameters());
+                        }
+                        ScheduleRequest schedule = new ScheduleRequest(ActionType.execute, request.getPath(), param);
+                        String payload = this.gson.toJson(schedule);
+                        LOG.error("Schedule Execute create:{}:{}:{}", registration.getEndpoint(), schedule.getLink(), payload);
+                        this.simpleStorage.setEndpointRequest(registration.getEndpoint(), schedule.getLink(), payload);
+                        resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        resp.getWriter().append("Client is sleeping, scheduled Execute for execution in next registration!").flush();
+                    }
                 } else {
                     resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                     resp.getWriter().format("no registered client with id '%s'", clientEndpoint).flush();
@@ -358,7 +411,8 @@ public class ClientServlet extends HttpServlet {
                 String target = StringUtils.substringsBetween(req.getPathInfo(), clientEndpoint, "/observe")[0];
                 Registration registration = server.getRegistrationService().getByEndpoint(clientEndpoint);
                 if (registration != null) {
-                    server.getObservationService().cancelObservations(registration, target);
+                    int i = server.getObservationService().cancelObservations(registration, target);
+                    LOG.warn("Cancel observation for {} on {} is: {}", registration.getEndpoint(), target, i);
                     resp.setStatus(HttpServletResponse.SC_OK);
                 } else {
                     resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);

@@ -62,6 +62,9 @@ import org.eclipse.leshan.server.californium.LeshanServer;
 import org.eclipse.leshan.server.californium.LeshanServerBuilder;
 import org.eclipse.leshan.server.demo.mt.FileResource;
 import org.eclipse.leshan.server.demo.mt.SDProcessor;
+import org.eclipse.leshan.server.demo.mt.memory.InMemoryStorage;
+import org.eclipse.leshan.server.demo.mt.memory.RedisStorage;
+import org.eclipse.leshan.server.demo.mt.memory.SimpleStorage;
 import org.eclipse.leshan.server.demo.mt.tb.ThingsboardHttpClient;
 import org.eclipse.leshan.server.demo.mt.tb.ThingsboardMqttClient;
 import org.eclipse.leshan.server.demo.mt.tb.ThingsboardSend;
@@ -445,8 +448,9 @@ public class LeshanServerDemo {
             lwServer.coap().getServer().add(new FileResource(coapConfig, FILE_STORE_LINK, rootFile));
         }
 
+        SimpleStorage simpleStorage = jedis != null ? new RedisStorage(jedis) : new InMemoryStorage();
         //start logic for device read
-        SDProcessor processSD = new SDProcessor(lwServer, thingsboardSend, jedis);
+        SDProcessor processSD = new SDProcessor(lwServer, thingsboardSend, simpleStorage);
 
         // Now prepare Jetty
         InetSocketAddress jettyAddr;
@@ -466,7 +470,7 @@ public class LeshanServerDemo {
         ServletHolder eventServletHolder = new ServletHolder(eventServlet);
         root.addServlet(eventServletHolder, "/event/*");
 
-        ServletHolder clientServletHolder = new ServletHolder(new ClientServlet(lwServer));
+        ServletHolder clientServletHolder = new ServletHolder(new ClientServlet(lwServer, simpleStorage));
         root.addServlet(clientServletHolder, "/api/clients/*");
 
         ServletHolder securityServletHolder = new ServletHolder(new SecurityServlet(securityStore, serverCertificate));
@@ -495,11 +499,12 @@ public class LeshanServerDemo {
             jmdns.registerService(coapSecureServiceInfo);
         }
         
-        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 03.01.2019 11:00:00");  
+        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 14.02.2019 13:08:00");  
 
         // Start Jetty & Leshan & processSD
         lwServer.start();
         server.start();
+        processSD.setEventServlet(eventServlet);
         processSD.start();
         LOG.info("Web server started at {}.", server.getURI());
     }

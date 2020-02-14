@@ -11,12 +11,13 @@ import org.eclipse.leshan.core.node.LwM2mObjectInstance;
 import org.eclipse.leshan.core.node.LwM2mPath;
 import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.node.LwM2mSingleResource;
+import org.eclipse.leshan.core.request.DownlinkRequest;
 import org.eclipse.leshan.core.request.ExecuteRequest;
 import org.eclipse.leshan.core.request.ObserveRequest;
 import org.eclipse.leshan.core.request.ReadRequest;
 import org.eclipse.leshan.core.request.WriteRequest;
+import org.eclipse.leshan.core.request.exception.ClientSleepingException;
 import org.eclipse.leshan.core.response.ErrorCallback;
-import org.eclipse.leshan.core.response.ExecuteResponse;
 import org.eclipse.leshan.core.response.LwM2mResponse;
 import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.ResponseCallback;
@@ -26,10 +27,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Lwm2mHelper {
-    
+
     private static final Logger LOG = LoggerFactory.getLogger(Lwm2mHelper.class);
 
-    public static LwM2mNode readRequest(LeshanServer server, Registration registration, String resourceLink, long timeout) {
+    public static LwM2mNode readRequest(LeshanServer server, Registration registration, String resourceLink,
+            long timeout) {
         LwM2mNode object = null;
         try {
             LOG.debug("Sending read to {} on {} at {}", registration.getEndpoint(), resourceLink,
@@ -47,60 +49,86 @@ public class Lwm2mHelper {
                 LOG.debug("ReadRequest for {} on object {} Failed! Error: {} : {}", registration.getEndpoint(),
                         resourceLink, response.getCode(), response.getErrorMessage());
             }
-        } catch (InterruptedException e) {
+        } catch (ClientSleepingException e) {
+            LOG.debug("ReadRequest for {} on object {} Failed! Client is sleeping!", registration.getEndpoint(), resourceLink);
+        }
+        catch (InterruptedException e) {
             e.printStackTrace();
         }
         return object;
     }
 
-    public static Boolean writeRequest(LeshanServer server, Registration registration, WriteRequest request, long timeout) {
+    public static boolean writeRequest(LeshanServer server, Registration registration, WriteRequest request,
+            long timeout) {
         Boolean result = null;
         String resourceInfo = null;
-        if(request.getNode() instanceof LwM2mObjectInstance) {
-            resourceInfo = ((LwM2mObjectInstance)request.getNode()).getResources().toString();
+        if (request.getNode() instanceof LwM2mObjectInstance) {
+            resourceInfo = ((LwM2mObjectInstance) request.getNode()).getResources().toString();
         }
         try {
-            LOG.debug("Sending write to {} on {}({}) at {}", registration.getEndpoint(), request.getPath().toString(), resourceInfo,
-                    System.currentTimeMillis());
+            LOG.debug("Sending write to {} on {}({}) at {}", registration.getEndpoint(), request.getPath().toString(),
+                    resourceInfo, System.currentTimeMillis());
             LwM2mResponse response = server.send(registration, request, timeout);
             if (response == null) {
                 result = false;
                 LOG.debug("WriteRequest for {} on resource {}({}) timeout! as {}", registration.getEndpoint(),
-                        request.getPath().toString(), resourceInfo,  System.currentTimeMillis());
+                        request.getPath().toString(), resourceInfo, System.currentTimeMillis());
             } else if (response.isSuccess()) {
                 result = true;
-                LOG.debug("Received write to {} on resource {}({}) at {}", registration.getEndpoint(), request.getPath().toString(), resourceInfo,
-                        System.currentTimeMillis());
+                LOG.debug("Received write to {} on resource {}({}) at {}", registration.getEndpoint(),
+                        request.getPath().toString(), resourceInfo, System.currentTimeMillis());
             } else if (!response.isSuccess()) {
                 result = false;
                 LOG.debug("WriteRequest for {} on resource {}({}) Failed! Error: {} : {}", registration.getEndpoint(),
                         request.getPath().toString(), resourceInfo, response.getCode(), response.getErrorMessage());
             }
+        } catch (ClientSleepingException e) {
+            LOG.debug("WriteRequest for {} on resource {}({}) Failed! Client is sleeping!", registration.getEndpoint(),
+                request.getPath().toString(), resourceInfo);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
         return result;
     }
 
-    public static void createExecuteRequest(LeshanServer server, Registration registration, String  path, String parameters, long timeout) {
+    public static void asyncExecuteRequest(LeshanServer server, Registration registration, String path,
+            String parameters, long timeout) {
         ExecuteRequest request = new ExecuteRequest(path, parameters);
-        final String debug = registration.getEndpoint() + "; on" + request.getPath().toString();
-        LOG.debug("ExecuteRequest for {} on {} at {}", registration.getEndpoint(),
-                request.getPath().toString(), System.currentTimeMillis());
+        LOG.debug("ExecuteRequest for {} on {} at {}", registration.getEndpoint(), request.getPath().toString(),
+                System.currentTimeMillis());
+        asyncSend(server, registration, request, timeout);
+    }
 
-        server.send(registration, request, timeout, new ResponseCallback<ExecuteResponse>() {
+    public static <T extends LwM2mResponse> void asyncSend(LeshanServer server, Registration registration,
+            DownlinkRequest<T> request, long timeout) {
+        final String debug = registration.getEndpoint() + "; on" + request.getPath().toString();
+        server.send(registration, request, timeout, new ResponseCallback<T>() {
             @Override
-            public void onResponse(ExecuteResponse response) {
-                //if(!response.isSuccess()) {
-                    LOG.debug("Received Async ExecuteRequest is {} to {} at {} ",  response.isSuccess(), debug, System.currentTimeMillis());
-                //}
+            public void onResponse(T response) {
+                // if(!response.isSuccess()) {
+                LOG.debug("Received Async request is {} to {} at {} ", response.isSuccess(), debug,
+                        System.currentTimeMillis());
+                // }
             }
         }, new ErrorCallback() {
             @Override
             public void onError(Exception e) {
-                LOG.error("onError Async ExecuteRequest on {} : {}", debug, e.getMessage());
+                LOG.error("onError Async request: {} : {}", debug, e.getMessage());
             }
         });
+    }
+
+    public static <T extends LwM2mResponse> LwM2mResponse send(LeshanServer server, Registration registration,
+            DownlinkRequest<T> request, long timeout) {
+        try {
+            LwM2mResponse response = server.send(registration, request, timeout);
+            return response;
+        } catch (ClientSleepingException e) {
+            LOG.debug("Request for {} on {} Failed! Client is sleeping!", registration.getEndpoint(), request.getPath().toString());
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
     
     public static void observeRequest(LeshanServer server, Registration registration, String link, long timeout) {
@@ -124,6 +152,8 @@ public class Lwm2mHelper {
             }
             // } else {
             // }
+        } catch (ClientSleepingException e) {
+            LOG.debug("ObserveRequest for {} on {} Failed! Client is sleeping!", registration.getEndpoint(), link);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

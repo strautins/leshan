@@ -168,4 +168,8 @@ public abstract class CodeWrapper {
         }
         return result;
     }
+
+    public boolean isValid() {
+        return this.mCode != null;
+    }
 }
