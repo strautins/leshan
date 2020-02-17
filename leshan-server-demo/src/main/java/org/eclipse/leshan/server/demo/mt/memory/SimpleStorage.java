@@ -1,6 +1,8 @@
 package org.eclipse.leshan.server.demo.mt.memory;
 
-import java.util.Map;
+import java.util.List;
+
+import org.eclipse.leshan.server.demo.mt.scheduler.RequestPayload;
 
 public interface SimpleStorage {
 
@@ -10,9 +12,9 @@ public interface SimpleStorage {
 
     void deleteEndpointData(String endpoint);
 
-    Map<String, String> getEndpointRequests(String endpoint);
+    List<RequestPayload> getEndpointRequests(String endpoint);
 
-    void setEndpointRequest(String endpoint, String hashLink, String payload);
+    void setEndpointRequest(String endpoint, String link, String payload, long timeMs);
 
-    void deleteEndpointRequest(String endpoint, String hashLink);
+    void deleteEndpointRequest(String endpoint, String link);
 }

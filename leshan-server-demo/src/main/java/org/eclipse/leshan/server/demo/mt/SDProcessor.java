@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.google.gson.Gson;
@@ -20,10 +21,10 @@ import org.eclipse.leshan.core.response.LwM2mResponse;
 import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.server.californium.LeshanServer;
 import org.eclipse.leshan.server.demo.mt.tb.ThingsboardSend;
+import org.eclipse.leshan.server.demo.mt.scheduler.RequestPayload;
 import org.eclipse.leshan.server.demo.mt.scheduler.ScheduleRequest;
 import org.eclipse.leshan.server.demo.mt.scheduler.ScheduleRequestDeserializer;
 import org.eclipse.leshan.server.demo.mt.scheduler.ScheduleRequestSerializer;
-import org.eclipse.leshan.server.demo.mt.scheduler.ScheduleRequest.ActionType;
 import org.eclipse.leshan.server.demo.mt.memory.SimpleStorage;
 import org.eclipse.leshan.server.demo.mt.tb.Payload;
 import org.eclipse.leshan.server.demo.servlet.EventServlet;
@@ -265,8 +266,12 @@ public class SDProcessor {
                             }
                             sendAll(data);
                             //clear read data 
-                            needToClearData = false;
-                            Lwm2mHelper.asyncExecuteRequest(this.mLeshanServer, registration, PATH_GROUP_CLEAR_DATA.toString(), null, this.mTimeout);
+                            
+                            if(Lwm2mHelper.executeRequest(this.mLeshanServer, registration, PATH_GROUP_CLEAR_DATA.toString(), null, this.mTimeout)) {
+                                needToClearData = false;
+                            } else { //if request failed break loop
+                                break;
+                            }
                         } else {
                             LOG.error("Could not get serial info from endpoint:{}", registration.getEndpoint());
                             break;
@@ -423,31 +428,32 @@ public class SDProcessor {
     }
 
     private void processScheduledOperations(Registration registration) {
-        Map<String, String> requestPayload = this.mSimpleStorage.getEndpointRequests(registration.getEndpoint());
+        List<RequestPayload> requestPayload = this.mSimpleStorage.getEndpointRequests(registration.getEndpoint());
         if (requestPayload != null) {
-            for (Map.Entry<String, String> entry : requestPayload.entrySet()) {
-                ScheduleRequest request;
-                try {
-                   request = this.gson.fromJson(entry.getValue(), ScheduleRequest.class);    
-                   if (request.isValid()) {
-                        boolean result = sendRequest(registration, request);
-                        LOG.info("Process scheduled request for {} of {} is {} : {}", registration.getEndpoint(), entry.getKey(), result, request.getReadResponse());
-                        if(result && this.mEventServlet != null) {
-                            if(result && request.isRead()) {
-                                mEventServlet.pushEvent(registration, request);
-                            } else if(request.isWrite()) {
-                                request.setActionType(ActionType.read);
-                                result = sendRequest(registration, request); 
-                                if(result) {
+            Collections.sort(requestPayload); //sorting asc
+            for (RequestPayload item : requestPayload) {
+                if(item.mTimeMs <= System.currentTimeMillis()) {
+                    ScheduleRequest request;
+                    try {
+                        request = this.gson.fromJson(item.mPayload, ScheduleRequest.class);    
+                        if (request.isValid()) {
+                            boolean result = sendRequest(registration, request);
+                            LOG.info("Processed request for {}; Link:{} isSuccess:{}; ReadResp:{};", registration.getEndpoint(), item.mLink, result, request.getReadResponse());
+                            if(result && this.mEventServlet != null) {
+                                if(result && request.isRead()) {
                                     mEventServlet.pushEvent(registration, request);
-                                }   
-                            } 
+                                } //if write success, create LwM2mResponse to push event
+                            }
+                        } else {
+                            LOG.error("Process is not valid for {}; Request:{}:{}:{};", registration.getEndpoint(), item.mLink, item.mPayload, item.mTimeMs);
                         }
-                    } 
-                } catch(Exception e) {
-                    LOG.error("Error processing scheduled request {} for {}:{}", entry.getKey(), registration.getEndpoint(), entry.getValue());
+                    } catch(Exception e) {
+                        LOG.error("Process error for {}; Request:{}:{}:{};", registration.getEndpoint(),item.mLink, item.mPayload, item.mTimeMs);
+                    }
+                    this.mSimpleStorage.deleteEndpointRequest(registration.getEndpoint(), item.mLink);
+                } else {
+                    LOG.debug("Process of {}:{} skipped for {};", item.mLink, item.mTimeMs, registration.getEndpoint());    
                 }
-                this.mSimpleStorage.deleteEndpointRequest(registration.getEndpoint(), entry.getKey());
             }
         }
     }

@@ -37,68 +37,6 @@ public class ThingsboardMqttClient implements ThingsboardSend {
     public void stop() {
         // ignore
     }
-    // Something not working :( org.fusesource.mqtt-client
-    // public void connectAndPublish(final String token, final ArrayList<String>
-    // msg) throws URISyntaxException {
-    // MQTT mqtt = new MQTT();
-    // mqtt.setHost(this.mHost, this.mPort);
-    // mqtt.setUserName(token);
-    // mqtt.setCleanSession(true);
-    // mqtt.setConnectAttemptsMax(3);
-    // final CallbackConnection connection = mqtt.callbackConnection();
-
-    // LOG.warn("Mqtt before connect at {} : {} : {}", System.currentTimeMillis(),
-    // token, mqtt.getHost());
-    // connection.connect(new Callback<Void>() {
-    // public void onFailure(Throwable value) {
-    // LOG.warn("Mqtt Connection error at {} : {} : {}", System.currentTimeMillis(),
-    // token, value.getMessage());
-    // connection.disconnect(null);
-    // }
-    // public void onSuccess(Void v) {
-    // LOG.warn("Mqtt Connection success at {} : {} : {}",
-    // System.currentTimeMillis(), token);
-    // // Send a messages to a topic
-    // try {
-    // final CountDownLatch latch = new CountDownLatch(msg.size());
-    // for (final String s : msg) {
-    // connection.publish(mTopic, s.getBytes(), QoS.AT_LEAST_ONCE, false, new
-    // Callback<Void>() {
-    // public void onSuccess(Void v) {
-    // latch.countDown();
-    // LOG.warn("Mqtt Received at {} : {} : {}", System.currentTimeMillis(), token,
-    // s);
-    // }
-    // public void onFailure(Throwable value) {
-    // latch.countDown();
-    // LOG.warn("Mqtt Failed at {} : {} : {} : {}", System.currentTimeMillis(),
-    // token, s, value);
-    // }
-    // });
-    // }
-    // latch.await();
-    // } catch (InterruptedException e) {
-    // LOG.warn("Mqtt InterruptedException at {} : {} : {}",
-    // System.currentTimeMillis(), token, e.getMessage());
-    // } finally {
-    // // To disconnect..
-    // connection.disconnect(new Callback<Void>() {
-    // public void onSuccess(Void v) {
-    // LOG.warn("Mqtt disconnect success at {} : {}", System.currentTimeMillis(),
-    // token);
-    // }
-    // public void onFailure(Throwable value) {
-    // // Disconnects never fail.
-    // LOG.warn("Mqtt disconnect failed at {} : {}", System.currentTimeMillis(),
-    // value.getMessage());
-    // }
-    // });
-    // }
-    // }
-    // });
-    // LOG.warn("Mqtt End at {} : {} : {} : {}", System.currentTimeMillis(), token,
-    // this.mHost, this.mPort);
-    // }
     // org.eclipse.paho
     @Override
     public void send(final String token, final ArrayList<String> msg) {

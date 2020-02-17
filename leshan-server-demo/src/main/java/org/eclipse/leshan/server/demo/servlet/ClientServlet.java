@@ -190,8 +190,8 @@ public class ClientServlet extends HttpServlet {
                 } catch (ClientSleepingException e) {
                     ScheduleRequest schedule = new ScheduleRequest(ActionType.read, request.getPath(), null);
                     String payload = this.gson.toJson(schedule);
-                    LOG.error("Schedule Read create:{}:{}:{}",registration.getEndpoint(), schedule.getLink(), payload);
-                    this.simpleStorage.setEndpointRequest(registration.getEndpoint(), schedule.getLink(), payload);
+                    LOG.debug("Schedule Read create:{}:{}:{}",registration.getEndpoint(), schedule.getLink(), payload);
+                    this.simpleStorage.setEndpointRequest(registration.getEndpoint(), schedule.getLink(), payload, System.currentTimeMillis());
                     resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                     resp.getWriter().append("Client is sleeping, scheduled Read for execution in next registration!").flush();
                     //processDeviceResponse(req, resp, null);
@@ -275,8 +275,8 @@ public class ClientServlet extends HttpServlet {
                         if(node instanceof LwM2mResource) {
                             ScheduleRequest schedule = new ScheduleRequest(ActionType.write, request.getPath(), (LwM2mResource)node);
                             String payload = this.gson.toJson(schedule);
-                            LOG.error("Schedule Write create:{}:{}:{}",registration.getEndpoint(), schedule.getLink(), payload);
-                            this.simpleStorage.setEndpointRequest(registration.getEndpoint(), schedule.getLink(), payload);
+                            LOG.debug("Schedule Write create:{}:{}:{}",registration.getEndpoint(), schedule.getLink(), payload);
+                            this.simpleStorage.setEndpointRequest(registration.getEndpoint(), schedule.getLink(), payload, System.currentTimeMillis());
                             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                             resp.getWriter().append("Client is sleeping, scheduled Write for execution in next registration!").flush();
                         } else {
@@ -321,8 +321,8 @@ public class ClientServlet extends HttpServlet {
                     } catch (ClientSleepingException e) {
                         ScheduleRequest schedule = new ScheduleRequest(ActionType.observe, request.getPath(), null);
                         String payload = this.gson.toJson(schedule);
-                        LOG.error("Schedule Observe create:{}:{}:{}", registration.getEndpoint(), schedule.getLink(), payload);
-                        this.simpleStorage.setEndpointRequest(registration.getEndpoint(), schedule.getLink(), payload);
+                        LOG.debug("Schedule Observe create:{}:{}:{}", registration.getEndpoint(), schedule.getLink(), payload);
+                        this.simpleStorage.setEndpointRequest(registration.getEndpoint(), schedule.getLink(), payload, System.currentTimeMillis());
                         resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                         resp.getWriter().append("Client is sleeping, scheduled Observe for execution in next registration!").flush();
                     }
@@ -354,8 +354,8 @@ public class ClientServlet extends HttpServlet {
                         }
                         ScheduleRequest schedule = new ScheduleRequest(ActionType.execute, request.getPath(), param);
                         String payload = this.gson.toJson(schedule);
-                        LOG.error("Schedule Execute create:{}:{}:{}", registration.getEndpoint(), schedule.getLink(), payload);
-                        this.simpleStorage.setEndpointRequest(registration.getEndpoint(), schedule.getLink(), payload);
+                        LOG.debug("Schedule Execute create:{}:{}:{}", registration.getEndpoint(), schedule.getLink(), payload);
+                        this.simpleStorage.setEndpointRequest(registration.getEndpoint(), schedule.getLink(), payload, System.currentTimeMillis());
                         resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                         resp.getWriter().append("Client is sleeping, scheduled Execute for execution in next registration!").flush();
                     }

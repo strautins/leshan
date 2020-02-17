@@ -23,7 +23,6 @@ public class ScheduleRequestSerializer implements JsonSerializer<ScheduleRequest
         id, instances, resources, values, value
     }
 
-
     @Override
     public JsonElement serialize(ScheduleRequest src, Type typeOfSrc, JsonSerializationContext context) {
         JsonObject element = new JsonObject();

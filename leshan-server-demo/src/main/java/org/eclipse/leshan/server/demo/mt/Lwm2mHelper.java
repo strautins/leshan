@@ -91,6 +91,18 @@ public class Lwm2mHelper {
         return result;
     }
 
+    public static boolean executeRequest(LeshanServer server, Registration registration, String path,
+            String parameters, long timeout) {
+        ExecuteRequest request = new ExecuteRequest(path, parameters);
+        LOG.debug("ExecuteRequest for {} on {} at {}", registration.getEndpoint(), request.getPath().toString(),
+                System.currentTimeMillis());
+        LwM2mResponse response = send(server, registration, request, timeout);
+        if(response != null && response.isSuccess()) {
+            return true;
+        }
+        return false;
+    }
+
     public static void asyncExecuteRequest(LeshanServer server, Registration registration, String path,
             String parameters, long timeout) {
         ExecuteRequest request = new ExecuteRequest(path, parameters);
