@@ -15,14 +15,11 @@ import org.eclipse.leshan.core.response.WriteResponse;
 import org.mikrotik.iot.sd.utils.ByteUtil;
 import org.mikrotik.iot.sd.utils.CodeWrapper;
 import org.mikrotik.iot.sd.utils.CustomEvent;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.model.ObjectModel;
 
 public class SensorReadings extends BaseInstanceEnabler {
     private GroupSensors mGroupSensors;
-    private static final Logger LOG = LoggerFactory.getLogger(SensorReadings.class);
     public static final int R0 = 0;
     public static final int R1 = 1;
     public static final int R2 = 2;

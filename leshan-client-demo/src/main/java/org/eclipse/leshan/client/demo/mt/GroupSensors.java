@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Random;
 
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
@@ -26,7 +25,6 @@ import org.eclipse.leshan.core.response.WriteResponse;
 import org.mikrotik.iot.sd.utils.ByteUtil;
 import org.mikrotik.iot.sd.utils.PredefinedEvent;
 import org.mikrotik.iot.sd.utils.PushEvent;
-import org.mikrotik.iot.sd.utils.CodeWrapper.EventCode;
 import org.mikrotik.iot.sd.utils.CodeWrapper;
 import org.mikrotik.iot.sd.utils.CustomEvent;
 import org.slf4j.Logger;
@@ -53,10 +51,9 @@ public class GroupSensors extends BaseInstanceEnabler {
     private final ArrayList<AlarmStatus> mAlarmStatusList = new ArrayList<AlarmStatus>();
     private final ArrayList<Devices> mDevicesList = new ArrayList<Devices>();
     private static final List<Integer> supportedResources = Arrays.asList(R0, R1, R2, R3, R4, R5, R6, R7);
-    private final Random mRnd = new Random();
 
     private byte[] mEventConfig = new byte[0];
-    private int mNotifyDelay = 60 * 8; //min * x
+    private int mNotifyDelay = 300;
     private Date mLastEventRead;
     public void setGroupSensors(String... serialNrs) {
         // scheduleNext();
@@ -81,6 +78,10 @@ public class GroupSensors extends BaseInstanceEnabler {
             mDevicesList.add(d);
             i++;
         }
+    }
+    
+    public void setNotifyDelay(int lifetime) {
+        this.mNotifyDelay = (lifetime / 3) * 2;
     }
 
     // private void scheduleNext() {

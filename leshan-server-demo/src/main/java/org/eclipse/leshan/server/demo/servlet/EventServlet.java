@@ -178,7 +178,6 @@ public class EventServlet extends EventSourceServlet {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Dispatching {} event from endpoint {}", event, endpoint);
         }
-
         for (LeshanEventSource eventSource : eventSources) {
             if (eventSource.getEndpoint() == null || eventSource.getEndpoint().equals(endpoint)) {
                 eventSource.sentEvent(event, data);
@@ -258,7 +257,8 @@ public class EventServlet extends EventSourceServlet {
             try {
                 emitter.event(event, data);
             } catch (IOException e) {
-                e.printStackTrace();
+                //e.printStackTrace(); //jst 17.02.2020
+                //emitter lost, not correctly closed interface
                 onClose();
             }
         }

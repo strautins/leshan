@@ -1,6 +1,5 @@
 package org.eclipse.leshan.client.demo.mt;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
