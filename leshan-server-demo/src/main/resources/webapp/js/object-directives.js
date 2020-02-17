@@ -43,12 +43,14 @@ angular.module('objectDirectives', [])
                   }
                 });
             
-                modalInstance.result.then(function (instance) {
+                modalInstance.result.then(function (result) {
+                    var instance = result.instance;
                     promisedValues = instance.resources.map(r => r.getPromisedValue())
                     Promise.all(promisedValues).then(function(resourceValues) {
                         // Build payload
                         var payload = {};
-                        payload["id"] = instance.id;
+                        if (instance.id)
+                            payload["id"] = instance.id;
                         payload["resources"] = [];
 
                         for(i in instance.resources){
@@ -63,12 +65,14 @@ angular.module('objectDirectives', [])
                         }
                         // Send request
                         var format = scope.settings.multi.format;
+                        var timeout = scope.settings.timeout.value;
                         var instancepath  = scope.object.path;
-                        $http({method: 'POST', url: "api/clients/" + $routeParams.clientId + instancepath, data: payload, headers:{'Content-Type': 'application/json'}, params:{format:format}})
+                        $http({method: 'POST', url: "api/clients/" + $routeParams.clientId + instancepath, data: payload, headers:{'Content-Type': 'application/json'}, params:{format:format,timeout:timeout}})
                         .success(function(data, status, headers, config) {
                             helper.handleResponse(data, scope.object.create, function (formattedDate) {
                                 if (data.success) {
-                                    var newinstance = lwResources.addInstance(scope.object, instance.id, null);
+                                    var instanceId = data.location ? data.location.split('/').pop() : instance.id;
+                                    var newinstance = lwResources.addInstance(scope.object, instanceId, null);
                                     for (var i in payload.resources) {
                                         var tlvresource = payload.resources[i];
                                         resource = lwResources.addResource(scope.object, newinstance, tlvresource.id, null);
@@ -79,8 +83,12 @@ angular.module('objectDirectives', [])
                                 }
                             });
                         }).error(function(data, status, headers, config) {
-                            errormessage = "Unable to create instance " + instancepath + " for "+ $routeParams.clientId + " : " + status +" "+ data;
-                            dialog.open(errormessage);
+                            if (status == 504){
+                                helper.handleResponse(null, scope.object.create)
+                            } else {
+                                errormessage = "Unable to create instance " + instancepath + " for "+ $routeParams.clientId + " : " + status +" "+ data;
+                                dialog.open(errormessage);
+                            }
                             console.error(errormessage);
                         });
                     });

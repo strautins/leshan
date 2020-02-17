@@ -19,6 +19,7 @@
 
 package org.eclipse.leshan.integration.tests;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
 import static org.junit.Assert.*;
@@ -491,7 +492,7 @@ public class ObserveTest {
     }
 
     private Connector getConnector(LeshanClient client) {
-        CoapEndpoint endpoint = (CoapEndpoint) helper.client.getCoapServer().getEndpoint(helper.client.getAddress());
+        CoapEndpoint endpoint = (CoapEndpoint) helper.client.coap().getServer().getEndpoint(helper.client.getAddress());
         return endpoint.getConnector();
     }
 

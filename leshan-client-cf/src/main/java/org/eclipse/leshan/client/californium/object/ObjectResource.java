@@ -32,7 +32,7 @@ import org.eclipse.leshan.client.bootstrap.BootstrapHandler;
 import org.eclipse.leshan.client.californium.LwM2mClientCoapResource;
 import org.eclipse.leshan.client.request.ServerIdentity;
 import org.eclipse.leshan.client.resource.LwM2mObjectEnabler;
-import org.eclipse.leshan.client.resource.NotifySender;
+import org.eclipse.leshan.client.resource.listener.ObjectListener;
 import org.eclipse.leshan.core.attributes.AttributeSet;
 import org.eclipse.leshan.core.model.LwM2mModel;
 import org.eclipse.leshan.core.model.StaticModel;
@@ -40,6 +40,7 @@ import org.eclipse.leshan.core.node.LwM2mNode;
 import org.eclipse.leshan.core.node.LwM2mObject;
 import org.eclipse.leshan.core.node.LwM2mObjectInstance;
 import org.eclipse.leshan.core.node.LwM2mPath;
+import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.node.codec.CodecException;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeDecoder;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeEncoder;
@@ -70,17 +71,17 @@ import org.eclipse.leshan.core.response.WriteResponse;
 /**
  * A CoAP {@link Resource} in charge of handling requests for of a lwM2M Object.
  */
-public class ObjectResource extends LwM2mClientCoapResource implements NotifySender {
+public class ObjectResource extends LwM2mClientCoapResource implements ObjectListener {
 
-    private final LwM2mObjectEnabler nodeEnabler;
-    private final LwM2mNodeEncoder encoder;
-    private final LwM2mNodeDecoder decoder;
+    protected final LwM2mObjectEnabler nodeEnabler;
+    protected final LwM2mNodeEncoder encoder;
+    protected final LwM2mNodeDecoder decoder;
 
     public ObjectResource(LwM2mObjectEnabler nodeEnabler, BootstrapHandler bootstrapHandler, LwM2mNodeEncoder encoder,
             LwM2mNodeDecoder decoder) {
         super(Integer.toString(nodeEnabler.getId()), bootstrapHandler);
         this.nodeEnabler = nodeEnabler;
-        this.nodeEnabler.setNotifySender(this);
+        this.nodeEnabler.addListener(this);
         this.encoder = encoder;
         this.decoder = decoder;
         setObservable(true);
@@ -149,7 +150,7 @@ public class ObjectResource extends LwM2mClientCoapResource implements NotifySen
         }
     }
 
-    private ContentFormat getContentFormat(DownlinkRequest<?> request, ContentFormat requestedContentFormat) {
+    protected ContentFormat getContentFormat(DownlinkRequest<?> request, ContentFormat requestedContentFormat) {
         if (requestedContentFormat != null) {
             // we already check before this content format is supported.
             return requestedContentFormat;
@@ -286,7 +287,11 @@ public class ObjectResource extends LwM2mClientCoapResource implements NotifySen
             CreateRequest createRequest;
             // check if this is the "special" case where instance ID is not defined ...
             LwM2mObjectInstance newInstance = object.getInstance(LwM2mObjectInstance.UNDEFINED);
-            if (object.getInstances().size() == 1 && newInstance != null) {
+            if (object.getInstances().isEmpty()) {
+                // This is probably the pretty strange use case where
+                // instance ID is not defined an no resources available.
+                createRequest = new CreateRequest(contentFormat, path.getObjectId(), new LwM2mResource[0]);
+            } else if (object.getInstances().size() == 1 && newInstance != null) {
                 // the instance Id was not part of the create request payload.
                 // will be assigned by the client.
                 createRequest = new CreateRequest(contentFormat, path.getObjectId(),
@@ -335,11 +340,6 @@ public class ObjectResource extends LwM2mClientCoapResource implements NotifySen
         }
     }
 
-    @Override
-    public void sendNotify(String URI) {
-        changed(new ResourceObserveFilter(URI));
-    }
-
     /*
      * Override the default behavior so that requests to sub resources (typically /ObjectId/*) are handled by this
      * resource.
@@ -347,5 +347,24 @@ public class ObjectResource extends LwM2mClientCoapResource implements NotifySen
     @Override
     public Resource getChild(String name) {
         return this;
+    }
+
+    @Override
+    public void resourceChanged(LwM2mObjectEnabler object, int instanceId, int... resourceIds) {
+        // notify CoAP layer than resources changes, this will send observe notification if an observe relationship
+        // exits.
+        changed(new ResourceObserveFilter(object.getId() + ""));
+        changed(new ResourceObserveFilter(object.getId() + "/" + instanceId));
+        for (int resourceId : resourceIds) {
+            changed(new ResourceObserveFilter(object.getId() + "/" + instanceId + "/" + resourceId));
+        }
+    }
+
+    @Override
+    public void objectInstancesAdded(LwM2mObjectEnabler object, int... instanceIds) {
+    }
+
+    @Override
+    public void objectInstancesRemoved(LwM2mObjectEnabler object, int... instanceIds) {
     }
 }

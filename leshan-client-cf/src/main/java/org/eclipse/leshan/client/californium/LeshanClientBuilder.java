@@ -18,15 +18,22 @@ package org.eclipse.leshan.client.californium;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
 
+import org.eclipse.californium.core.CoapServer;
+import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
+import org.eclipse.californium.elements.Connector;
 import org.eclipse.californium.elements.EndpointContextMatcher;
 import org.eclipse.californium.elements.UDPConnector;
 import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig.Builder;
 import org.eclipse.leshan.LwM2mId;
+import org.eclipse.leshan.client.engine.DefaultRegistrationEngineFactory;
+import org.eclipse.leshan.client.engine.RegistrationEngine;
+import org.eclipse.leshan.client.engine.RegistrationEngineFactory;
 import org.eclipse.leshan.client.object.Device;
 import org.eclipse.leshan.client.object.Security;
 import org.eclipse.leshan.client.object.Server;
@@ -59,7 +66,10 @@ public class LeshanClientBuilder {
     private LwM2mNodeDecoder decoder;
 
     private EndpointFactory endpointFactory;
+    private RegistrationEngineFactory engineFactory;
     private Map<String, String> additionalAttributes;
+
+    private ScheduledExecutorService executor;
 
     /**
      * Creates a new instance for setting the configuration options for a {@link LeshanClient} instance.
@@ -156,10 +166,46 @@ public class LeshanClientBuilder {
     }
 
     /**
+     * Set the {@link RegistrationEngineFactory} which is responsible to create the {@link RegistrationEngine}.
+     * <p>
+     * The {@link RegistrationEngine} is responsible to manage all the client lifecycle
+     * (bootstrap/register/update/deregister ...)
+     * <p>
+     * By default a {@link DefaultRegistrationEngineFactory} is used. Look at this class to change some default timeout
+     * value.
+     * 
+     * @param engineFactory
+     * @return
+     */
+    public LeshanClientBuilder setRegistrationEngineFactory(RegistrationEngineFactory engineFactory) {
+        this.engineFactory = engineFactory;
+        return this;
+    }
+
+    /**
      * Set the additionalAttributes for {@link org.eclipse.leshan.core.request.RegisterRequest}.
      */
     public LeshanClientBuilder setAdditionalAttributes(Map<String, String> additionalAttributes) {
         this.additionalAttributes = additionalAttributes;
+        return this;
+    }
+
+    /**
+     * Set a shared executor. This executor will be used everywhere it is possible. This is generally used when you want
+     * to limit the number of thread to use or if you want to simulate a lot of clients sharing the same thread pool.
+     * <p>
+     * Currently UDP and DTLS receiver and sender thread could not be share meaning that you will at least consume 2
+     * thread by client + the number of thread available in the shared executor (see <a
+     * href=https://github.com/eclipse/californium/issues/1203>californium#1203 issue</a>)
+     * <p>
+     * Executor will not be shutdown automatically on {@link LeshanClient#destroy(boolean)}, this should be done
+     * manually.
+     * 
+     * @param executor the executor to share.
+     * @return the builder for fluent client creation.
+     */
+    public LeshanClientBuilder setSharedExecutor(ScheduledExecutorService executor) {
+        this.executor = executor;
         return this;
     }
 
@@ -194,11 +240,23 @@ public class LeshanClientBuilder {
         if (coapConfig == null) {
             coapConfig = createDefaultNetworkConfig();
         }
+        if (engineFactory == null) {
+            engineFactory = new DefaultRegistrationEngineFactory();
+        }
         if (endpointFactory == null) {
             endpointFactory = new DefaultEndpointFactory("LWM2M Client") {
                 @Override
                 protected EndpointContextMatcher createSecuredContextMatcher() {
                     return null; // use default californium one.
+                }
+
+                @Override
+                protected Connector createSecuredConnector(DtlsConnectorConfig dtlsConfig) {
+                    DTLSConnector dtlsConnector = new DTLSConnector(dtlsConfig);
+                    if (executor != null) {
+                        dtlsConnector.setExecutor(executor);
+                    }
+                    return dtlsConnector;
                 }
             };
         }
@@ -231,6 +289,10 @@ public class LeshanClientBuilder {
         if (incompleteConfig.getConnectionThreadCount() == null) {
             dtlsConfigBuilder.setConnectionThreadCount(1);
         }
+        // Use only 1 thread to receive DTLS data by default
+        if (incompleteConfig.getReceiverThreadCount() == null) {
+            dtlsConfigBuilder.setReceiverThreadCount(1);
+        }
 
         // Deactivate SNI by default
         // TODO should we support SNI ?
@@ -238,7 +300,39 @@ public class LeshanClientBuilder {
             dtlsConfigBuilder.setSniEnabled(false);
         }
 
+        return createLeshanClient(endpoint, localAddress, objectEnablers, coapConfig, dtlsConfigBuilder,
+                endpointFactory,engineFactory, additionalAttributes, encoder, decoder, executor);
+    }
+
+    /**
+     * Create the <code>LeshanClient</code>.
+     * <p>
+     * You can extend <code>LeshanClientBuilder</code> and override this method to create a new builder which will be
+     * able to build an extended <code>LeshanClient </code>.
+     * <p>
+     * See all the setters of this builder for more documentation about parameters.
+     * 
+     * @param endpoint The endpoint name for this client.
+     * @param localAddress The local address used for unsecured connection.
+     * @param objectEnablers The list of object enablers. An enabler adds to support for a given LWM2M object to the
+     *        client.
+     * @param coapConfig The coap config used to create {@link CoapEndpoint} and {@link CoapServer}.
+     * @param dtlsConfigBuilder The dtls config used to create the {@link DTLSConnector}.
+     * @param endpointFactory The factory which will create the {@link CoapEndpoint}.
+     * @param engineFactory The factory which will create the {@link RegistrationEngine}.
+     * @param additionalAttributes Some extra (out-of-spec) attributes to add to the register request.
+     * @param encoder used to encode request payload.
+     * @param decoder used to decode response payload.
+     * @param sharedExecutor an optional shared executor.
+     * 
+     * @return the new {@link LeshanClient}
+     */
+    protected LeshanClient createLeshanClient(String endpoint, InetSocketAddress localAddress,
+            List<? extends LwM2mObjectEnabler> objectEnablers, NetworkConfig coapConfig, Builder dtlsConfigBuilder,
+            EndpointFactory endpointFactory, RegistrationEngineFactory engineFactory,
+            Map<String, String> additionalAttributes, LwM2mNodeEncoder encoder, LwM2mNodeDecoder decoder,
+            ScheduledExecutorService sharedExecutor) {
         return new LeshanClient(endpoint, localAddress, objectEnablers, coapConfig, dtlsConfigBuilder, endpointFactory,
-                additionalAttributes, encoder, decoder);
+                engineFactory, additionalAttributes, encoder, decoder, executor);
     }
 }

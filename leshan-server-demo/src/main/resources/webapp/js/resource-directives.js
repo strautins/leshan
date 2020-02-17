@@ -32,14 +32,14 @@ angular.module('resourceDirectives', [])
             scope.resource.exec  =  {tooltip : "Execute <br/>"+ scope.resource.path};
             scope.resource.execwithparams = {tooltip : "Execute with parameters<br/>"+ scope.resource.path};
             scope.resource.observe  =  {tooltip : "Observe <br/>"+ scope.resource.path};
-            
+
             scope.readable = function() {
                 if(scope.resource.def.hasOwnProperty("operations")) {
                     return scope.resource.def.operations.indexOf("R") != -1;
                 }
                 return false;
             };
-           
+
             scope.writable = function() {
                 //if(scope.resource.def.instancetype != "multiple") {
                     if(scope.resource.def.hasOwnProperty("operations")) {
@@ -58,10 +58,18 @@ angular.module('resourceDirectives', [])
                 return false;
             };
 
+            scope.display = function(resource){
+                if (resource.def.type === "opaque" && resource.value){
+                    return "0x"+resource.value;
+                }
+                return resource.value;
+            }
+
             scope.startObserve = function() {
                 var format = scope.settings.single.format;
+                var timeout = scope.settings.timeout.value;
                 var uri = "api/clients/" + $routeParams.clientId + scope.resource.path+"/observe";
-                $http.post(uri, null,{params:{format:format}})
+                $http.post(uri, null,{params:{format:format, timeout:timeout}})
                 .success(function(data, status, headers, config) {
                     helper.handleResponse(data, scope.resource.observe, function (formattedDate){
                         if (data.success) {
@@ -83,13 +91,18 @@ angular.module('resourceDirectives', [])
                         }	
                 	});
                 }).error(function(data, status, headers, config) {
-                    errormessage = "Unable to start observation on resource " + scope.resource.path + " for "+ $routeParams.clientId + " : " + status +" "+ data;
-                    dialog.open(errormessage);
+                    if (status == 504){
+                        helper.handleResponse(null, scope.resource.observe);
+                    } else {
+                        errormessage = "Unable to start observation on resource " + scope.resource.path + " for "+ $routeParams.clientId + " : " + status +" "+ data;
+                        dialog.open(errormessage);
+                    }
                     console.error(errormessage);
                 });
             };
-            
+
             scope.stopObserve = function() {
+                var timeout = scope.settings.timeout.value;
                 var uri = "api/clients/" + $routeParams.clientId + scope.resource.path + "/observe";
                 $http.delete(uri)
                 .success(function(data, status, headers, config) {
@@ -101,12 +114,12 @@ angular.module('resourceDirectives', [])
                     console.error(errormessage);
                 });
             };
-            
-            
+
             scope.read = function() {
+                var timeout = scope.settings.timeout.value;
                 var format = scope.settings.single.format;
                 var uri = "api/clients/" + $routeParams.clientId + scope.resource.path;
-                $http.get(uri, {params:{format:format}})
+                $http.get(uri, {params:{format:format, timeout:timeout}})
                 .success(function(data, status, headers, config) {
                     // manage request information
                     helper.handleResponse(data, scope.resource.read, function (formattedDate){
@@ -128,8 +141,12 @@ angular.module('resourceDirectives', [])
                         }
                     });
                 }).error(function(data, status, headers, config) {
-                    errormessage = "Unable to read resource " + scope.resource.path + " for "+ $routeParams.clientId + " : " + status +" "+ data;
-                    dialog.open(errormessage);
+                    if (status == 504){
+                        helper.handleResponse(null, scope.resource.read);
+                    } else { 
+                        errormessage = "Unable to read resource " + scope.resource.path + " for "+ $routeParams.clientId + " : " + status +" "+ data;
+                        dialog.open(errormessage);
+                    }
                     console.error(errormessage);
                 });
             };
@@ -157,7 +174,8 @@ angular.module('resourceDirectives', [])
                         console.log(resource, payload);
                         // Send request
                         var format = scope.settings.multi.format;
-                        $http({method: 'PUT', url: "api/clients/" + $routeParams.clientId + scope.resource.path, data: payload, headers:{'Content-Type': 'application/json'},params:{format:format}})
+                        var timeout = scope.settings.timeout.value;
+                        $http({method: 'PUT', url: "api/clients/" + $routeParams.clientId + scope.resource.path, data: payload, headers:{'Content-Type': 'application/json'},params:{format:format, timeout:timeout}})
                         .success(function(data, status, headers, config) {
                             helper.handleResponse(data, scope.resource.write, function (formattedDate){
                                 if (data.success) {
@@ -167,8 +185,12 @@ angular.module('resourceDirectives', [])
                                 }
                             });
                         }).error(function(data, status, headers, config) {
-                            errormessage = "Unable to write resource " + scope.resource.path + " for "+ $routeParams.clientId + " : " + status +" "+ data;
-                            dialog.open(errormessage);
+                            if (status == 504){
+                                helper.handleResponse(null, scope.resource.write);
+                            } else { 
+                                errormessage = "Unable to write resource " + scope.resource.path + " for "+ $routeParams.clientId + " : " + status +" "+ data;
+                                dialog.open(errormessage);
+                            }
                             console.error(errormessage);
                         });
                     });
@@ -176,12 +198,17 @@ angular.module('resourceDirectives', [])
             };
 
             scope.exec = function() {
-                $http.post("api/clients/" + $routeParams.clientId+ scope.resource.path)
+                var timeout = scope.settings.timeout.value;
+                $http({method:'POST', url:"api/clients/" + $routeParams.clientId+ scope.resource.path, params:{timeout:timeout}})
                 .success(function(data, status, headers, config) {
-                	helper.handleResponse(data, scope.resource.exec);
+                    helper.handleResponse(data, scope.resource.exec);
                 }).error(function(data, status, headers, config) {
-                    errormessage = "Unable to execute resource " + scope.resource.path + " for "+ $routeParams.clientId + " : " + status +" "+ data;
-                    dialog.open(errormessage);
+                    if (status == 504){
+                        helper.handleResponse(null, scope.resource.exec);
+                    } else { 
+                        errormessage = "Unable to execute resource " + scope.resource.path + " for "+ $routeParams.clientId + " : " + status +" "+ data;
+                        dialog.open(errormessage);
+                    }
                     console.error(errormessage);
                 });
             };
@@ -196,13 +223,17 @@ angular.module('resourceDirectives', [])
 
                     if(value) {
                         $('#writeModal').modal('hide');
-
-                        $http({method: 'POST', url: "api/clients/" + $routeParams.clientId + scope.resource.path, data: value})
+                        var timeout = scope.settings.timeout.value;
+                        $http({method: 'POST', url: "api/clients/" + $routeParams.clientId + scope.resource.path, data: value, params:{timeout:timeout}})
                         .success(function(data, status, headers, config) {
-                        	helper.handleResponse(data, scope.resource.exec);                            
+                            helper.handleResponse(data, scope.resource.exec);
                         }).error(function(data, status, headers, config) {
-                            errormessage = "Unable to execute resource " + scope.resource.path + " for "+ $routeParams.clientId + " : " + status +" "+ data;
-                            dialog.open(errormessage);
+                            if (status == 504){
+                                helper.handleResponse(null, scope.resource.exec);
+                            } else { 
+                                errormessage = "Unable to execute resource " + scope.resource.path + " for "+ $routeParams.clientId + " : " + status +" "+ data;
+                                dialog.open(errormessage);
+                            }
                             console.error(errormessage);
                         });
                     }

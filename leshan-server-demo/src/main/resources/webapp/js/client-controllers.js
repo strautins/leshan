@@ -98,7 +98,7 @@ lwClientControllers.controller('ClientListCtrl', [
             var updateCallback =  function(msg) {
                 $scope.$apply(function() {
                     var client = JSON.parse(msg.data);
-                    $scope.clients = updateClient(client, $scope.clients);
+                    $scope.clients = updateClient(client.registration, $scope.clients);
                 });
             };
 
@@ -173,6 +173,7 @@ lwClientControllers.controller('ClientDetailCtrl', [
 
         // default format
         $scope.settings={};
+        $scope.settings.timeout = {format:"5s", value:5};
         $scope.settings.multi = {format:"TLV"};
         $scope.settings.single = {format:"TLV"};
 
@@ -205,6 +206,21 @@ lwClientControllers.controller('ClientDetailCtrl', [
                 });
             };
             $scope.eventsource.addEventListener('REGISTRATION', registerCallback, false);
+
+            var updateCallback = function(msg) {
+                $scope.$apply(function() {
+                    $scope.deregistered = false;
+                    var regUpdate = JSON.parse(msg.data);
+                    $scope.client = regUpdate.registration; 
+                    if (regUpdate.update.objectLinks){
+                        lwResources.updateResourceTree($scope.clientId, $scope.objects, $scope.client.rootPath, regUpdate.update.objectLinks, function (objects){
+                            $scope.objects = objects;
+                        });
+                    } 
+                });
+            };
+            $scope.eventsource.addEventListener('UPDATED', updateCallback, false);
+
 
             var deregisterCallback = function(msg) {
                 $scope.$apply(function() {
