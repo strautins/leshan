@@ -45,12 +45,9 @@ import org.eclipse.leshan.client.californium.LeshanClientBuilder;
 import org.eclipse.leshan.client.object.Server;
 import org.eclipse.leshan.client.resource.LwM2mObjectEnabler;
 import org.eclipse.leshan.client.resource.ObjectsInitializer;
-<<<<<<< HEAD
 import org.eclipse.leshan.client.demo.mt.GroupSensors;
-=======
 import org.eclipse.leshan.client.resource.listener.ObjectsListenerAdapter;
 import org.eclipse.leshan.core.model.LwM2mModel;
->>>>>>> de4e30bde301f134bcfc499504ca2c9d4a98efae
 import org.eclipse.leshan.core.model.ObjectLoader;
 import org.eclipse.leshan.core.model.ObjectModel;
 import org.eclipse.leshan.core.model.StaticModel;
@@ -64,10 +61,6 @@ public class LeshanClientDemo {
 
     private static final Logger LOG = LoggerFactory.getLogger(LeshanClientDemo.class);
 
-<<<<<<< HEAD
-    private final static String[] modelPaths = new String[] { "3303.xml",
-        "33755.xml" , "33756.xml", "33757.xml", "33758.xml"};
-=======
     // /!\ This class is a COPY of org.eclipse.leshan.server.demo.LeshanServerDemo.modelPaths /!\
     // TODO create a leshan-demo project ?
     private final static String[] modelPaths = new String[] { "31024.xml",
@@ -87,6 +80,8 @@ public class LeshanClientDemo {
                             "3340.xml", "3341.xml", "3342.xml", "3343.xml", "3344.xml", "3345.xml", "3346.xml",
                             "3347.xml", "3348.xml", "3349.xml", "3350.xml",
 
+                            "33755.xml" , "33756.xml", "33757.xml", "33758.xml",
+
                             "Communication_Characteristics-V1_0.xml",
 
                             "LWM2M_Lock_and_Wipe-V1_0.xml", "LWM2M_Cellular_connectivity-v1_0.xml",
@@ -95,7 +90,6 @@ public class LeshanClientDemo {
                             "LWM2M_Software_Component-v1_0.xml", "LWM2M_Software_Management-v1_0.xml",
 
                             "Non-Access_Stratum_NAS_configuration-V1_0.xml" };
->>>>>>> de4e30bde301f134bcfc499504ca2c9d4a98efae
 
     //private static final int OBJECT_ID_TEMPERATURE_SENSOR = 3303;
     private static final int OBJECT_ID_GROUP_DATA = 33755;
@@ -397,11 +391,7 @@ public class LeshanClientDemo {
         } else {
             if (pskIdentity != null) {
                 initializer.setInstancesForObject(SECURITY, psk(serverURI, 123, pskIdentity, pskKey));
-<<<<<<< HEAD
-                initializer.setInstancesForObject(SERVER, new Server(123, 30 * 3, BindingMode.UQ, false));
-=======
                 initializer.setInstancesForObject(SERVER, new Server(123, lifetime, BindingMode.U, false));
->>>>>>> de4e30bde301f134bcfc499504ca2c9d4a98efae
             } else if (clientPublicKey != null) {
                 initializer.setInstancesForObject(SECURITY, rpk(serverURI, 123, clientPublicKey.getEncoded(),
                         clientPrivateKey.getEncoded(), serverPublicKey.getEncoded()));
@@ -412,11 +402,7 @@ public class LeshanClientDemo {
                 initializer.setInstancesForObject(SERVER, new Server(123, lifetime, BindingMode.U, false));
             } else {
                 initializer.setInstancesForObject(SECURITY, noSec(serverURI, 123));
-<<<<<<< HEAD
-                initializer.setInstancesForObject(SERVER, new Server(123, 30 * 6, BindingMode.U, false));
-=======
                 initializer.setInstancesForObject(SERVER, new Server(123, lifetime, BindingMode.U, false));
->>>>>>> de4e30bde301f134bcfc499504ca2c9d4a98efae
             }
         }
         initializer.setInstancesForObject(DEVICE, new MyDevice());
@@ -455,9 +441,6 @@ public class LeshanClientDemo {
         final LeshanClient client = builder.build();
         gs.setLeshanClient(client);
 
-<<<<<<< HEAD
-        
-=======
         client.getObjectTree().addListener(new ObjectsListenerAdapter() {
             @Override
             public void objectRemoved(LwM2mObjectEnabler object) {
@@ -470,7 +453,6 @@ public class LeshanClientDemo {
             }
         });
 
->>>>>>> de4e30bde301f134bcfc499504ca2c9d4a98efae
         // Display client public key to easily add it in demo servers.
         if (clientPublicKey != null) {
             PublicKey rawPublicKey = clientPublicKey;

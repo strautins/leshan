@@ -23,18 +23,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.core.network.CoapEndpoint;
-<<<<<<< HEAD
-import org.eclipse.californium.core.network.Endpoint;
-import org.eclipse.californium.core.network.config.NetworkConfig;
-import org.eclipse.californium.core.server.resources.Resource;
-import org.eclipse.californium.elements.Connector;
-import org.eclipse.californium.scandium.DTLSConnector;
-=======
 import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.server.resources.Resource;
 import org.eclipse.californium.elements.util.ExecutorsUtil;
 import org.eclipse.californium.elements.util.NamedThreadFactory;
->>>>>>> de4e30bde301f134bcfc499504ca2c9d4a98efae
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig.Builder;
 import org.eclipse.leshan.client.LwM2mClient;
 import org.eclipse.leshan.client.RegistrationUpdateHandler;
@@ -47,13 +39,9 @@ import org.eclipse.leshan.client.engine.RegistrationEngineFactory;
 import org.eclipse.leshan.client.observer.LwM2mClientObserver;
 import org.eclipse.leshan.client.observer.LwM2mClientObserverDispatcher;
 import org.eclipse.leshan.client.resource.LwM2mObjectEnabler;
-<<<<<<< HEAD
-import org.eclipse.leshan.client.servers.Server;
-=======
 import org.eclipse.leshan.client.resource.LwM2mObjectTree;
 import org.eclipse.leshan.client.resource.listener.ObjectListener;
 import org.eclipse.leshan.client.resource.listener.ObjectsListenerAdapter;
->>>>>>> de4e30bde301f134bcfc499504ca2c9d4a98efae
 import org.eclipse.leshan.core.californium.EndpointFactory;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeDecoder;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeEncoder;
@@ -216,25 +204,7 @@ public class LeshanClient implements LwM2mClient {
     @Override
     public void destroy(boolean deregister) {
         LOG.info("Destroying Leshan client ...");
-        Server currentServer = engine.getServer();
         engine.destroy(deregister);
-        if(currentServer != null) {
-            Endpoint endpoint = (CoapEndpoint)(endpointsManager.getEndpoint(currentServer.getIdentity()));
-            if(endpoint != null && endpoint instanceof CoapEndpoint) {
-                Connector connector = ((CoapEndpoint) endpoint).getConnector();
-                if (connector instanceof DTLSConnector) {
-                    LOG.info("Sending CLOSE_NOTIFY to (DTLS)Coap Server {} ...", currentServer.getIdentity().getPeerAddress());
-                    ((DTLSConnector) connector).close(currentServer.getIdentity().getPeerAddress());
-                    //time to send CLOSE_NOTIFY. todo: add better wait!
-                    try {
-                        Thread.sleep(2000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-        }
-        
         endpointsManager.destroy();
         requestSender.destroy();
         LOG.info("Leshan client destroyed.");
