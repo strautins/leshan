@@ -27,7 +27,7 @@ public abstract class CodeWrapper {
 
     public static enum EventCode {
         NO_EVENT, TEMP_EVENT, HUMID_EVENT, PRESS_EVENT, CO2_EVENT, IAQ_EVEN,
-        CRIT_BAT, BATTERY_PROB, NOT_REACHABLE, DAMPER, EXT_PWR, LOW_BT_SIGNAL, LOW_CEL_SIGNAL, ALARM
+        CRIT_BAT, BATTERY_PROB, NOT_REACHABLE, DEVICES, DAMPER, EXT_PWR, LOW_BT_SIGNAL, LOW_CEL_SIGNAL, ALARM
     }
 
     public static final Map<OutputLogic, String> LOGIC_BIT_LEVEL;
@@ -53,11 +53,12 @@ public abstract class CodeWrapper {
         ev.put(EventCode.CRIT_BAT, 1);
         ev.put(EventCode.BATTERY_PROB, 2);
         ev.put(EventCode.NOT_REACHABLE, 3);
-        ev.put(EventCode.DAMPER, 4);
-        ev.put(EventCode.EXT_PWR, 5);
-        ev.put(EventCode.LOW_BT_SIGNAL, 6);
-        ev.put(EventCode.LOW_CEL_SIGNAL, 7);
-        ev.put(EventCode.ALARM, 8);
+        ev.put(EventCode.DEVICES, 4);
+        ev.put(EventCode.DAMPER, 5);
+        ev.put(EventCode.EXT_PWR, 6);
+        ev.put(EventCode.LOW_BT_SIGNAL, 7);
+        ev.put(EventCode.LOW_CEL_SIGNAL, 8);
+        ev.put(EventCode.ALARM, 9);
 
         ev.put(EventCode.TEMP_EVENT, 128); 
         ev.put(EventCode.HUMID_EVENT, 129); 
@@ -77,6 +78,7 @@ public abstract class CodeWrapper {
         imm.put(EventCode.CRIT_BAT, true);
         imm.put(EventCode.BATTERY_PROB, true);
         imm.put(EventCode.NOT_REACHABLE, true);
+        imm.put(EventCode.DEVICES, true);
         imm.put(EventCode.DAMPER, true);
         imm.put(EventCode.EXT_PWR, false);
         imm.put(EventCode.LOW_BT_SIGNAL, true);

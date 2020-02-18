@@ -1,11 +1,11 @@
 package org.mikrotik.iot.sd.utils;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+//import org.slf4j.Logger;
+//import org.slf4j.LoggerFactory;
 
 public class OutputStateConfig extends CodeWrapper {
     
-    private static final Logger LOG = LoggerFactory.getLogger(CustomEvent.class);
+    //private static final Logger LOG = LoggerFactory.getLogger(CustomEvent.class);
 
     private float mValue;
     private OutputTriggerType mOutputTriggerType;
@@ -37,7 +37,6 @@ public class OutputStateConfig extends CodeWrapper {
 
     public OutputStateConfig(byte[] b) {
         super(EventCode.NO_EVENT);
-        LOG.warn("bytes:{}", b);
         if(b.length == 11) {
             byte[] code = ByteUtil.getEmptyByteArray(3);
             code[0] = b[0];  

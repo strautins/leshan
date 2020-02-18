@@ -4,12 +4,12 @@ import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+//import org.slf4j.Logger;
+//import org.slf4j.LoggerFactory;
 
 public class ByteUtil {
     
-    private static final Logger LOG = LoggerFactory.getLogger(ByteUtil.class);
+    //private static final Logger LOG = LoggerFactory.getLogger(ByteUtil.class);
 
     public static final int CFG_HEADER_BYTES = 8;
     public static final int VALUE_BYTES = 4;

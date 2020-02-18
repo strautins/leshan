@@ -2,12 +2,12 @@ package org.mikrotik.iot.sd.utils;
 
 import java.util.Arrays;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+//import org.slf4j.Logger;
+//import org.slf4j.LoggerFactory;
 
 public class PredefinedEvent extends CodeWrapper implements PushEvent {
 
-    private static final Logger LOG = LoggerFactory.getLogger(PredefinedEvent.class);
+    //private static final Logger LOG = LoggerFactory.getLogger(PredefinedEvent.class);
     // size = 4B
     // struct Event {
     //     uint8_t event_code;         // ConfEventCode or EventCode event codes
@@ -75,7 +75,10 @@ public class PredefinedEvent extends CodeWrapper implements PushEvent {
     @Override
     public String toString() {
         return new StringBuffer().append(this.getId()).append("/")
-            .append(this.getEventCode().name()).append("/").append(this.isImmediateNotify())
-            .append("/").append(this.mParam1).append("/").append(Arrays.toString(this.getInstance())).toString(); 
+            .append(this.getEventCode().name()).append("/")
+            .append(this.isImmediateNotify()).append("/")
+            .append(this.mParam1).append("/")
+            .append(Arrays.toString(this.getInstance()))
+            .toString(); 
     }
 }
