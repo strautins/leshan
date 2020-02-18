@@ -62,34 +62,34 @@ public class SDProcessor {
     private static final LwM2mPath PATH_GROUP_EVENT_CFG = new LwM2mPath("33755/0/1");
     private static final LwM2mPath PATH_GROUP_CLEAR_DATA = new LwM2mPath("33755/0/2");
     /** Devices resource names */
-    protected static final String NAME_BATTERY = "battery";
-    protected static final String NAME_BATTERY_LEVEL = "battery_level";
-    protected static final String NAME_LATEST_TIME = "latest_time";
-    protected static final String NAME_REACHABLE = "reachable";
+    // protected static final String NAME_BATTERY = "battery";
+    // protected static final String NAME_BATTERY_LEVEL = "battery_level";
+    // protected static final String NAME_LATEST_TIME = "latest_time";
+    // protected static final String NAME_REACHABLE = "reachable";
     /** Devices resource ID */
     protected static final int RESOURCE_ID_SERIAL_NUMBER = 2;
-    protected static final int RESOURCE_ID_REACHABLE = 3;
-    protected static final int RESOURCE_ID_LAST_ACTIVE_TIME = 4;
-    protected static final int RESOURCE_ID_BLUETOOTH_SIGNAL = 5;
-    protected static final int RESOURCE_ID_BATTERY = 6;
-    protected static final int RESOURCE_ID_BATTERY_LEVEL = 7;
+    // protected static final int RESOURCE_ID_REACHABLE = 3;
+    // protected static final int RESOURCE_ID_LAST_ACTIVE_TIME = 4;
+    // protected static final int RESOURCE_ID_BLUETOOTH_SIGNAL = 5;
+    // protected static final int RESOURCE_ID_BATTERY = 6;
+    // protected static final int RESOURCE_ID_BATTERY_LEVEL = 7;
 
     /** Alarm resource names */
-    protected static final String NAME_SMOKE_ALARM = "smoke_alarm";
-    protected static final String NAME_HUSHED = "hushed";
-    protected static final String NAME_TEMPERATURE_ALARM = "temperature_alarm";
-    protected static final String NAME_CO_ALARM = "co_alarm";
+    // protected static final String NAME_SMOKE_ALARM = "smoke_alarm";
+    // protected static final String NAME_HUSHED = "hushed";
+    // protected static final String NAME_TEMPERATURE_ALARM = "temperature_alarm";
+    // protected static final String NAME_CO_ALARM = "co_alarm";
 
-    /** Alarm object resource ID */
-    protected static final int RESOURCE_ID_SMOKE_ALARM = 0;
-    protected static final int RESOURCE_ID_CO_ALARM = 1;
-    protected static final int RESOURCE_ID_TEMPERATURE = 2;
-    protected static final int RESOURCE_ID_HUSHED = 3;
+    // /** Alarm object resource ID */
+    // protected static final int RESOURCE_ID_SMOKE_ALARM = 0;
+    // protected static final int RESOURCE_ID_CO_ALARM = 1;
+    // protected static final int RESOURCE_ID_TEMPERATURE = 2;
+    // protected static final int RESOURCE_ID_HUSHED = 3;
 
     private final LeshanServer mLeshanServer;
     private final ThingsboardSend mThingsboardSend;
     private final SimpleStorage mSimpleStorage;
-    // to push scheduled Read to interace
+    // to push scheduled Read to interface
     private EventServlet mEventServlet = null; 
 
     private final long mTimeout;
@@ -142,10 +142,12 @@ public class SDProcessor {
         }
     };
 
+    /** For interface notify of scheduled execution results */
     public void setEventServlet(EventServlet event) {
         this.mEventServlet = event;     
     }
 
+    /** Add registration listener for handling SD devices */
     public void start() {
         if(this.mThingsboardSend != null) {
             this.mThingsboardSend.start();
@@ -153,6 +155,7 @@ public class SDProcessor {
         this.mLeshanServer.getRegistrationService().addListener(this.registrationListener);
     }
 
+    /** Remove registration listener */
     public void stop() {
         if(this.mThingsboardSend != null) {
             this.mThingsboardSend.stop();
@@ -169,17 +172,13 @@ public class SDProcessor {
             }
         }
     }
-
+    /** Main SD device handling demo */
     private void getResources(Registration registration, String event) {
-        // todo check observations
-        // Set<Observation> observ = mLeshanServer.getObservationService().getObservations(registration);
-        // for (Observation s : observ) {
-        //     LOG.debug("Observations for {} / {} : {}", registration.getEndpoint(), event, s.toString());
-        // }
         boolean isMainObj = false;
         boolean isDevices = false;
         boolean isSensors = false;
         boolean isAlarm = false;
+        // From Registration info extract device objects
         for (Link i : registration.getObjectLinks()) {
             if (i.getUrl().contains(PATH_GROUP.toString())) {
                 isMainObj = true;
@@ -191,20 +190,22 @@ public class SDProcessor {
                 isDevices = true;
             }
         }
-
+        // if is objects of SD consider it is SD device.
         if (isMainObj && isDevices) {
             LwM2mObject devicesObject = null;
             LwM2mObject groupObj = null; 
             LwM2mObject AlarmObj = null; 
             boolean needToClearData = false;
             byte[] events = null;
+
+            // On REGISTRATION collect info about device, check and alter desired config...
             if(event.equals(EVENT_REGISTRATION)) {
                 groupObj = (LwM2mObject)Lwm2mHelper.readRequest(this.mLeshanServer, registration, PATH_GROUP.toString(), this.mTimeout);
                 if(groupObj != null) {
                     putLwM2mObjectInMemory(registration.getEndpoint(), groupObj);  
                     events = Lwm2mHelper.getOpaque(groupObj.getInstance(PATH_GROUP_EVENTS.getObjectInstanceId()), PATH_GROUP_EVENTS.getResourceId());   
                     byte[] cfg = Lwm2mHelper.getOpaque(groupObj.getInstance(PATH_GROUP_EVENT_CFG.getObjectInstanceId()), PATH_GROUP_EVENT_CFG.getResourceId());   
-                    cfg = getEndpointCfg(registration, cfg);//get byte cfg
+                    cfg = getEndpointCustomEventCfg(registration, cfg);//get byte cfg for enpoint
                     Lwm2mHelper.writeOpaque(this.mLeshanServer, registration, PATH_GROUP_EVENT_CFG, cfg, this.mTimeout);//write byte cfg
                 }
 
@@ -219,9 +220,9 @@ public class SDProcessor {
             } else {
                 events = Lwm2mHelper.readOpaque(this.mLeshanServer, registration, PATH_GROUP_EVENTS, this.mTimeout);
             }
-           
+
+            // While sleeping client collects events happening in devices, you should do something wise with them.
             if (events != null) {
-                //do something wise on received events
                 for(byte[] b: ByteUtil.split(events, 4)) {
                     PredefinedEvent ev = new PredefinedEvent(b);
                     LOG.info("EVENT: {}", ev.toString());
@@ -237,13 +238,16 @@ public class SDProcessor {
                 }
             } 
 
-            //collect daily sensor data  
+            //collect and clear daily sensor data  
             if (isSensors) {
                 Payload payload = new Payload();
-                int safety = 0; //if device gives misleading info
-                while(payload.isRepeatCall() && safety < 3) {
+                //In each sensor resource last payload packet, one of bits informs about "has more data"
+                 //to not break server adding max calls   
+                int safety = 0; 
+                while(payload.isRepeatCall() && safety < 5) {
                     safety++;
                     payload.init();
+                    //collects all data
                     processData(this.mLeshanServer, registration, PATH_SENSORS.toString(), payload, this.mTimeout);
                     if(payload.isData()) {
                         if(devicesObject == null) {
@@ -254,42 +258,68 @@ public class SDProcessor {
                         }
                         //get device serial info, parse collected data in array
                         if(devicesObject != null) {
+                            //<serialNr, PayloadList>
                             Map<String, ArrayList<String>> data = new HashMap<String, ArrayList<String>>();
+                            //loop over all instances, collect data
                             for (Map.Entry<Integer, LwM2mObjectInstance> entry : ((LwM2mObject) devicesObject).getInstances().entrySet()) {
                                 String serialNr =  Lwm2mHelper.getStringResource(entry.getValue(), SDProcessor.RESOURCE_ID_SERIAL_NUMBER);
                                 String p = payload.getPayload(entry.getKey());
                                 if(p != null && serialNr != null) {
+                                    //currently collects all data in json array string. ArrayList not used 
                                     ArrayList<String> arr = new ArrayList<String>();
                                     arr.add(p);
                                     data.put(serialNr, arr);
                                 }
                             }
+                            //send info to backend
                             sendAll(data);
-                            //clear read data 
-                            
+                            //clear read data  
                             if(Lwm2mHelper.executeRequest(this.mLeshanServer, registration, PATH_GROUP_CLEAR_DATA.toString(), null, this.mTimeout)) {
                                 needToClearData = false;
                             } else { //if request failed break loop
-                                break;
+                                LOG.error("Clear Sensor data failed for Endpoint:{}", registration.getEndpoint());
+                                if (payload.isRepeatCall()) {
+                                    LOG.error("Breaking sensor read loop for Endpoint:{}", registration.getEndpoint());
+                                    break;
+                                }
                             }
                         } else {
-                            LOG.error("Could not get serial info from endpoint:{}", registration.getEndpoint());
+                            LOG.error("Could not get serial info from Endpoint:{}", registration.getEndpoint());
                             break;
                         }
                     }
                 }
+                //warn admin
+                if(safety >= 5) {
+                    LOG.error("Something is wrong in Endpoint:{}. Sensor reading calls reached {} times.", registration.getEndpoint(), safety);        
+                }
             }
 
-            //clear read event data
+            //clear read event and / or sensor data
             if(needToClearData) {
                 Lwm2mHelper.asyncExecuteRequest(this.mLeshanServer, registration, PATH_GROUP_CLEAR_DATA.toString(), null, this.mTimeout);  
             }
         }
-        //check for scheduled calls
+
+        // Execute scheduled requests from interface when client was not reachable. 
         processScheduledOperations(registration);
     }
 
-    public byte[] getEndpointCfg(Registration registration,  byte[] currentByteCfg) {
+    //  All bytes stored in LITTLE_ENDIAN byte decode
+    // fixed 8 bytes
+    //  CustomEvent = {
+    //      1B CustomEventCode; // configurable event code
+    //      1B {
+    //          4b reserved / not used
+    //          3b crossing type // up(0), down(1), both(2)
+    //          1b immediate notify  // notify server immediately when this event triggers
+    //      }
+    //      2B affected instances // enabled device bitfield(little_endian) 0010 0101 = 0,2,5
+    //      4B value // float type; 
+    //  }
+    //  payload = [CustomEvent,CustomEvent...]
+    //  todo:check current config, push desired config..
+    public byte[] getEndpointCustomEventCfg(Registration registration,  byte[] currentByteCfg) {
         CustomEvent ev1 = new CustomEvent(CodeWrapper.EventCode.TEMP_EVENT,
             CustomEvent.EventTriggerType.UP, true, 20.34f, 1, 2);
         CustomEvent ev2 = new CustomEvent(CodeWrapper.EventCode.TEMP_EVENT,
@@ -299,6 +329,22 @@ public class SDProcessor {
         return ByteUtil.concatenate(ev1.toWriteByte(), ev2.toWriteByte(), ev3.toWriteByte());
     }
 
+    //  All bytes stored in LITTLE_ENDIAN byte decode
+    //  fixed 11 bytes    
+    //  OutputStateConfig = {
+    //      1B EventCode
+    //      4B Value
+    //      1B EventCode2
+    //      4B Value2
+    //      1B {
+    //          4b reserved / not used
+    //          1b type // condition type for source 1 ">="(1) "<"(0)
+    //          1b type2 // condition type for source 1 ">="(1) "<"(0)
+    //          1b Logic connector // OR(0) AND(1)
+    //          1b output polarity // if condition is true set
+    //      }
+    //  }
+    //  payload = [OutputStateConfig]
     public Map<Integer, byte[]> getEndpointOutputCfg(Registration registration) {
         Map<Integer, byte[]> output = new HashMap<Integer, byte[]>();
         OutputStateConfig c = new OutputStateConfig(OutputPolarity.HIGH, EventCode.ALARM, 1l, OutputTriggerType.EQUAL_OR_GREATER);
@@ -344,12 +390,26 @@ public class SDProcessor {
 
     private void processDataSub(Payload payload, LwM2mObjectInstance instance, int resource) {
         byte[] b = Lwm2mHelper.getOpaque(instance, resource);
-        if(b != null && b.length >= ByteUtil.CFG_HEADER_BYTES) { //byte header +? data
+         //byte header + data
+        if(b != null && b.length > ByteUtil.CFG_HEADER_BYTES) {
             processSensorData(payload, instance.getId(), resource, b); 
         }
     }
-    //LITTLE_ENDIAN byte decode //use ByteBuffer??
-    //4B unixtime, 2B interval, 1B count, 1B cfg, else data
+
+    //  All bytes stored in LITTLE_ENDIAN byte decode
+    //  header = {
+    //      4B unixtime first measurement time
+    //      2B interval(measurement pulse)
+    //      1B count(measurements in packet)
+    //      1B {
+    //          3b measurement byte size
+    //          3b floating point(all data received in Integers and calculated)
+    //          1b is repeat call(should check in last packet)
+    //          1b reserved / not used  
+    //      }
+    //  }
+    //  packet = header + data
+    //  payload = [packet,packet...] 
     private void processSensorData(Payload payload, int instance, int resource, byte[] opaque) {
         //->dbg
         // StringBuilder sb = new StringBuilder();
@@ -358,43 +418,52 @@ public class SDProcessor {
         //     sb.append(" "); 
         // }
         //LOG.debug("Instance:{};Resource:{};Opaque.length:{};Byte[]:{};",instance,resource, opaque.length, sb.toString());
-        int posStart = 0;
+   
+        int posStart = 0; //each payload packet start position
         Map<Integer, Object> collect = null;
         int maxPacketCount = 5; //safety, do we need?
         int currentPacket = 0; 
         while (posStart != opaque.length && currentPacket < maxPacketCount) {
             currentPacket++;
+            //working with 4 byte variable
             byte[] byteArray = ByteUtil.getEmptyByteArray(0);
+            //unix time
             byteArray[0] = opaque[posStart + 0]; byteArray[1] = opaque[posStart + 1];
             byteArray[2] = opaque[posStart + 2]; byteArray[3] = opaque[posStart + 3];
             int unixTime = ByteUtil.byteToInt(byteArray, false);
-
+            //interval
             byteArray[0] = opaque[posStart + 4]; byteArray[1] = opaque[posStart + 5];
             byteArray[2] = 0; byteArray[3] = 0;
             int interval = ByteUtil.byteToInt(byteArray, false);
+            //measurement count
             int valueCount = opaque[posStart + 6];
-            //config as string
+            //1b config as string
             String cfgStr = ByteUtil.byteToString(opaque[posStart + 7]);
+            //is repeat call
             boolean repeatCall = ByteUtil.bitStringToInt(cfgStr.substring(6, 7), false) == 1;
             payload.setIfIsRepeatCall(repeatCall);
+            //floating point set
             int pow = ByteUtil.bitStringToInt(cfgStr.substring(3, 6), true); //floating point
             double powValue = Math.pow(10, pow);
+            //bytes in one measurement
             int byteOfValue = CFG_BYTES.get(ByteUtil.bitStringToInt(cfgStr.substring(0,3), false)); //value bytes
-
+            //full packet size
             int packetByteSize = ByteUtil.CFG_HEADER_BYTES + valueCount * byteOfValue;
             // LOG.debug("HEADER: {} : {} : {} : {} : {} : {} : {}",posStart, unixTime, interval, valueCount, pow, byteOfValue, packetByteSize);
             if(opaque.length >= posStart + packetByteSize && valueCount > 0) {
                 if(collect == null) {
                     collect = new HashMap<Integer, Object>();
                 }
-                int posInList = 0;
+                int posInList = 0;  //measurement in lost
                 int offset = ByteUtil.VALUE_BYTES - byteOfValue;
+                //clear working variable
                 byteArray[0] = 0; byteArray[1] = 0;byteArray[2] = 0; byteArray[3] = 0;
                 for (int i = 0; i  < (valueCount * byteOfValue); i++) {   
                     int payloadPos = posStart + ByteUtil.CFG_HEADER_BYTES + i;
                     int valuePos = (i % byteOfValue);
                     byteArray[valuePos] = opaque[payloadPos];
-                    if(offset + valuePos == ByteUtil.VALUE_BYTES - 1) { //last byte in value array is added, create value
+                    //last byte in value array is added, create value
+                    if(offset + valuePos == ByteUtil.VALUE_BYTES - 1) {
                         //int value = ByteBuffer.wrap(rawValue).order(ByteOrder.LITTLE_ENDIAN).getInt(); 
                         int value = ByteUtil.byteToInt(byteArray);
                         int valueTim = unixTime + (posInList * interval);
@@ -427,11 +496,13 @@ public class SDProcessor {
         }
     }
 
+    /** Scheduled executions */
     private void processScheduledOperations(Registration registration) {
         List<RequestPayload> requestPayload = this.mSimpleStorage.getEndpointRequests(registration.getEndpoint());
         if (requestPayload != null) {
             Collections.sort(requestPayload); //sorting asc
             for (RequestPayload item : requestPayload) {
+                //execute only current / past, ignore scheduled executions in future
                 if(item.mTimeMs <= System.currentTimeMillis()) {
                     ScheduleRequest request;
                     try {
@@ -448,7 +519,7 @@ public class SDProcessor {
                             LOG.error("Process is not valid for {}; Request:{}:{}:{};", registration.getEndpoint(), item.mLink, item.mPayload, item.mTimeMs);
                         }
                     } catch(Exception e) {
-                        LOG.error("Process error for {}; Request:{}:{}:{};", registration.getEndpoint(),item.mLink, item.mPayload, item.mTimeMs);
+                        LOG.error("Process error for {}; Request:{}:{}:{};", registration.getEndpoint(), item.mLink, item.mPayload, item.mTimeMs);
                     }
                     this.mSimpleStorage.deleteEndpointRequest(registration.getEndpoint(), item.mLink);
                 } else {
