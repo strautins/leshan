@@ -2,7 +2,7 @@
 <LWM2M xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.openmobilealliance.org/tech/profiles/LWM2M.xsd">
 	<Object ObjectType="MODefinition">
 		<Name>Sensors</Name>
-		<Description1><![CDATA[Control and read temperature sensor measurements. If "Stored Measurement Count" reaches maximum capacity (TBD), each new measurement causes oldest to be removed from list. Changes to "Enable" and "Measurement Interval" resources causes stored measurements to be cleared.]]></Description1>
+		<Description1><![CDATA[Sensor measurement data object.]]></Description1>
 		<ObjectID>33758</ObjectID>
 		<ObjectURN></ObjectURN>
 		<LWM2MVersion>1.0</LWM2MVersion>
@@ -18,7 +18,7 @@
 				<Type>Opaque</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units>Cel</Units>
-				<Description><![CDATA[List of measurements. First resource being oldest measurement.]]></Description>
+				<Description><![CDATA[List of measurements.]]></Description>
 			</Item>
 			<Item ID="1">
 				<Name>Humidity Data</Name>
@@ -28,7 +28,7 @@
 				<Type>Opaque</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
-				<Description><![CDATA[List of measurements. First resource being oldest measurement.]]></Description>
+				<Description><![CDATA[List of measurements.]]></Description>
 			</Item>
 			<Item ID="2">
 				<Name>Atmospheric Pressure Data</Name>
@@ -38,7 +38,7 @@
 				<Type>Opaque</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units>Pa</Units>
-				<Description><![CDATA[List of measurements. First resource being oldest measurement.]]></Description>
+				<Description><![CDATA[List of measurements.]]></Description>
 			</Item>
 			<Item ID="3">
 				<Name>Atmospheric CO2 Concentration Data</Name>
@@ -48,7 +48,7 @@
 				<Type>Opaque</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
-				<Description><![CDATA[List of measurements. CO2 concentration ppm. First resource being oldest measurement.]]></Description>
+				<Description><![CDATA[List of measurements.]]></Description>
 			</Item>
 			<Item ID="4">
 				<Name>Atmospheric CO Concentration Data</Name>
@@ -58,7 +58,7 @@
 				<Type>Opaque</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
-				<Description><![CDATA[List of measurements. CO concentration ppm. First resource being oldest measurement.]]></Description>
+				<Description><![CDATA[List of measurements. CO concentration ppm.]]></Description>
 			</Item>
 			<Item ID="5">
 				<Name>Indoor Air Quality Data</Name>
@@ -68,7 +68,7 @@
 				<Type>Opaque</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
-				<Description><![CDATA[List of measurements. Indoor Air Quality data. First resource being oldest measurement.]]></Description>
+				<Description><![CDATA[List of measurements.]]></Description>
 			</Item>
 		</Resources>
 		<Description2 />

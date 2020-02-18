@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LWM2M xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.openmobilealliance.org/tech/profiles/LWM2M.xsd">
 	<Object ObjectType="MODefinition">
-		<Name>Smoke Sensor Status</Name>
-		<Description1><![CDATA[Object holds smoke sensor status information.]]></Description1>
+		<Name>Alarms</Name>
+		<Description1><![CDATA[Object holds alarm status information.]]></Description1>
 		<ObjectID>33757</ObjectID>
 		<ObjectURN></ObjectURN>
 		<LWM2MVersion>1.0</LWM2MVersion>

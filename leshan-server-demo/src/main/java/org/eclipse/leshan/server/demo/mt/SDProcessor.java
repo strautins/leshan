@@ -437,7 +437,7 @@ public class SDProcessor {
             int interval = ByteUtil.byteToInt(byteArray, false);
             //measurement count
             int valueCount = opaque[posStart + 6];
-            //1b config as string
+            //1B config as string
             String cfgStr = ByteUtil.byteToString(opaque[posStart + 7]);
             //is repeat call
             boolean repeatCall = ByteUtil.bitStringToInt(cfgStr.substring(6, 7), false) == 1;

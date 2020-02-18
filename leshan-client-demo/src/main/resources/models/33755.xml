@@ -2,7 +2,7 @@
 <LWM2M xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.openmobilealliance.org/tech/profiles/LWM2M.xsd">
 	<Object ObjectType="MODefinition">
 		<Name>Group Data</Name>
-		<Description1><![CDATA[Describes single LAN device group. Instance to serial number mapping. Group level control functionality.]]></Description1>
+		<Description1><![CDATA[Describes single LAN device group. Self test functionality, errors and event config.]]></Description1>
 		<ObjectID>33755</ObjectID>
 		<ObjectURN></ObjectURN>
 		<LWM2MVersion>1.0</LWM2MVersion>
@@ -18,7 +18,7 @@
 				<Type>Opaque</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
-				<Description><![CDATA[Event list with parameter.]]></Description>
+				<Description><![CDATA[Event list.]]></Description>
 			</Item>
 			<Item ID="1">
 				<Name>Event Configuration</Name>
@@ -28,7 +28,7 @@
 				<Type>Opaque</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
-				<Description><![CDATA[True value indicates Alarm to one or multiple devices in group. If true, you have to read Alarm descriptive object. Resource should be set to false after actions taken.]]></Description>
+				<Description><![CDATA[Event configuration.]]></Description>
 			</Item>
 			<Item ID="2">
 				<Name>Clear Read Data</Name>
@@ -38,7 +38,7 @@
 				<Type></Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
-				<Description><![CDATA[Clears all data read since logging on to the server.]]></Description>
+				<Description><![CDATA[Clears all data read since last clear event.]]></Description>
 			</Item>
 			<Item ID="3">
 				<Name>Self Test Time</Name>
@@ -48,7 +48,7 @@
 				<Type>Time</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
-				<Description><![CDATA[Time when device group must perform alarm test.]]></Description>
+				<Description><![CDATA[Time when device group must perform alarm test. Absolute UNIX time.]]></Description>
 			</Item>
 			<Item ID="4">
 				<Name>Self Test Duration</Name>
@@ -58,7 +58,7 @@
 				<Type>Integer</Type>
 				<RangeEnumeration>3..120</RangeEnumeration>
 				<Units>s</Units>
-				<Description><![CDATA[Alarm test duration.]]></Description>
+				<Description><![CDATA[Alarm test duration in units s.]]></Description>
 			</Item>
 			<Item ID="5">
 				<Name>Notify Delay</Name>
@@ -68,7 +68,7 @@
 				<Type>Integer</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units>s</Units>
-				<Description><![CDATA[Notify Delay of events from last registration to server.]]></Description>
+				<Description><![CDATA[Minimal interval between server notification due to events in units of s.]]></Description>
 			</Item>
 			<Item ID="6">
 				<Name>Errors</Name>
@@ -78,7 +78,7 @@
 				<Type>Opaque</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
-				<Description><![CDATA[Errors.]]></Description>
+				<Description><![CDATA[Device error list.]]></Description>
 			</Item>
 			<Item ID="7">
 				<Name>Clear Errors</Name>
