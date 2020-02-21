@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
 //import org.slf4j.LoggerFactory;
 
 import redis.clients.jedis.Jedis;
-import redis.clients.util.Pool;
+import redis.clients.jedis.JedisPool;
 
 public class RedisStorage implements SimpleStorage {
 
@@ -24,7 +24,7 @@ public class RedisStorage implements SimpleStorage {
     private static final Striped<Lock> LOCK_STRIPES = Striped.lock(1);
     private static final int LOCK_TIMEOUT_MS = 100;
 
-    private Pool<Jedis> mJedisPool = null;
+    private JedisPool mJedisPool = null;
     // Redis key prefixes
     private static final String REQUEST_EP = "REQUEST:EP:"; /**<EP:hashmap<link:payload>> */
     private static final String REQUEST_QUEUE_EP = "REQUEST:QUEUE:EP:"; /**<EP:hashmap<link:payload_time> */
@@ -33,7 +33,7 @@ public class RedisStorage implements SimpleStorage {
     //private static final String NX_OPTION = "NX"; // set the key if it does not already exist
     //private static final String PX_OPTION = "PX"; // expire time in millisecond
     
-    public RedisStorage(Pool<Jedis> jedisPool) {
+    public RedisStorage(JedisPool jedisPool) {
         LOG.warn("Created RedisStorage at {}", System.currentTimeMillis());
         this.mJedisPool = jedisPool;
     }

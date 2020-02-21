@@ -86,7 +86,6 @@ import org.slf4j.LoggerFactory;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.util.Pool;
 
 public class LeshanServerDemo {
 
@@ -304,7 +303,7 @@ public class LeshanServerDemo {
         builder.setCoapConfig(coapConfig);
 
         // Connect to redis if needed
-        Pool<Jedis> jedis = null;
+        JedisPool jedis = null;
         if (redisUrl != null) {
             // TODO support sentinel pool and make pool configurable
             jedis = new JedisPool(new URI(redisUrl));
