@@ -416,8 +416,6 @@ public class LeshanServerDemo {
         //for production disable unsecured 
         builder.disableUnsecuredEndpoint();
 
-        
-
         // Create LWM2M server
         LeshanServer lwServer = builder.build();
 

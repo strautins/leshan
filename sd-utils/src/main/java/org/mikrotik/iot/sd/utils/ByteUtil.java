@@ -87,6 +87,23 @@ public class ByteUtil {
         return sb.toString();
     }
 
+    public static byte[] reverse(byte[] array) {
+        if (array == null) {
+            return array;
+        }
+        int i = 0;
+        int j = array.length - 1;
+        byte tmp;
+        while (j > i) {
+            tmp = array[j];
+            array[j] = array[i];
+            array[i] = tmp;
+            j--;
+            i++;
+        }
+        return array;
+    }
+
     public static String byteToString(byte b) {
         return  String.format("%8s", Integer.toBinaryString(b & 0xFF)).replace(' ', '0');
     }

@@ -35,12 +35,12 @@ public class CustomEvent extends CodeWrapper implements PushEvent {
             value[0] = b[4]; value[1] = b[5];
             value[2] = b[6]; value[3] = b[7];
             super.setEventCode(ByteUtil.byteToInt(code));
-            this.mType = EVENT_TRIGGER_VALUE.get(ByteUtil.bitStringToInt(cfgStr.substring(4,7), false));
-            this.mImmediateNotify = ByteUtil.bitStringToInt(cfgStr.substring(7), false) == 1;
+            this.mType = EVENT_TRIGGER_VALUE.get(ByteUtil.bitStringToInt(cfgStr.substring(5), false));
+            this.mImmediateNotify = ByteUtil.bitStringToInt(cfgStr.substring(4,5), false) == 1;
             this.mInstances = ByteUtil.byteToInt(instances, false);
             this.mValue = ByteUtil.byteArrayToFloat(value);
         }
-        LOG.warn("CustomEvent:{}:{}:{}:{}:{}:{}",b.length, super.getEventCode(),  this.mType, this.mImmediateNotify, this.mInstances, this.mValue);
+        LOG.warn("CustomEvent:{}:{}:{}:{}:{}:{}:{}",b.length, super.getEventCode(),  this.mType, this.mImmediateNotify, this.mInstances, this.mValue, ByteUtil.byteToString(b));
     }
 
     public float getValue() {
@@ -53,7 +53,7 @@ public class CustomEvent extends CodeWrapper implements PushEvent {
 
     public byte[] toWriteByte() {
         String  evType = ByteUtil.byteToString((byte) (EVENT_TRIGGER.get(this.mType) & 0xFF));
-        byte bCfg = Byte.parseByte("0000" + evType.substring(6) + (this.mImmediateNotify ? "1":"0") , 2);
+        byte bCfg = Byte.parseByte("0000" + (this.mImmediateNotify ? "1":"0") + evType.substring(5) , 2);
         int intBits =  Float.floatToIntBits(this.mValue);
         byte[] result = new byte[] {
             (byte) (super.getId() & 0xFF),
@@ -65,6 +65,7 @@ public class CustomEvent extends CodeWrapper implements PushEvent {
             (byte) ((intBits >> 16) & 0xFF),
             (byte) ((intBits >> 24) & 0xFF)
         };
+        LOG.warn("CustomEvent Send Bits: {}",ByteUtil.byteToString(ByteUtil.reverse(result.clone())));
         return result;   
     }
 
