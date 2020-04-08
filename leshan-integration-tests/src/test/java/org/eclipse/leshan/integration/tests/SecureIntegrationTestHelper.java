@@ -2,11 +2,11 @@
  * Copyright (c) 2013-2015 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -272,6 +272,7 @@ public class SecureIntegrationTestHelper extends IntegrationTestHelper {
         builder.setLocalAddress(clientAddress.getHostString(), clientAddress.getPort());
         builder.setObjects(objects);
         client = builder.build();
+        setupClientMonitoring();
     }
 
     public void createRPKClient() {
@@ -310,6 +311,7 @@ public class SecureIntegrationTestHelper extends IntegrationTestHelper {
         builder.setLocalAddress(clientAddress.getHostString(), clientAddress.getPort());
         builder.setObjects(objects);
         client = builder.build();
+        setupClientMonitoring();
     }
 
     @Override
@@ -317,6 +319,10 @@ public class SecureIntegrationTestHelper extends IntegrationTestHelper {
         LeshanServerBuilder builder = super.createServerBuilder();
         securityStore = new InMemorySecurityStore();
         builder.setSecurityStore(securityStore);
+        Builder dtlsConfig = new DtlsConnectorConfig.Builder();
+        dtlsConfig.setMaxRetransmissions(1);
+        dtlsConfig.setRetransmissionTimeout(300);
+        builder.setDtlsConfig(dtlsConfig);
         return builder;
     }
 
@@ -362,9 +368,9 @@ public class SecureIntegrationTestHelper extends IntegrationTestHelper {
 
     @Override
     public void dispose() {
-        getSecurityStore().remove(getCurrentEndpoint());
-        getSecurityStore().remove(BAD_ENDPOINT);
-        getSecurityStore().remove(GOOD_ENDPOINT);
+        getSecurityStore().remove(getCurrentEndpoint(), false);
+        getSecurityStore().remove(BAD_ENDPOINT, false);
+        getSecurityStore().remove(GOOD_ENDPOINT, false);
         super.dispose();
     }
 }

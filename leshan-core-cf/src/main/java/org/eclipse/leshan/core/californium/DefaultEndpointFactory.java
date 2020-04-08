@@ -2,11 +2,11 @@
  * Copyright (c) 2019 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -18,6 +18,7 @@ package org.eclipse.leshan.core.californium;
 import java.net.InetSocketAddress;
 
 import org.eclipse.californium.core.network.CoapEndpoint;
+import org.eclipse.californium.core.network.CoapEndpoint.Builder;
 import org.eclipse.californium.core.network.EndpointContextMatcherFactory;
 import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.observe.ObservationStore;
@@ -83,7 +84,11 @@ public class DefaultEndpointFactory implements EndpointFactory {
     /**
      * This method is intended to be overridden.
      * 
-     * @return the {@link CoapEndpoint.Builder} used for unsecured communication.
+     * @param address the IP address and port, if null the connector is bound to an ephemeral port on the wildcard
+     *        address.
+     * @param coapConfig the CoAP config used to create this endpoint.
+     * @param store the CoAP observation store used to create this endpoint.
+     * @return the {@link Builder} used for unsecured communication.
      */
     protected CoapEndpoint.Builder createUnsecuredEndpointBuilder(InetSocketAddress address, NetworkConfig coapConfig,
             ObservationStore store) {
@@ -109,6 +114,8 @@ public class DefaultEndpointFactory implements EndpointFactory {
      * <p>
      * This method is intended to be overridden.
      * 
+     * @param address the IP address and port, if null the connector is bound to an ephemeral port on the wildcard
+     *        address
      * @return the {@link Connector} used for unsecured {@link CoapEndpoint}
      */
     protected Connector createUnsecuredConnector(InetSocketAddress address) {
@@ -124,7 +131,10 @@ public class DefaultEndpointFactory implements EndpointFactory {
     /**
      * This method is intended to be overridden.
      * 
-     * @return the {@link CoapEndpoint.Builder} used for secured communication.
+     * @param dtlsConfig the DTLS config used to create this endpoint.
+     * @param coapConfig the CoAP config used to create this endpoint.
+     * @param store the CoAP observation store used to create this endpoint.
+     * @return the {@link Builder} used for secured communication.
      */
     protected CoapEndpoint.Builder createSecuredEndpointBuilder(DtlsConnectorConfig dtlsConfig,
             NetworkConfig coapConfig, ObservationStore store) {
@@ -150,6 +160,7 @@ public class DefaultEndpointFactory implements EndpointFactory {
      * <p>
      * This method is intended to be overridden.
      * 
+     * @param dtlsConfig the DTLS config used to create the Secured Connector.
      * @return the {@link Connector} used for unsecured {@link CoapEndpoint}
      */
     protected Connector createSecuredConnector(DtlsConnectorConfig dtlsConfig) {

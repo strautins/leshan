@@ -2,11 +2,11 @@
  * Copyright (c) 2017 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -73,11 +73,11 @@ public class EndpointContextUtil {
      * Create Californium {@link EndpointContext} from Leshan {@link Identity}.
      * 
      * @param identity The Leshan {@link Identity} to convert.
-     * @param preventConnectionInitiation prevent to initiate a Handshake if there is no DTLS connection.
+     * @param allowConnectionInitiation This request can initiate a Handshake if there is no DTLS connection.
      * 
      * @return The corresponding Californium {@link EndpointContext}.
      */
-    public static EndpointContext extractContext(Identity identity, boolean preventConnectionInitiation) {
+    public static EndpointContext extractContext(Identity identity, boolean allowConnectionInitiation) {
         Principal peerIdentity = null;
         if (identity != null) {
             if (identity.isPSK()) {
@@ -90,9 +90,9 @@ public class EndpointContextUtil {
             }
         }
 
-        if (peerIdentity != null && preventConnectionInitiation) {
-                return new MapBasedEndpointContext(identity.getPeerAddress(), peerIdentity,
-                        DtlsEndpointContext.KEY_HANDSHAKE_MODE, DtlsEndpointContext.HANDSHAKE_MODE_NONE);
+        if (peerIdentity != null && allowConnectionInitiation) {
+            return new MapBasedEndpointContext(identity.getPeerAddress(), peerIdentity,
+                    DtlsEndpointContext.KEY_HANDSHAKE_MODE, DtlsEndpointContext.HANDSHAKE_MODE_AUTO);
         }
         return new AddressEndpointContext(identity.getPeerAddress(), peerIdentity);
     }

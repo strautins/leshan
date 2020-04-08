@@ -2,11 +2,11 @@
  * Copyright (c) 2015 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  *
@@ -45,6 +45,15 @@ import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.WriteAttributesResponse;
 import org.eclipse.leshan.core.response.WriteResponse;
 
+/**
+ * This interface should be implemented to be able to add support for a given LWM2M object.
+ * <p>
+ * Except if you need really more flexibility, most of the time you will not implement this interface directly. You will
+ * probably prefer the easier way based on {@link LwM2mInstanceEnabler} and {@link ObjectsInitializer}.
+ * <p>
+ * In case you really need the flexibility of this interface you should consider to inherit from
+ * {@link BaseObjectEnabler}.
+ */
 public interface LwM2mObjectEnabler {
 
     int getId();

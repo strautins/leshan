@@ -2,11 +2,11 @@
  * Copyright (c) 2019 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -62,7 +62,7 @@ public class LwM2mClientCoapResource extends LwM2mCoapResource {
     /**
      * Create Leshan {@link ServerIdentity} from Californium {@link Exchange}.
      * 
-     * @param context The Californium {@link Exchange} containing the request for which we search sender identity.
+     * @param exchange The Californium {@link Exchange} containing the request for which we search sender identity.
      * @return The corresponding Leshan {@link ServerIdentity}.
      * @throws IllegalStateException if we are not able to extract {@link ServerIdentity}.
      */

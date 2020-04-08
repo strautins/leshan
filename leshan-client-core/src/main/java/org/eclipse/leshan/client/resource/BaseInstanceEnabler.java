@@ -2,11 +2,11 @@
  * Copyright (c) 2015 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  *
@@ -34,6 +34,10 @@ import org.eclipse.leshan.core.response.ObserveResponse;
 import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.WriteResponse;
 
+/**
+ * A abstract implementation of {@link LwM2mInstanceEnabler}. It could be use as base for any
+ * {@link LwM2mInstanceEnabler} implementation.
+ */
 public class BaseInstanceEnabler implements LwM2mInstanceEnabler {
 
     protected List<ResourceChangedListener> listeners = new ArrayList<>();
@@ -94,7 +98,7 @@ public class BaseInstanceEnabler implements LwM2mInstanceEnabler {
      * <p>
      * Calling this method is needed to trigger NOTIFICATION when an observe relation is established.
      * 
-     * @param resourceIds
+     * @param resourceIds the list of resources which change.
      */
     public void fireResourcesChange(int... resourceIds) {
         for (ResourceChangedListener listener : listeners) {

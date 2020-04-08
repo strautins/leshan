@@ -2,11 +2,11 @@
  * Copyright (c) 2013-2015 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -27,8 +27,11 @@ import org.eclipse.leshan.core.node.codec.LwM2mNodeDecoder;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeEncoder;
 import org.eclipse.leshan.core.request.DownlinkRequest;
 import org.eclipse.leshan.core.request.exception.InvalidResponseException;
+import org.eclipse.leshan.core.request.exception.RequestCanceledException;
 import org.eclipse.leshan.core.request.exception.RequestRejectedException;
 import org.eclipse.leshan.core.request.exception.SendFailedException;
+import org.eclipse.leshan.core.request.exception.TimeoutException;
+import org.eclipse.leshan.core.request.exception.UnconnectedPeerException;
 import org.eclipse.leshan.core.response.ErrorCallback;
 import org.eclipse.leshan.core.response.LwM2mResponse;
 import org.eclipse.leshan.core.response.ObserveResponse;
@@ -87,9 +90,10 @@ public class CaliforniumLwM2mRequestSender implements LwM2mRequestSender, CoapRe
      * @throws RequestCanceledException if the request is cancelled.
      * @throws SendFailedException if the request can not be sent. E.g. error at CoAP or DTLS/UDP layer.
      * @throws InvalidResponseException if the response received is malformed.
+     * @throws UnconnectedPeerException if client is not connected (no dtls connection available).
      */
     @Override
-    public <T extends LwM2mResponse> T send(Registration destination, DownlinkRequest<T> request, long timeout)
+    public <T extends LwM2mResponse> T send(Registration destination, DownlinkRequest<T> request, long timeoutInMs)
             throws InterruptedException {
 
         // Retrieve the objects definition
@@ -97,7 +101,7 @@ public class CaliforniumLwM2mRequestSender implements LwM2mRequestSender, CoapRe
 
         // Send requests synchronously
         T response = sender.sendLwm2mRequest(destination.getEndpoint(), destination.getIdentity(), destination.getId(),
-                model, destination.getRootPath(), request, timeout, destination.preventServerToInitiateConnection());
+                model, destination.getRootPath(), request, timeoutInMs, destination.canInitiateConnection());
 
         // Handle special observe case
         if (response != null && response.getClass() == ObserveResponse.class && response.isSuccess()) {
@@ -125,6 +129,7 @@ public class CaliforniumLwM2mRequestSender implements LwM2mRequestSender, CoapRe
      *        <li>{@link RequestCanceledException} if the request is cancelled.</li>
      *        <li>{@link SendFailedException} if the request can not be sent. E.g. error at CoAP or DTLS/UDP layer.</li>
      *        <li>{@link InvalidResponseException} if the response received is malformed.</li>
+     *        <li>{@link UnconnectedPeerException} if client is not connected (no dtls connection available).</li>
      *        <li>{@link TimeoutException} if the timeout expires (see
      *        https://github.com/eclipse/leshan/wiki/Request-Timeout).</li>
      *        <li>or any other RuntimeException for unexpected issue.
@@ -149,7 +154,7 @@ public class CaliforniumLwM2mRequestSender implements LwM2mRequestSender, CoapRe
                         }
                         responseCallback.onResponse(response);
                     }
-                }, errorCallback, destination.preventServerToInitiateConnection());
+                }, errorCallback, destination.canInitiateConnection());
     }
 
     /**
@@ -170,12 +175,13 @@ public class CaliforniumLwM2mRequestSender implements LwM2mRequestSender, CoapRe
      * @throws RequestRejectedException if the request is rejected by foreign peer.
      * @throws RequestCanceledException if the request is cancelled.
      * @throws SendFailedException if the request can not be sent. E.g. error at CoAP or DTLS/UDP layer.
+     * @throws UnconnectedPeerException if client is not connected (no dtls connection available).
      */
     @Override
     public Response sendCoapRequest(Registration destination, Request coapRequest, long timeoutInMs)
             throws InterruptedException {
         return sender.sendCoapRequest(destination.getIdentity(), destination.getId(), coapRequest, timeoutInMs,
-                destination.preventServerToInitiateConnection());
+                destination.canInitiateConnection());
     }
 
     /**
@@ -186,7 +192,7 @@ public class CaliforniumLwM2mRequestSender implements LwM2mRequestSender, CoapRe
      * either 1 response or 1 error.
      * 
      * @param destination The {@link Registration} associate to the device we want to sent the request.
-     * @param request The request to send to the client.
+     * @param coapRequest The request to send to the client.
      * @param timeoutInMs The response timeout to wait in milliseconds (see
      *        https://github.com/eclipse/leshan/wiki/Request-Timeout)
      * @param responseCallback a callback called when a response is received (successful or error response). This
@@ -196,6 +202,7 @@ public class CaliforniumLwM2mRequestSender implements LwM2mRequestSender, CoapRe
      *        <li>{@link RequestRejectedException} if the request is rejected by foreign peer.</li>
      *        <li>{@link RequestCanceledException} if the request is cancelled.</li>
      *        <li>{@link SendFailedException} if the request can not be sent. E.g. error at CoAP or DTLS/UDP layer.</li>
+     *        <li>{@link UnconnectedPeerException} if client is not connected (no dtls connection available).</li>
      *        <li>{@link TimeoutException} if the timeout expires (see
      *        https://github.com/eclipse/leshan/wiki/Request-Timeout).</li>
      *        <li>or any other RuntimeException for unexpected issue.
@@ -206,7 +213,7 @@ public class CaliforniumLwM2mRequestSender implements LwM2mRequestSender, CoapRe
     public void sendCoapRequest(Registration destination, Request coapRequest, long timeoutInMs,
             CoapResponseCallback responseCallback, ErrorCallback errorCallback) {
         sender.sendCoapRequest(destination.getIdentity(), destination.getId(), coapRequest, timeoutInMs,
-                responseCallback, errorCallback, destination.preventServerToInitiateConnection());
+                responseCallback, errorCallback, destination.canInitiateConnection());
     }
 
     /**

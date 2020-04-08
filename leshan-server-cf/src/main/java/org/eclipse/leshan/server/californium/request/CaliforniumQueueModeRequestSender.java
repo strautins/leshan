@@ -2,11 +2,11 @@
  * Copyright (c) 2018 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -34,8 +34,8 @@ public class CaliforniumQueueModeRequestSender extends QueueModeLwM2mRequestSend
         implements CoapRequestSender, Destroyable {
 
     /**
-     * @param presenceService the presence service object for setting the client into {@link Presence#SLEEPING} when
-     *        request Timeout expires and into {@link Presence#Awake} when a response arrives.
+     * @param presenceService the presence service object for setting the client into sleeping state when request
+     *        Timeout expires and into awake state when a response arrives.
      * @param delegatedSender internal sender that it is used for sending the requests, using delegation.
      */
     public CaliforniumQueueModeRequestSender(PresenceServiceImpl presenceService, LwM2mRequestSender delegatedSender) {

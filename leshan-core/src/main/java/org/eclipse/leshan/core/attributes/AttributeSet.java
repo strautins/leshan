@@ -2,11 +2,11 @@
  * Copyright (c) 2013-2018 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -169,7 +169,9 @@ public class AttributeSet {
     }
 
     /**
-     * Create an AttributeSet from a uri queries string. e.g. "pmin=10&pmax=60"
+     * Create an AttributeSet from a uri queries string.
+     * 
+     * @param uriQueries the URI queries to parse. e.g. {@literal pmin=10&pmax=60}
      */
     public static AttributeSet parse(String uriQueries) {
         if (uriQueries == null)

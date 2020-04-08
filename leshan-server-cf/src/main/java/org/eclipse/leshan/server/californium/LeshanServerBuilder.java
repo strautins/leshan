@@ -2,11 +2,11 @@
  * Copyright (c) 2013-2015 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -28,9 +28,11 @@ import java.util.Arrays;
 import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
+import org.eclipse.californium.elements.DtlsEndpointContext;
 import org.eclipse.californium.elements.UDPConnector;
 import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
+import org.eclipse.californium.scandium.config.DtlsConnectorConfig.Builder;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.MultiNodeConnectionIdGenerator;
 import org.eclipse.californium.scandium.dtls.SingleNodeConnectionIdGenerator;
@@ -299,6 +301,7 @@ public class LeshanServerBuilder {
     }
 
     /**
+<<<<<<< HEAD
      * Set the Californium/DTLS connectionID
      */
     public LeshanServerBuilder createConnectionId() {
@@ -322,6 +325,9 @@ public class LeshanServerBuilder {
 
     /**
      * Set the Scandium/DTLS Configuration : {@link DtlsConnectorConfig.Builder}.
+=======
+     * Set the Scandium/DTLS Configuration : {@link Builder}.
+>>>>>>> 2fdeaeb3e78e4ceec037011b1325f64dfc04d299
      */
     public LeshanServerBuilder setDtlsConfig(DtlsConnectorConfig.Builder config) {
         this.dtlsConfigBuilder = config;
@@ -403,6 +409,7 @@ public class LeshanServerBuilder {
     public static NetworkConfig createDefaultNetworkConfig() {
         NetworkConfig networkConfig = new NetworkConfig();
         networkConfig.set(Keys.MID_TRACKER, "NULL");
+        networkConfig.set(Keys.USE_MESSAGE_OFFLOADING, false);
         return networkConfig;
     }
 
@@ -542,6 +549,12 @@ public class LeshanServerBuilder {
                 dtlsConfigBuilder.setSniEnabled(false);
             }
 
+            // Do no allow Server to initiated Handshake by default, for U device request will be allowed to initiate
+            // handshake (see Registration.shouldInitiateConnection())
+            if (incompleteConfig.getDefaultHandshakeMode() == null) {
+                dtlsConfigBuilder.setDefaultHandshakeMode(DtlsEndpointContext.HANDSHAKE_MODE_NONE);
+            }
+
             // we try to build the dtlsConfig, if it fail we will just not create the secured endpoint
             try {
                 dtlsConfig = dtlsConfigBuilder.build();
@@ -584,8 +597,8 @@ public class LeshanServerBuilder {
      * You can extend <code>LeshanServerBuilder</code> and override this method to create a new builder which will be
      * able to build an extended <code>LeshanServer</code>.
      * 
-     * @param unsecuredEndpoint CoAP endpoint used for <code>coap://<code> communication.
-     * @param securedEndpoint CoAP endpoint used for <code>coaps://<code> communication.
+     * @param unsecuredEndpoint CoAP endpoint used for <code>coap://</code> communication.
+     * @param securedEndpoint CoAP endpoint used for <code>coaps://</code> communication.
      * @param registrationStore the {@link Registration} store.
      * @param securityStore the {@link SecurityInfo} store.
      * @param authorizer define which devices is allow to register on this server.

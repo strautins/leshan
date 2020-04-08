@@ -2,11 +2,11 @@
  * Copyright (c) 2013-2015 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -267,12 +267,12 @@ public class Registration implements Serializable {
     }
 
     /**
-     * @return True if no DTLS handshake must be initiated by the Server for this registration.
+     * @return True if DTLS handshake can be initiated by the Server for this registration.
      */
-    public boolean preventServerToInitiateConnection() {
-        // We consider that initiates a connection (act as DTLS client to initiate a handshake) does not make sense for
-        // QueueMode as if we lost connection device is probably absent.
-        return bindingMode.useQueueMode() && bindingMode.useUDP();
+    public boolean canInitiateConnection() {
+        // We consider that initiates a connection (acting as DTLS client to initiate a handshake) does not make sense
+        // for QueueMode as if we lost connection device is probably absent.
+        return !bindingMode.useQueueMode() && bindingMode.useUDP();
     }
 
     /**
@@ -283,8 +283,9 @@ public class Registration implements Serializable {
     }
 
     /**
-     * This is the same idea than {@link Registration#isAlive()} but with a grace period. <br/>
+     * This is the same idea than {@link Registration#isAlive()} but with a grace period. <br>
      * 
+     * @param gracePeriodInSec an extra time for the registration lifetime.
      * @return true if the last registration update was done less than lifetime+gracePeriod seconds ago.
      */
     public boolean isAlive(long gracePeriodInSec) {
@@ -300,6 +301,7 @@ public class Registration implements Serializable {
     }
 
     /**
+     * @param objectid the object id for which we want to know the supported version.
      * @return the supported version of the object with the id {@code objectid}. If the object is not supported return
      *         {@code null}
      */
@@ -308,7 +310,7 @@ public class Registration implements Serializable {
     }
 
     /**
-     * @return a map from {@code objectId} => {@code supportedVersion} for each supported objects. supported.
+     * @return a map from {@code objectId} {@literal =>} {@code supportedVersion} for each supported objects. supported.
      */
     public Map<Integer, String> getSupportedObject() {
         Map<Integer, String> objects = supportedObjects.get();
@@ -354,7 +356,11 @@ public class Registration implements Serializable {
     }
 
     /**
-     * Build a Map (object Id => object Version) from root path and registration object links.
+     * Build a Map {@code objectId} {@literal =>} {@code supportedVersion} from root path and registration object links.
+     * 
+     * @param rootPath the rootpath of LWM2M tree.
+     * @param objectLinks the registraiton object links payload.
+     * @return a Map {@code objectId} {@literal =>} {@code supportedVersion}.
      */
     public static Map<Integer, String> getSupportedObject(String rootPath, Link[] objectLinks) {
         Map<Integer, String> objects = new HashMap<>();

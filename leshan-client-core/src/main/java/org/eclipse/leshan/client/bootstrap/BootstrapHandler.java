@@ -2,11 +2,11 @@
  * Copyright (c) 2016 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -15,8 +15,6 @@
  *     Achim Kraus (Bosch Software Innovations GmbH) - use ServerIdentity
  *******************************************************************************/
 package org.eclipse.leshan.client.bootstrap;
-
-import static org.eclipse.leshan.LwM2mId.*;
 
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -27,7 +25,6 @@ import org.eclipse.leshan.client.resource.LwM2mObjectEnabler;
 import org.eclipse.leshan.client.servers.ServerInfo;
 import org.eclipse.leshan.core.request.BootstrapDeleteRequest;
 import org.eclipse.leshan.core.request.BootstrapFinishRequest;
-import org.eclipse.leshan.core.request.DeleteRequest;
 import org.eclipse.leshan.core.request.Identity;
 import org.eclipse.leshan.core.response.BootstrapDeleteResponse;
 import org.eclipse.leshan.core.response.BootstrapFinishResponse;
@@ -77,21 +74,9 @@ public class BootstrapHandler {
                 return BootstrapDeleteResponse.badRequest("not from a bootstrap server");
             }
 
-            // The spec say that delete on "/" should delete all the existing Object Instances - except LWM2M
-            // Bootstrap Server Account, (see 5.2.5.2 Bootstrap Delete)
-            // For now we only remove security and server object.
-
             // Delete all device management server
-            LwM2mObjectEnabler serverObject = objects.get(SERVER);
-            for (Integer instanceId : serverObject.getAvailableInstanceIds()) {
-                serverObject.delete(identity, new DeleteRequest(SERVER, instanceId));
-            }
-
-            // Delete all security instance (except bootstrap one)
-            // TODO do not delete bootstrap server (see 5.2.5.2 Bootstrap Delete)
-            LwM2mObjectEnabler securityObject = objects.get(SECURITY);
-            for (Integer instanceId : securityObject.getAvailableInstanceIds()) {
-                securityObject.delete(identity, new DeleteRequest(SECURITY, instanceId));
+            for (LwM2mObjectEnabler enabler : objects.values()) {
+                enabler.delete(identity, new BootstrapDeleteRequest(enabler.getId()));
             }
 
             return BootstrapDeleteResponse.success();

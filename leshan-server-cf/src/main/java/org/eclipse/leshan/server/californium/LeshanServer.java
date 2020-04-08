@@ -2,11 +2,11 @@
  * Copyright (c) 2013-2015 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -27,6 +27,7 @@ import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.Endpoint;
 import org.eclipse.californium.core.network.config.NetworkConfig;
 import org.eclipse.californium.core.server.resources.Resource;
+import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.leshan.core.californium.CoapResponseCallback;
 import org.eclipse.leshan.core.node.codec.CodecException;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeDecoder;
@@ -68,8 +69,10 @@ import org.eclipse.leshan.server.registration.RegistrationStore;
 import org.eclipse.leshan.server.registration.RegistrationUpdate;
 import org.eclipse.leshan.server.request.LwM2mRequestSender;
 import org.eclipse.leshan.server.security.Authorizer;
+import org.eclipse.leshan.server.security.EditableSecurityStore;
 import org.eclipse.leshan.server.security.SecurityInfo;
 import org.eclipse.leshan.server.security.SecurityStore;
+import org.eclipse.leshan.server.security.SecurityStoreListener;
 import org.eclipse.leshan.util.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -112,8 +115,8 @@ public class LeshanServer {
      * <p>
      * {@link LeshanServerBuilder} is the priviledged way to create a {@link LeshanServer}.
      *
-     * @param unsecuredEndpoint CoAP endpoint used for <code>coap://<code> communication.
-     * @param securedEndpoint CoAP endpoint used for <code>coaps://<code> communication.
+     * @param unsecuredEndpoint CoAP endpoint used for <code>coap://</code> communication.
+     * @param securedEndpoint CoAP endpoint used for <code>coaps://</code> communication.
      * @param registrationStore the {@link Registration} store.
      * @param securityStore the {@link SecurityInfo} store.
      * @param authorizer define which devices is allow to register on this server.
@@ -174,6 +177,9 @@ public class LeshanServer {
         // create request sender
         requestSender = createRequestSender(securedEndpoint, unsecuredEndpoint, registrationService, observationService,
                 this.modelProvider, encoder, decoder, presenceService);
+
+        // connection cleaner
+        createConnectionCleaner(securityStore, securedEndpoint);
 
         coapApi = new CoapAPI();
     }
@@ -260,6 +266,24 @@ public class LeshanServer {
         });
 
         return requestSender;
+    }
+
+    protected void createConnectionCleaner(SecurityStore securityStore, CoapEndpoint securedEndpoint) {
+        if (securedEndpoint != null && securedEndpoint.getConnector() instanceof DTLSConnector
+                && securityStore instanceof EditableSecurityStore) {
+
+            final ConnectionCleaner connectionCleaner = new ConnectionCleaner(
+                    (DTLSConnector) securedEndpoint.getConnector());
+
+            ((EditableSecurityStore) securityStore).setListener(new SecurityStoreListener() {
+                @Override
+                public void securityInfoRemoved(boolean infosAreCompromised, SecurityInfo... infos) {
+                    if (infosAreCompromised) {
+                        connectionCleaner.cleanConnectionFor(infos);
+                    }
+                }
+            });
+        }
     }
 
     /**
@@ -396,8 +420,6 @@ public class LeshanServer {
      * 
      * @param destination The {@link Registration} associate to the device we want to sent the request.
      * @param request The request to send to the client.
-     * @param timeoutInMs The global timeout to wait in milliseconds (see
-     *        https://github.com/eclipse/leshan/wiki/Request-Timeout)
      * @return the LWM2M response. The response can be <code>null</code> if the timeout expires (see
      *         https://github.com/eclipse/leshan/wiki/Request-Timeout).
      * 
@@ -435,9 +457,9 @@ public class LeshanServer {
      * @throws InvalidResponseException if the response received is malformed.
      * @throws ClientSleepingException if client is currently sleeping.
      */
-    public <T extends LwM2mResponse> T send(Registration destination, DownlinkRequest<T> request, long timeout)
+    public <T extends LwM2mResponse> T send(Registration destination, DownlinkRequest<T> request, long timeoutInMs)
             throws InterruptedException {
-        return requestSender.send(destination, request, timeout);
+        return requestSender.send(destination, request, timeoutInMs);
     }
 
     /**
@@ -452,8 +474,6 @@ public class LeshanServer {
      * 
      * @param destination The {@link Registration} associate to the device we want to sent the request.
      * @param request The request to send to the client.
-     * @param timeoutInMs The global timeout to wait in milliseconds (see
-     *        https://github.com/eclipse/leshan/wiki/Request-Timeout)
      * @param responseCallback a callback called when a response is received (successful or error response). This
      *        callback MUST NOT be null.
      * @param errorCallback a callback called when an error or exception occurred when response is received. It can be :
@@ -502,9 +522,9 @@ public class LeshanServer {
      *        This callback MUST NOT be null.
      * @throws CodecException if request payload can not be encoded.
      */
-    public <T extends LwM2mResponse> void send(Registration destination, DownlinkRequest<T> request, long timeout,
+    public <T extends LwM2mResponse> void send(Registration destination, DownlinkRequest<T> request, long timeoutInMs,
             ResponseCallback<T> responseCallback, ErrorCallback errorCallback) {
-        requestSender.send(destination, request, timeout, responseCallback, errorCallback);
+        requestSender.send(destination, request, timeoutInMs, responseCallback, errorCallback);
     }
 
     /**
@@ -570,7 +590,7 @@ public class LeshanServer {
          * send a Confirmable message to the time when an acknowledgement is no longer expected.
          * 
          * @param destination The registration linked to the LWM2M client to which the request must be sent.
-         * @param coapRequest The request to send to the client.
+         * @param request The CoAP request to send to the client.
          * @return the response or <code>null</code> if the timeout expires (see
          *         https://github.com/eclipse/leshan/wiki/Request-Timeout).
          * 
@@ -601,7 +621,7 @@ public class LeshanServer {
          * send a Confirmable message to the time when an acknowledgement is no longer expected.
          * 
          * @param destination The registration linked to the LWM2M client to which the request must be sent.
-         * @param coapRequest The request to send to the client.
+         * @param request The CoAP request to send to the client.
          * @param timeoutInMs The response timeout to wait in milliseconds (see
          *        https://github.com/eclipse/leshan/wiki/Request-Timeout)
          * @return the response or <code>null</code> if the timeout expires (see
@@ -613,14 +633,14 @@ public class LeshanServer {
          * @throws SendFailedException if the request can not be sent. E.g. error at CoAP or DTLS/UDP layer.
          * @throws ClientSleepingException if client is currently sleeping.
          */
-        public Response send(Registration destination, Request request, long timeout) throws InterruptedException {
+        public Response send(Registration destination, Request request, long timeoutInMs) throws InterruptedException {
             // Ensure that delegated sender is able to send CoAP request
             if (!(requestSender instanceof CoapRequestSender)) {
                 throw new UnsupportedOperationException("This sender does not support to send CoAP request");
             }
             CoapRequestSender sender = (CoapRequestSender) requestSender;
 
-            return sender.sendCoapRequest(destination, request, timeout);
+            return sender.sendCoapRequest(destination, request, timeoutInMs);
         }
 
         /**
@@ -629,9 +649,7 @@ public class LeshanServer {
          * {@link ResponseCallback} and {@link ErrorCallback} are exclusively called.
          * 
          * @param destination The registration linked to the LWM2M client to which the request must be sent.
-         * @param request The request to send to the client.
-         * @param timeoutInMs The response timeout to wait in milliseconds (see
-         *        https://github.com/eclipse/leshan/wiki/Request-Timeout)
+         * @param request The CoAP request to send to the client.
          * @param responseCallback a callback called when a response is received (successful or error response). This
          *        callback MUST NOT be null.
          * @param errorCallback a callback called when an error or exception occurred when response is received. It can
@@ -665,9 +683,7 @@ public class LeshanServer {
          * {@link ResponseCallback} and {@link ErrorCallback} are exclusively called.
          * 
          * @param destination The registration linked to the LWM2M client to which the request must be sent.
-         * @param request The request to send to the client.
-         * @param timeoutInMs The response timeout to wait in milliseconds (see
-         *        https://github.com/eclipse/leshan/wiki/Request-Timeout)
+         * @param request The CoAP request to send to the client.
          * @param responseCallback a callback called when a response is received (successful or error response). This
          *        callback MUST NOT be null.
          * @param errorCallback a callback called when an error or exception occurred when response is received. It can

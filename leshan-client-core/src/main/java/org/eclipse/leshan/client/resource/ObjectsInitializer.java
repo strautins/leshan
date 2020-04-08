@@ -2,11 +2,11 @@
  * Copyright (c) 2015 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  *
@@ -27,8 +27,32 @@ import org.eclipse.leshan.core.model.ObjectLoader;
 import org.eclipse.leshan.core.model.ObjectModel;
 import org.eclipse.leshan.core.model.StaticModel;
 import org.eclipse.leshan.core.request.ContentFormat;
+import org.eclipse.leshan.core.request.CreateRequest;
 import org.eclipse.leshan.util.Validate;
 
+/**
+ * An helper to create {@link LwM2mObjectEnabler}.
+ * <p>
+ * This class is the simple way to add support of a LWM2M Object to your Leshan client. If you need more flexibility you
+ * could consider to implement {@link LwM2mObjectEnabler} directly or inherit {@link BaseObjectEnabler}.
+ * <p>
+ * To use this class, you first call the methods :
+ * <ul>
+ * <li>{@link #setFactoryForObject(int, LwM2mInstanceEnablerFactory)}
+ * <li>{@link #setClassForObject(int, Class)}
+ * <li>{@link #setInstancesForObject(int, LwM2mInstanceEnabler...)}
+ * <li>{@link #setDummyInstancesForObject(int...)}
+ * </ul>
+ * Then you create {@link LwM2mObjectEnabler}(s) with :
+ * <ul>
+ * <li>{@link #createAll()}
+ * <li>{@link #create(int...)}
+ * <li>{@link #create(int)}
+ * </ul>
+ * 
+ * @author sbernard
+ *
+ */
 public class ObjectsInitializer {
 
     protected Map<Integer, LwM2mInstanceEnablerFactory> factories = new HashMap<>();
@@ -36,10 +60,18 @@ public class ObjectsInitializer {
     protected Map<Integer, ContentFormat> defaultContentFormat = new HashMap<>();
     protected LwM2mModel model;
 
+    /**
+     * Create an object initializer using a {@link StaticModel} containing all the default LWM2M object definition. (see
+     * {@link ObjectLoader#loadDefault()}.
+     */
     public ObjectsInitializer() {
         this(null);
     }
 
+    /**
+     * Create an object initializer using the given {@link LwM2mModel}. You could create your own model or use
+     * {@link ObjectLoader} to load model from files.
+     */
     public ObjectsInitializer(LwM2mModel model) {
         if (model == null) {
             this.model = new StaticModel(ObjectLoader.loadDefault());
@@ -48,6 +80,10 @@ public class ObjectsInitializer {
         }
     }
 
+    /**
+     * Set a {@link LwM2mInstanceEnablerFactory} for a given Id. This factory will be used to create
+     * {@link LwM2mInstanceEnabler} on {@link CreateRequest}.
+     */
     public void setFactoryForObject(int objectId, LwM2mInstanceEnablerFactory factory) {
         if (model.getObjectModel(objectId) == null) {
             throw new IllegalArgumentException(
@@ -57,6 +93,10 @@ public class ObjectsInitializer {
         factories.put(objectId, factory);
     }
 
+    /**
+     * Set a {@link LwM2mInstanceEnablerFactory} which use the default constructor of the given class to create
+     * {@link LwM2mInstanceEnabler}.
+     */
     public void setClassForObject(int objectId, Class<? extends LwM2mInstanceEnabler> clazz) {
         Validate.notNull(clazz);
         // check clazz has a default constructor
@@ -68,6 +108,12 @@ public class ObjectsInitializer {
         setFactoryForObject(objectId, getClassFactory(clazz));
     }
 
+    /**
+     * Set instances which will be available at start up for the given object. If there is no
+     * {@link LwM2mInstanceEnablerFactory} defined for this object. The {@link ObjectsInitializer} will create a
+     * {@link LwM2mInstanceEnablerFactory} which uses the default constructor of the class of one of the given
+     * instances.
+     */
     public void setInstancesForObject(int objectId, LwM2mInstanceEnabler... instances) {
         ObjectModel objectModel = model.getObjectModel(objectId);
         if (objectModel == null) {
@@ -95,7 +141,7 @@ public class ObjectsInitializer {
      * instances. A dummy instance is just a very simple instance implementation which respect the object model and
      * return some random values. A good way to begin to test Leshan client but not adapted to production environment.
      * 
-     * @param objectId
+     * @param objectIds the list of object id. For each id a dummy instance will be created.
      */
     public void setDummyInstancesForObject(int... objectIds) {
         // create a map (id => nb instances)

@@ -2,11 +2,11 @@
  * Copyright (c) 2013-2015 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -30,27 +30,48 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Option.Builder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.eclipse.californium.core.network.config.NetworkConfig;
+import org.eclipse.californium.elements.Connector;
+import org.eclipse.californium.scandium.DTLSConnector;
+import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
+import org.eclipse.californium.scandium.dtls.ClientHandshaker;
+import org.eclipse.californium.scandium.dtls.DTLSSession;
+import org.eclipse.californium.scandium.dtls.HandshakeException;
+import org.eclipse.californium.scandium.dtls.Handshaker;
+import org.eclipse.californium.scandium.dtls.ResumingClientHandshaker;
+import org.eclipse.californium.scandium.dtls.ResumingServerHandshaker;
+import org.eclipse.californium.scandium.dtls.ServerHandshaker;
+import org.eclipse.californium.scandium.dtls.SessionAdapter;
 import org.eclipse.leshan.LwM2m;
 import org.eclipse.leshan.client.californium.LeshanClient;
 import org.eclipse.leshan.client.californium.LeshanClientBuilder;
+import org.eclipse.leshan.client.engine.DefaultRegistrationEngineFactory;
 import org.eclipse.leshan.client.object.Server;
 import org.eclipse.leshan.client.resource.LwM2mObjectEnabler;
 import org.eclipse.leshan.client.resource.ObjectsInitializer;
 import org.eclipse.leshan.client.demo.mt.GroupSensors;
 import org.eclipse.leshan.client.resource.listener.ObjectsListenerAdapter;
+import org.eclipse.leshan.core.californium.DefaultEndpointFactory;
 import org.eclipse.leshan.core.model.LwM2mModel;
 import org.eclipse.leshan.core.model.ObjectLoader;
 import org.eclipse.leshan.core.model.ObjectModel;
 import org.eclipse.leshan.core.model.StaticModel;
+import org.eclipse.leshan.core.node.codec.DefaultLwM2mNodeDecoder;
+import org.eclipse.leshan.core.node.codec.DefaultLwM2mNodeEncoder;
 import org.eclipse.leshan.core.request.BindingMode;
 import org.eclipse.leshan.util.Hex;
 import org.eclipse.leshan.util.SecurityUtil;
@@ -140,11 +161,22 @@ public class LeshanClientDemo {
         options.addOption("b", false, "If present use bootstrap.");
         options.addOption("l", true, String.format(
                 "The lifetime in seconds used to register, ignored if -b is used.\n Default : %ds", DEFAULT_LIFETIME));
+        options.addOption("cp", true,
+                "The communication period in seconds which should be smaller than the lifeime, will be used even if -b is used.");
         options.addOption("lh", true, "Set the local CoAP address of the Client.\n  Default: any local address.");
         options.addOption("lp", true,
                 "Set the local CoAP port of the Client.\n  Default: A valid port value is between 0 and 65535.");
         options.addOption("u", true, String.format("Set the LWM2M or Bootstrap server URL.\nDefault: localhost:%d.",
                 LwM2m.DEFAULT_COAP_PORT));
+        options.addOption("r", false, "Force reconnect/rehandshake on update.");
+        options.addOption("f", false, "Do not try to resume session always, do a full handshake.");
+        options.addOption("ocf",
+                "activate support of old/unofficial content format .\n See https://github.com/eclipse/leshan/pull/720");
+        options.addOption("oc", "activate support of old/deprecated cipher suites.");
+        Builder aa = Option.builder("aa");
+        aa.desc("Use additional attributes at registration time, syntax is \n -aa attrName1=attrValue1 attrName2=\\\"attrValue2\\\" ...");
+        aa.hasArgs();
+        options.addOption(aa.build());
         options.addOption("pos", true,
                 "Set the initial location (latitude, longitude) of the device to be reported by the Location object.\n Format: lat_float:long_float");
         options.addOption("sf", true, "Scale factor to apply when shifting position.\n Default is 1.0." + PSKChapter);
@@ -251,6 +283,39 @@ public class LeshanClientDemo {
             lifetime = DEFAULT_LIFETIME;
         }
 
+        // Get lifetime
+        Integer communicationPeriod = null;
+        if (cl.hasOption("cp")) {
+            communicationPeriod = Integer.valueOf(cl.getOptionValue("cp")) * 1000;
+        }
+
+        // Get additional attributes
+        Map<String, String> additionalAttributes = null;
+        if (cl.hasOption("aa")) {
+            additionalAttributes = new HashMap<>();
+            Pattern p1 = Pattern.compile("(.*)=\"(.*)\"");
+            Pattern p2 = Pattern.compile("(.*)=(.*)");
+            String[] values = cl.getOptionValues("aa");
+            for (String v : values) {
+                Matcher m = p1.matcher(v);
+                if (m.matches()) {
+                    String attrName = m.group(1);
+                    String attrValue = m.group(2);
+                    additionalAttributes.put(attrName, attrValue);
+                } else {
+                    m = p2.matcher(v);
+                    if (m.matches()) {
+                        String attrName = m.group(1);
+                        String attrValue = m.group(2);
+                        additionalAttributes.put(attrName, attrValue);
+                    } else {
+                        System.err.println(String.format("Invalid syntax for additional attributes : %s", v));
+                        return;
+                    }
+                }
+            }
+        }
+
         // Get server URI
         String serverURI;
         if (cl.hasOption("u")) {
@@ -347,9 +412,10 @@ public class LeshanClientDemo {
             }
         }
         try {
-            createAndStartClient(endpoint, localAddress, localPort, cl.hasOption("b"), lifetime, serverURI, pskIdentity,
-                    pskKey, clientPrivateKey, clientPublicKey, serverPublicKey, clientCertificate, serverCertificate,
-                    latitude, longitude, scaleFactor);
+            createAndStartClient(endpoint, localAddress, localPort, cl.hasOption("b"), additionalAttributes, lifetime,
+                    communicationPeriod, serverURI, pskIdentity, pskKey, clientPrivateKey, clientPublicKey,
+                    serverPublicKey, clientCertificate, serverCertificate, latitude, longitude, scaleFactor,
+                    cl.hasOption("ocf"), cl.hasOption("oc"), cl.hasOption("r"), cl.hasOption("f"));
         } catch (Exception e) {
             System.err.println("Unable to create and start client ...");
             e.printStackTrace();
@@ -358,9 +424,11 @@ public class LeshanClientDemo {
     }
 
     public static void createAndStartClient(String endpoint, String localAddress, int localPort, boolean needBootstrap,
-            int lifetime, String serverURI, byte[] pskIdentity, byte[] pskKey, PrivateKey clientPrivateKey,
-            PublicKey clientPublicKey, PublicKey serverPublicKey, X509Certificate clientCertificate,
-            X509Certificate serverCertificate, Float latitude, Float longitude, float scaleFactor)
+            Map<String, String> additionalAttributes, int lifetime, Integer communicationPeriod, String serverURI,
+            byte[] pskIdentity, byte[] pskKey, PrivateKey clientPrivateKey, PublicKey clientPublicKey,
+            PublicKey serverPublicKey, X509Certificate clientCertificate, X509Certificate serverCertificate,
+            Float latitude, Float longitude, float scaleFactor, boolean supportOldFormat,
+            boolean supportDeprecatedCiphers, boolean reconnectOnUpdate, boolean forceFullhandshake)
             throws CertificateEncodingException {
 
         locationInstance = new MyLocation((float)56.946285, (float)524.105078, scaleFactor);
@@ -434,12 +502,96 @@ public class LeshanClientDemo {
             coapConfig.store(configFile);
         }
 
+        // Create DTLS Config
+        DtlsConnectorConfig.Builder dtlsConfig = new DtlsConnectorConfig.Builder();
+        dtlsConfig.setRecommendedCipherSuitesOnly(!supportDeprecatedCiphers);
+
+        // Configure Registration Engine
+        DefaultRegistrationEngineFactory engineFactory = new DefaultRegistrationEngineFactory();
+        engineFactory.setCommunicationPeriod(communicationPeriod);
+        engineFactory.setReconnectOnUpdate(reconnectOnUpdate);
+        engineFactory.setResumeOnConnect(!forceFullhandshake);
+
+        // configure EndpointFactory
+        DefaultEndpointFactory endpointFactory = new DefaultEndpointFactory("LWM2M CLIENT") {
+            @Override
+            protected Connector createSecuredConnector(DtlsConnectorConfig dtlsConfig) {
+
+                return new DTLSConnector(dtlsConfig) {
+                    @Override
+                    protected void onInitializeHandshaker(Handshaker handshaker) {
+                        handshaker.addSessionListener(new SessionAdapter() {
+
+                            @Override
+                            public void handshakeStarted(Handshaker handshaker) throws HandshakeException {
+                                if (handshaker instanceof ServerHandshaker) {
+                                    LOG.info("DTLS Full Handshake initiated by server : STARTED ...");
+                                } else if (handshaker instanceof ResumingServerHandshaker) {
+                                    LOG.info("DTLS abbreviated Handshake initiated by server : STARTED ...");
+                                } else if (handshaker instanceof ClientHandshaker) {
+                                    LOG.info("DTLS Full Handshake initiated by client : STARTED ...");
+                                } else if (handshaker instanceof ResumingClientHandshaker) {
+                                    LOG.info("DTLS abbreviated Handshake initiated by client : STARTED ...");
+                                }
+                            }
+
+                            @Override
+                            public void sessionEstablished(Handshaker handshaker, DTLSSession establishedSession)
+                                    throws HandshakeException {
+                                if (handshaker instanceof ServerHandshaker) {
+                                    LOG.info("DTLS Full Handshake initiated by server : SUCCEED");
+                                } else if (handshaker instanceof ResumingServerHandshaker) {
+                                    LOG.info("DTLS abbreviated Handshake initiated by server : SUCCEED");
+                                } else if (handshaker instanceof ClientHandshaker) {
+                                    LOG.info("DTLS Full Handshake initiated by client : SUCCEED");
+                                } else if (handshaker instanceof ResumingClientHandshaker) {
+                                    LOG.info("DTLS abbreviated Handshake initiated by client : SUCCEED");
+                                }
+                            }
+
+                            @Override
+                            public void handshakeFailed(Handshaker handshaker, Throwable error) {
+                                // get cause
+                                String cause;
+                                if (error != null) {
+                                    if (error.getMessage() != null) {
+                                        cause = error.getMessage();
+                                    } else {
+                                        cause = error.getClass().getName();
+                                    }
+                                } else {
+                                    cause = "unknown cause";
+                                }
+
+                                if (handshaker instanceof ServerHandshaker) {
+                                    LOG.info("DTLS Full Handshake initiated by server : FAILED ({})", cause);
+                                } else if (handshaker instanceof ResumingServerHandshaker) {
+                                    LOG.info("DTLS abbreviated Handshake initiated by server : FAILED ({})", cause);
+                                } else if (handshaker instanceof ClientHandshaker) {
+                                    LOG.info("DTLS Full Handshake initiated by client : FAILED ({})", cause);
+                                } else if (handshaker instanceof ResumingClientHandshaker) {
+                                    LOG.info("DTLS abbreviated Handshake initiated by client : FAILED ({})", cause);
+                                }
+                            }
+                        });
+                    }
+                };
+            }
+        };
+
         // Create client
         LeshanClientBuilder builder = new LeshanClientBuilder(endpoint);
         builder.setLocalAddress(localAddress, localPort);
         builder.setObjects(enablers);
         builder.setCoapConfig(coapConfig);
-
+        builder.setDtlsConfig(dtlsConfig);
+        builder.setRegistrationEngineFactory(engineFactory);
+        builder.setEndpointFactory(endpointFactory);
+        if (supportOldFormat) {
+            builder.setDecoder(new DefaultLwM2mNodeDecoder(true));
+            builder.setEncoder(new DefaultLwM2mNodeEncoder(true));
+        }
+        builder.setAdditionalAttributes(additionalAttributes);
         final LeshanClient client = builder.build();
         gs.setLeshanClient(client);
 

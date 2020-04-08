@@ -2,11 +2,11 @@
  * Copyright (c) 2015 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  *
@@ -54,6 +54,13 @@ import org.eclipse.leshan.core.response.ObserveResponse;
 import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.WriteResponse;
 
+/**
+ * A specific implementation of {@link LwM2mObjectEnabler} which matchs each LWM2M instance concept to a
+ * {@link LwM2mInstanceEnabler} java instance.
+ * <p>
+ * Implementing a {@link LwM2mInstanceEnabler} then creating an {@link ObjectEnabler} with {@link ObjectsInitializer} is
+ * the easier way to implement LWM2M object in Leshan client.
+ */
 public class ObjectEnabler extends BaseObjectEnabler {
 
     protected Map<Integer, LwM2mInstanceEnabler> instances;

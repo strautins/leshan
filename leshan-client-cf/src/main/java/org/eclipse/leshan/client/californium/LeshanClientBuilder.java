@@ -2,11 +2,11 @@
  * Copyright (c) 2015 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -95,7 +95,7 @@ public class LeshanClientBuilder {
     }
 
     /**
-     * Sets the local non-secure end-point address
+     * Sets the local address to use.
      */
     public LeshanClientBuilder setLocalAddress(String hostname, int port) {
         if (hostname == null) {
@@ -107,8 +107,10 @@ public class LeshanClientBuilder {
     }
 
     /**
+     * Sets the list of objects enablers.
      * <p>
-     * Sets the list of objects enablers
+     * The easier way to create {@link LwM2mObjectEnabler} is to use the {@link ObjectsInitializer} but you can
+     * implement your own {@link LwM2mObjectEnabler} if you need more flexibility.
      */
     public LeshanClientBuilder setObjects(List<? extends LwM2mObjectEnabler> objectEnablers) {
         this.objectEnablers = objectEnablers;
@@ -158,7 +160,7 @@ public class LeshanClientBuilder {
      * endpoint.
      * 
      * @param endpointFactory An {@link EndpointFactory}, you can extends {@link DefaultEndpointFactory}.
-     * @return the builder for fluent Bootstrap Server creation.
+     * @return the builder for fluent client creation.
      */
     public LeshanClientBuilder setEndpointFactory(EndpointFactory endpointFactory) {
         this.endpointFactory = endpointFactory;
@@ -174,8 +176,7 @@ public class LeshanClientBuilder {
      * By default a {@link DefaultRegistrationEngineFactory} is used. Look at this class to change some default timeout
      * value.
      * 
-     * @param engineFactory
-     * @return
+     * @return the builder for fluent client creation.
      */
     public LeshanClientBuilder setRegistrationEngineFactory(RegistrationEngineFactory engineFactory) {
         this.engineFactory = engineFactory;
@@ -214,6 +215,7 @@ public class LeshanClientBuilder {
         networkConfig.set(Keys.MID_TRACKER, "NULL");
         networkConfig.set(Keys.MAX_ACTIVE_PEERS, 10);
         networkConfig.set(Keys.PROTOCOL_STAGE_THREAD_COUNT, 1);
+        networkConfig.set(Keys.USE_MESSAGE_OFFLOADING, false);
 
         return networkConfig;
     }
@@ -301,7 +303,7 @@ public class LeshanClientBuilder {
         }
 
         return createLeshanClient(endpoint, localAddress, objectEnablers, coapConfig, dtlsConfigBuilder,
-                endpointFactory,engineFactory, additionalAttributes, encoder, decoder, executor);
+                endpointFactory, engineFactory, additionalAttributes, encoder, decoder, executor);
     }
 
     /**

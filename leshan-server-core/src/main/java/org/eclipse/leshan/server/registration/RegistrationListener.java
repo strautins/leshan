@@ -2,11 +2,11 @@
  * Copyright (c) 2013-2015 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -36,7 +36,7 @@ public interface RegistrationListener {
      * @param previousObsersations all the observations linked to the previous registration which have been passively
      *        cancelled. <code>null</code> for a brand-new registration.
      */
-    void registered(Registration reg, Registration previousReg, Collection<Observation> previousObsersations);
+    void registered(Registration registration, Registration previousReg, Collection<Observation> previousObsersations);
 
     /**
      * Invoked when a client updates its registration.
@@ -50,7 +50,7 @@ public interface RegistrationListener {
     /**
      * Invoked when a registration is removed from the server.
      *
-     * @param reg the deleted registration
+     * @param registration the deleted registration
      * @param observations all the observations linked to the deleted registration which has been passively cancelled
      * @param expired <code>true</code> if the client has been unregistered because of its lifetime expiration and
      *        <code>false</code> otherwise
@@ -58,5 +58,6 @@ public interface RegistrationListener {
      *        (same endpoint). <code>null</code> if the registration is deleted because of a Deregister request or an
      *        expiration.
      */
-    void unregistered(Registration reg, Collection<Observation> observations, boolean expired, Registration newReg);
+    void unregistered(Registration registration, Collection<Observation> observations, boolean expired,
+            Registration newReg);
 }

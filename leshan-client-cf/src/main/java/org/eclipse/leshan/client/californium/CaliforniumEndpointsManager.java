@@ -2,11 +2,11 @@
  * Copyright (c) 2017 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -50,6 +50,9 @@ import org.eclipse.leshan.core.request.Identity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * An {@link EndpointsManager} based on Californium(CoAP implementation) and Scandium (DTLS implementation).
+ */
 public class CaliforniumEndpointsManager implements EndpointsManager {
 
     private static final Logger LOG = LoggerFactory.getLogger(CaliforniumEndpointsManager.class);
@@ -192,13 +195,41 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
     }
 
     @Override
-    public synchronized void forceReconnection(Server server) {
+    public long getMaxCommunicationPeriodFor(Server server, long lifetimeInMs) {
+        // See https://github.com/OpenMobileAlliance/OMA_LwM2M_for_Developers/issues/283 to better understand.
+        // TODO For DTLS, worst Handshake scenario should be taking into account too.
+
+        int floor = 30000; // value from which we stop to adjust communication period using COAP EXCHANGE LIFETIME.
+
+        // To be sure registration doesn't expired, update request should be send considering all CoAP retransmissions
+        // and registration lifetime.
+        // See https://tools.ietf.org/html/rfc7252#section-4.8.2
+        long exchange_lifetime = coapConfig.getLong(NetworkConfig.Keys.EXCHANGE_LIFETIME, 247);
+        if (lifetimeInMs - exchange_lifetime >= floor) {
+            return lifetimeInMs - exchange_lifetime;
+        } else {
+            LOG.warn("Too small lifetime : we advice to not use a lifetime < (COAP EXCHANGE LIFETIME + 30s)");
+            // lifetime value is too short, so we do a compromise and we don't remove COAP EXCHANGE LIFETIME completely
+            // We distribute the remaining lifetime range [0, exchange_lifetime + floor] on the remaining range
+            // [1,floor]s.
+            return lifetimeInMs * (floor - 1000) / (exchange_lifetime + floor) + 1000;
+        }
+    }
+
+    @Override
+    public synchronized void forceReconnection(Server server, boolean resume) {
         // TODO support multi server
         Connector connector = currentEndpoint.getConnector();
         if (connector instanceof DTLSConnector) {
-            ((DTLSConnector) connector).forceResumeAllSessions();
+            if (resume) {
+                LOG.info("Clear DTLS session for resumption for server {}", server.getUri());
+                ((DTLSConnector) connector).forceResumeAllSessions();
+            } else {
+                LOG.info("Clear DTLS session for server {}", server.getUri());
+                ((DTLSConnector) connector).clearConnectionState();
+            }
         }
-        LOG.info("Clear DTLS session for server {}", server.getUri());
+
     }
 
     public synchronized Endpoint getEndpoint(Identity server) {

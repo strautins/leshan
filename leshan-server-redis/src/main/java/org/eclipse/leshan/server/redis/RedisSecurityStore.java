@@ -2,11 +2,11 @@
  * Copyright (c) 2016 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -23,6 +23,7 @@ import org.eclipse.leshan.server.security.EditableSecurityStore;
 import org.eclipse.leshan.server.security.NonUniqueSecurityInfoException;
 import org.eclipse.leshan.server.security.SecurityInfo;
 import org.eclipse.leshan.server.security.SecurityStore;
+import org.eclipse.leshan.server.security.SecurityStoreListener;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.ScanParams;
@@ -41,6 +42,7 @@ public class RedisSecurityStore implements EditableSecurityStore {
     private static final String PSKID_SEC = "PSKID#SEC";
 
     private final Pool<Jedis> pool;
+    private SecurityStoreListener listener;
 
     public RedisSecurityStore(Pool<Jedis> pool) {
         this.pool = pool;
@@ -118,7 +120,7 @@ public class RedisSecurityStore implements EditableSecurityStore {
     }
 
     @Override
-    public SecurityInfo remove(String endpoint) {
+    public SecurityInfo remove(String endpoint, boolean infosAreCompromised) {
         try (Jedis j = pool.getResource()) {
             byte[] data = j.get((SEC_EP + endpoint).getBytes());
 
@@ -128,6 +130,9 @@ public class RedisSecurityStore implements EditableSecurityStore {
                     j.hdel(PSKID_SEC.getBytes(), info.getIdentity().getBytes());
                 }
                 j.del((SEC_EP + endpoint).getBytes());
+                if (listener != null) {
+                    listener.securityInfoRemoved(infosAreCompromised, info);
+                }
                 return info;
             }
         }
@@ -140,5 +145,10 @@ public class RedisSecurityStore implements EditableSecurityStore {
 
     private SecurityInfo deserialize(byte[] data) {
         return SecurityInfoSerDes.deserialize(data);
+    }
+
+    @Override
+    public void setListener(SecurityStoreListener listener) {
+        this.listener = listener;
     }
 }

@@ -2,11 +2,11 @@
  * Copyright (c) 2013-2015 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -353,9 +353,13 @@ public class ClientServlet extends HttpServlet {
             try {
                 Registration registration = server.getRegistrationService().getByEndpoint(clientEndpoint);
                 if (registration != null) {
-                    ExecuteRequest request = new ExecuteRequest(target,
-                        IOUtils.toString(req.getInputStream(), StandardCharsets.UTF_8));
+                    String params = null;
+                    if (req.getContentLength() > 0) {
+                        params = IOUtils.toString(req.getInputStream(), StandardCharsets.UTF_8);
+                    }
+                    ExecuteRequest request = new ExecuteRequest(target, params);
                     try {
+                       
                         ExecuteResponse cResponse = server.send(registration, request, extractTimeout(req));
                         processDeviceResponse(req, resp, cResponse);
                     } catch (ClientSleepingException e) {

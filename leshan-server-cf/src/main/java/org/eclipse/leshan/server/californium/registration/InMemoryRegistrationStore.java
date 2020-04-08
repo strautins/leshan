@@ -2,11 +2,11 @@
  * Copyright (c) 2016 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -43,6 +43,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.eclipse.californium.core.coap.Token;
+import org.eclipse.californium.core.observe.ObservationStoreException;
 import org.eclipse.californium.core.observe.ObservationUtil;
 import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.leshan.core.observation.Observation;
@@ -292,18 +293,18 @@ public class InMemoryRegistrationStore implements CaliforniumRegistrationStore, 
 
     @Override
     public org.eclipse.californium.core.observe.Observation putIfAbsent(Token token,
-            org.eclipse.californium.core.observe.Observation obs) {
+            org.eclipse.californium.core.observe.Observation obs) throws ObservationStoreException {
         return add(token, obs, true);
     }
 
     @Override
     public org.eclipse.californium.core.observe.Observation put(Token token,
-            org.eclipse.californium.core.observe.Observation obs) {
+            org.eclipse.californium.core.observe.Observation obs) throws ObservationStoreException {
         return add(token, obs, false);
     }
 
     private org.eclipse.californium.core.observe.Observation add(Token token,
-            org.eclipse.californium.core.observe.Observation obs, boolean ifAbsent) {
+            org.eclipse.californium.core.observe.Observation obs, boolean ifAbsent) throws ObservationStoreException {
         org.eclipse.californium.core.observe.Observation previousObservation = null;
         if (obs != null) {
             try {
@@ -427,10 +428,11 @@ public class InMemoryRegistrationStore implements CaliforniumRegistrationStore, 
         return ObserveUtil.createLwM2mObservation(cfObs.getRequest());
     }
 
-    private String validateObservation(org.eclipse.californium.core.observe.Observation observation) {
+    private String validateObservation(org.eclipse.californium.core.observe.Observation observation)
+            throws ObservationStoreException {
         String endpoint = ObserveUtil.validateCoapObservation(observation);
         if (getRegistration(ObserveUtil.extractRegistrationId(observation)) == null) {
-            throw new IllegalStateException("no registration for this Id");
+            throw new ObservationStoreException("no registration for this Id");
         }
 
         return endpoint;

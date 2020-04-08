@@ -2,11 +2,11 @@
  * Copyright (c) 2015 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -35,12 +35,13 @@ import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.elements.RawData;
 import org.eclipse.californium.elements.auth.PreSharedKeyIdentity;
 import org.eclipse.californium.elements.exception.EndpointMismatchException;
-import org.eclipse.californium.elements.exception.EndpointUnconnectedException;
 import org.eclipse.californium.elements.util.SimpleMessageCallback;
 import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.californium.scandium.dtls.DTLSSession;
 import org.eclipse.leshan.core.request.ReadRequest;
 import org.eclipse.leshan.core.request.exception.SendFailedException;
+import org.eclipse.leshan.core.request.exception.TimeoutException;
+import org.eclipse.leshan.core.request.exception.UnconnectedPeerException;
 import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.server.registration.Registration;
 import org.eclipse.leshan.server.security.EditableSecurityStore;
@@ -269,6 +270,46 @@ public class SecurityTest {
     }
 
     @Test
+    public void server_initiates_dtls_handshake_timeout() throws NonUniqueSecurityInfoException, InterruptedException {
+        // Create PSK server & start it
+        helper.createServer(); // default server support PSK
+        helper.server.start();
+
+        // Create PSK Client
+        helper.createPSKClient();
+
+        // Add client credentials to the server
+        helper.getSecurityStore()
+                .add(SecurityInfo.newPreSharedKeyInfo(helper.getCurrentEndpoint(), GOOD_PSK_ID, GOOD_PSK_KEY));
+
+        // Check for registration
+        helper.assertClientNotRegisterered();
+        helper.client.start();
+        helper.waitForRegistrationAtServerSide(1);
+        Registration registration = helper.getCurrentRegistration();
+        helper.assertClientRegisterered();
+
+        // Remove DTLS connection at server side.
+        ((DTLSConnector) helper.server.coap().getSecuredEndpoint().getConnector()).clearConnectionState();
+
+        // stop client
+        helper.client.stop(false);
+
+        // try to send request synchronously
+        ReadResponse readResponse = helper.server.send(registration, new ReadRequest(3), 1000);
+        assertNull(readResponse);
+
+        // try to send request asynchronously
+        Callback<ReadResponse> callback = new Callback<>();
+        helper.server.send(registration, new ReadRequest(3), 1000, callback, callback);
+        callback.waitForResponse(1100);
+        assertTrue(callback.getException() instanceof TimeoutException);
+        assertEquals(TimeoutException.Type.DTLS_HANDSHAKE_TIMEOUT,
+                ((TimeoutException) callback.getException()).getType());
+
+    }
+
+    @Test
     public void server_does_not_initiate_dtls_handshake_with_queue_mode()
             throws NonUniqueSecurityInfoException, InterruptedException {
         // Create PSK server & start it
@@ -296,8 +337,9 @@ public class SecurityTest {
         try {
             helper.server.send(registration, new ReadRequest(3), 1000);
             fail("Read request SHOULD have failed");
-        } catch (SendFailedException e) {
-            assertTrue(e.getCause() instanceof EndpointUnconnectedException);
+        } catch (UnconnectedPeerException e) {
+            // expected result
+            assertFalse("client is still awake", helper.server.getPresenceService().isClientAwake(registration));
         }
     }
 
@@ -358,6 +400,38 @@ public class SecurityTest {
     }
 
     @Test
+    public void registered_device_with_psk_identity_to_server_with_psk_then_remove_security_info()
+            throws NonUniqueSecurityInfoException, InterruptedException {
+        // Create PSK server & start it
+        helper.createServer(); // default server support PSK
+        helper.server.start();
+
+        // Create PSK Client
+        helper.createPSKClient();
+
+        // Add client credentials to the server
+        helper.getSecurityStore()
+                .add(SecurityInfo.newPreSharedKeyInfo(helper.getCurrentEndpoint(), GOOD_PSK_ID, GOOD_PSK_KEY));
+
+        // Check client is not registered
+        helper.assertClientNotRegisterered();
+
+        // Start it and wait for registration
+        helper.client.start();
+        helper.waitForRegistrationAtClientSide(1);
+
+        // Check client is well registered
+        helper.assertClientRegisterered();
+
+        // remove compromised credentials
+        helper.getSecurityStore().remove(helper.getCurrentEndpoint(), true);
+
+        // try to update
+        helper.client.triggerRegistrationUpdate();
+        helper.ensureNoUpdate(1);
+    }
+
+    @Test
     public void nonunique_psk_identity() throws NonUniqueSecurityInfoException {
         helper.createServer();
         helper.server.start();
@@ -408,7 +482,7 @@ public class SecurityTest {
     }
 
     @Test
-    public void registered_device_with_bad_rpk_to_server_with_rpk() throws NonUniqueSecurityInfoException {
+    public void registered_device_with_bad_rpk_to_server_with_rpk_() throws NonUniqueSecurityInfoException {
         helper.createServerWithRPK();
         helper.server.start();
 
@@ -424,6 +498,32 @@ public class SecurityTest {
     }
 
     @Test
+    public void registered_device_with_rpk_to_server_with_rpk_then_remove_security_info()
+            throws NonUniqueSecurityInfoException {
+        helper.createServerWithRPK();
+        helper.server.start();
+
+        helper.createRPKClient();
+
+        helper.getSecurityStore()
+                .add(SecurityInfo.newRawPublicKeyInfo(helper.getCurrentEndpoint(), helper.clientPublicKey));
+
+        helper.assertClientNotRegisterered();
+        helper.client.start();
+        helper.waitForRegistrationAtClientSide(1);
+
+        // Check client is well registered
+        helper.assertClientRegisterered();
+
+        // remove compromised credentials
+        helper.getSecurityStore().remove(helper.getCurrentEndpoint(), true);
+
+        // try to update
+        helper.client.triggerRegistrationUpdate();
+        helper.ensureNoUpdate(1);
+    }
+
+    @Test
     public void registered_device_with_rpk_and_bad_endpoint_to_server_with_rpk() throws NonUniqueSecurityInfoException {
         helper.createServerWithRPK();
         helper.server.start();
@@ -434,6 +534,31 @@ public class SecurityTest {
 
         helper.client.start();
         helper.ensureNoRegistration(1);
+    }
+
+    @Test
+    public void registered_device_with_x509cert_to_server_with_x509cert_then_remove_security_info()
+            throws NonUniqueSecurityInfoException, CertificateEncodingException {
+        helper.createServerWithX509Cert();
+        helper.server.start();
+
+        helper.createX509CertClient();
+
+        helper.getSecurityStore().add(SecurityInfo.newX509CertInfo(helper.getCurrentEndpoint()));
+
+        helper.assertClientNotRegisterered();
+        helper.client.start();
+        helper.waitForRegistrationAtClientSide(1);
+
+        // Check client is well registered
+        helper.assertClientRegisterered();
+
+        // remove compromised credentials
+        helper.getSecurityStore().remove(helper.getCurrentEndpoint(), true);
+
+        // try to update
+        helper.client.triggerRegistrationUpdate();
+        helper.ensureNoUpdate(1);
     }
 
     @Test

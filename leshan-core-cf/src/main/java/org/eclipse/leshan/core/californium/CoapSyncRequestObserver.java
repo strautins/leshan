@@ -2,11 +2,11 @@
  * Copyright (c) 2016 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -24,9 +24,12 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
+import org.eclipse.californium.elements.exception.EndpointUnconnectedException;
+import org.eclipse.californium.scandium.dtls.DtlsHandshakeTimeoutException;
 import org.eclipse.leshan.core.request.exception.RequestCanceledException;
 import org.eclipse.leshan.core.request.exception.RequestRejectedException;
 import org.eclipse.leshan.core.request.exception.SendFailedException;
+import org.eclipse.leshan.core.request.exception.UnconnectedPeerException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +40,7 @@ import org.slf4j.LoggerFactory;
  * <p>
  * This class also provides response timeout facility.
  * 
- * @see https://github.com/eclipse/leshan/wiki/Request-Timeout for more details.
+ * @see <a href="https://github.com/eclipse/leshan/wiki/Request-Timeout">Request Timeout Wiki page</a>
  */
 public class CoapSyncRequestObserver extends AbstractRequestObserver {
 
@@ -94,7 +97,14 @@ public class CoapSyncRequestObserver extends AbstractRequestObserver {
 
     @Override
     public void onSendError(Throwable error) {
-        exception.set(new SendFailedException(error, "Request %s cannot be sent", coapRequest, error.getMessage()));
+        if (error instanceof DtlsHandshakeTimeoutException) {
+            coapTimeout.set(true);
+        } else if (error instanceof EndpointUnconnectedException) {
+            exception.set(new UnconnectedPeerException(error,
+                    "Unable to send request %s : peer is not connected (no DTLS connection)", coapRequest.getURI()));
+        } else {
+            exception.set(new SendFailedException(error, "Request %s cannot be sent", coapRequest, error.getMessage()));
+        }
         latch.countDown();
     }
 

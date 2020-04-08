@@ -2,11 +2,11 @@
  * Copyright (c) 2017 RISE SICS AB.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -18,6 +18,7 @@ package org.eclipse.leshan.server.queue;
 import org.eclipse.leshan.core.request.DownlinkRequest;
 import org.eclipse.leshan.core.request.exception.ClientSleepingException;
 import org.eclipse.leshan.core.request.exception.TimeoutException;
+import org.eclipse.leshan.core.request.exception.UnconnectedPeerException;
 import org.eclipse.leshan.core.response.ErrorCallback;
 import org.eclipse.leshan.core.response.LwM2mResponse;
 import org.eclipse.leshan.core.response.ResponseCallback;
@@ -34,8 +35,8 @@ public class QueueModeLwM2mRequestSender implements LwM2mRequestSender {
     protected LwM2mRequestSender delegatedSender;
 
     /**
-     * @param presenceService the presence service object for setting the client into {@link Presence#SLEEPING} when
-     *        request Timeout expires and into {@link Presence#Awake} when a response arrives.
+     * @param presenceService the presence service object for setting the client into sleepint state when request
+     *        Timeout expires and into awake state when a response arrives.
      * @param delegatedSender internal sender that it is used for sending the requests, using delegation.
      */
     public QueueModeLwM2mRequestSender(PresenceServiceImpl presenceService, LwM2mRequestSender delegatedSender) {
@@ -66,16 +67,23 @@ public class QueueModeLwM2mRequestSender implements LwM2mRequestSender {
         }
 
         // Use delegation to send the request
-        T response = delegatedSender.send(destination, request, timeout);
-        if (response != null) {
-            // Set the client awake. This will restart the timer.
-            presenceService.setAwake(destination);
-        } else {
-            // If the timeout expires, this means the client does not respond.
+        try {
+            T response = delegatedSender.send(destination, request, timeout);
+            if (response != null) {
+                // Set the client awake. This will restart the timer.
+                presenceService.setAwake(destination);
+            } else {
+                // If the timeout expires, this means the client does not respond.
+                presenceService.setSleeping(destination);
+            }
+
+            // Wait for response, then return it
+            return response;
+        } catch (UnconnectedPeerException e) {
+            // if peer is not connected (No DTLS connection available)
             presenceService.setSleeping(destination);
+            throw e;
         }
-        // Wait for response, then return it
-        return response;
     }
 
     /**
@@ -113,6 +121,9 @@ public class QueueModeLwM2mRequestSender implements LwM2mRequestSender {
             public void onError(Exception e) {
                 if (e instanceof TimeoutException) {
                     // If the timeout expires, this means the client does not respond.
+                    presenceService.setSleeping(destination);
+                } else if (e instanceof UnconnectedPeerException) {
+                    // if peer is not connected (No DTLS connection available)
                     presenceService.setSleeping(destination);
                 }
 

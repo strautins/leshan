@@ -2,11 +2,11 @@
  * Copyright (c) 2019 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -46,6 +46,8 @@ import org.eclipse.leshan.core.request.exception.InvalidResponseException;
 import org.eclipse.leshan.core.request.exception.RequestCanceledException;
 import org.eclipse.leshan.core.request.exception.RequestRejectedException;
 import org.eclipse.leshan.core.request.exception.SendFailedException;
+import org.eclipse.leshan.core.request.exception.TimeoutException;
+import org.eclipse.leshan.core.request.exception.UnconnectedPeerException;
 import org.eclipse.leshan.core.response.ErrorCallback;
 import org.eclipse.leshan.core.response.LwM2mResponse;
 import org.eclipse.leshan.core.response.ResponseCallback;
@@ -107,7 +109,7 @@ public class RequestSender implements Destroyable {
      * @param request The request to send to the client.
      * @param timeoutInMs The response timeout to wait in milliseconds (see
      *        https://github.com/eclipse/leshan/wiki/Request-Timeout)
-     * @param preventConnectionInitiation prevent to initiate a Handshake if there is no DTLS connection.
+     * @param allowConnectionInitiation This request can initiate a Handshake if there is no DTLS connection.
      * @return the response or <code>null</code> if the timeout expires (see
      *         https://github.com/eclipse/leshan/wiki/Request-Timeout).
      * 
@@ -116,15 +118,16 @@ public class RequestSender implements Destroyable {
      * @throws RequestRejectedException if the request is rejected by foreign peer.
      * @throws RequestCanceledException if the request is cancelled.
      * @throws SendFailedException if the request can not be sent. E.g. error at CoAP or DTLS/UDP layer.
+     * @throws UnconnectedPeerException if client is not connected (no dtls connection available).
      * @throws InvalidResponseException if the response received is malformed.
      */
     public <T extends LwM2mResponse> T sendLwm2mRequest(final String endpointName, Identity destination,
             String sessionId, final LwM2mModel model, String rootPath, final DownlinkRequest<T> request,
-            long timeoutInMs, boolean preventConnectionInitiation) throws InterruptedException {
+            long timeoutInMs, boolean allowConnectionInitiation) throws InterruptedException {
 
         // Create the CoAP request from LwM2m request
         CoapRequestBuilder coapClientRequestBuilder = new CoapRequestBuilder(destination, rootPath, sessionId,
-                endpointName, model, encoder, preventConnectionInitiation);
+                endpointName, model, encoder, allowConnectionInitiation);
         request.accept(coapClientRequestBuilder);
         final Request coapRequest = coapClientRequestBuilder.getRequest();
 
@@ -179,25 +182,26 @@ public class RequestSender implements Destroyable {
      *        <li>{@link RequestCanceledException} if the request is cancelled.</li>
      *        <li>{@link SendFailedException} if the request can not be sent. E.g. error at CoAP or DTLS/UDP layer.</li>
      *        <li>{@link InvalidResponseException} if the response received is malformed.</li>
+     *        <li>{@link UnconnectedPeerException} if client is not connected (no dtls connection available).</li>
      *        <li>{@link TimeoutException} if the timeout expires (see
      *        https://github.com/eclipse/leshan/wiki/Request-Timeout).</li>
      *        <li>or any other RuntimeException for unexpected issue.
      *        </ul>
      *        This callback MUST NOT be null.
-     * @param preventConnectionInitiation prevent to initiate a Handshake if there is no DTLS connection.
+     * @param allowConnectionInitiation This request can initiate a Handshake if there is no DTLS connection.
      * @throws CodecException if request payload can not be encoded.
      */
     public <T extends LwM2mResponse> void sendLwm2mRequest(final String endpointName, Identity destination,
             String sessionId, final LwM2mModel model, String rootPath, final DownlinkRequest<T> request,
             long timeoutInMs, ResponseCallback<T> responseCallback, ErrorCallback errorCallback,
-            boolean preventConnectionInitiation) {
+            boolean allowConnectionInitiation) {
 
         Validate.notNull(responseCallback);
         Validate.notNull(errorCallback);
 
         // Create the CoAP request from LwM2m request
         CoapRequestBuilder coapClientRequestBuilder = new CoapRequestBuilder(destination, rootPath, sessionId,
-                endpointName, model, encoder, preventConnectionInitiation);
+                endpointName, model, encoder, allowConnectionInitiation);
         request.accept(coapClientRequestBuilder);
         final Request coapRequest = coapClientRequestBuilder.getRequest();
 
@@ -238,7 +242,7 @@ public class RequestSender implements Destroyable {
      * @param coapRequest The request to send to the client.
      * @param timeoutInMs The response timeout to wait in milliseconds (see
      *        https://github.com/eclipse/leshan/wiki/Request-Timeout)
-     * @param preventConnectionInitiation prevent to initiate a Handshake if there is no DTLS connection.
+     * @param allowConnectionInitiation This request can initiate a Handshake if there is no DTLS connection.
      * @return the response or <code>null</code> if the timeout expires (see
      *         https://github.com/eclipse/leshan/wiki/Request-Timeout).
      * 
@@ -246,12 +250,13 @@ public class RequestSender implements Destroyable {
      * @throws RequestRejectedException if the request is rejected by foreign peer.
      * @throws RequestCanceledException if the request is cancelled.
      * @throws SendFailedException if the request can not be sent. E.g. error at CoAP or DTLS/UDP layer.
+     * @throws UnconnectedPeerException if client is not connected (no dtls connection available).
      */
     public Response sendCoapRequest(Identity destination, String sessionId, Request coapRequest, long timeoutInMs,
-            boolean preventConnectionInitiation) throws InterruptedException {
+            boolean allowConnectionInitiation) throws InterruptedException {
 
         // Define destination
-        EndpointContext context = EndpointContextUtil.extractContext(destination, preventConnectionInitiation);
+        EndpointContext context = EndpointContextUtil.extractContext(destination, allowConnectionInitiation);
         coapRequest.setDestinationContext(context);
 
         // Send CoAP request synchronously
@@ -281,7 +286,7 @@ public class RequestSender implements Destroyable {
      * @param destination the LWM2M client {@link Identity}.
      * @param sessionId A session Identifier which could be reused to cancel all ongoing request related to this one.
      *        See {@link #cancelRequests(String)}.
-     * @param request The request to send to the client.
+     * @param coapRequest The request to send to the client.
      * @param timeoutInMs The response timeout to wait in milliseconds (see
      *        https://github.com/eclipse/leshan/wiki/Request-Timeout)
      * @param responseCallback a callback called when a response is received (successful or error response). This
@@ -291,21 +296,22 @@ public class RequestSender implements Destroyable {
      *        <li>{@link RequestRejectedException} if the request is rejected by foreign peer.</li>
      *        <li>{@link RequestCanceledException} if the request is cancelled.</li>
      *        <li>{@link SendFailedException} if the request can not be sent. E.g. error at CoAP or DTLS/UDP layer.</li>
+     *        <li>{@link UnconnectedPeerException} if client is not connected (no dtls connection available).</li>
      *        <li>{@link TimeoutException} if the timeout expires (see
      *        https://github.com/eclipse/leshan/wiki/Request-Timeout).</li>
      *        <li>or any other RuntimeException for unexpected issue.
      *        </ul>
      *        This callback MUST NOT be null.
-     * @param preventConnectionInitiation prevent to initiate a Handshake if there is no DTLS connection.
+     * @param allowConnectionInitiation This request can initiate a Handshake if there is no DTLS connection.
      */
     public void sendCoapRequest(Identity destination, String sessionId, Request coapRequest, long timeoutInMs,
-            CoapResponseCallback responseCallback, ErrorCallback errorCallback, boolean preventConnectionInitiation) {
+            CoapResponseCallback responseCallback, ErrorCallback errorCallback, boolean allowConnectionInitiation) {
 
         Validate.notNull(responseCallback);
         Validate.notNull(errorCallback);
 
         // Define destination
-        EndpointContext context = EndpointContextUtil.extractContext(destination, preventConnectionInitiation);
+        EndpointContext context = EndpointContextUtil.extractContext(destination, allowConnectionInitiation);
         coapRequest.setDestinationContext(context);
 
         // Add CoAP request callback
@@ -328,7 +334,7 @@ public class RequestSender implements Destroyable {
      * 
      * @param sessionID the Id associated to the ongoing requests you want to cancel.
      * 
-     * @see all others send methods.
+     * @see "All others send methods."
      */
     public void cancelRequests(String sessionID) {
         Validate.notNull(sessionID);

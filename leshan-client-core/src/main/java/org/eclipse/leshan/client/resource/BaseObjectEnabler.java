@@ -2,11 +2,11 @@
  * Copyright (c) 2015 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  *
@@ -61,6 +61,10 @@ import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.WriteAttributesResponse;
 import org.eclipse.leshan.core.response.WriteResponse;
 
+/**
+ * A abstract implementation of {@link LwM2mObjectEnabler}. It could be use as base for any {@link LwM2mObjectEnabler}
+ * implementation.
+ */
 public abstract class BaseObjectEnabler implements LwM2mObjectEnabler {
 
     protected final int id;
@@ -151,7 +155,9 @@ public abstract class BaseObjectEnabler implements LwM2mObjectEnabler {
             // check if the resource is readable.
             if (path.isResource()) {
                 ResourceModel resourceModel = objectModel.resources.get(path.getResourceId());
-                if (resourceModel != null && !resourceModel.operations.isReadable()) {
+                if (resourceModel == null) {
+                    return ReadResponse.notFound();
+                } else if (!resourceModel.operations.isReadable()) {
                     return ReadResponse.methodNotAllowed();
                 }
             }
@@ -189,7 +195,9 @@ public abstract class BaseObjectEnabler implements LwM2mObjectEnabler {
                 // check if the resource is writable
                 if (LwM2mId.SECURITY != id) { // security resources are writable by SYSTEM
                     ResourceModel resourceModel = objectModel.resources.get(path.getResourceId());
-                    if (resourceModel != null && !resourceModel.operations.isWritable()) {
+                    if (resourceModel == null) {
+                        return WriteResponse.notFound();
+                    } else if (!resourceModel.operations.isWritable()) {
                         return WriteResponse.methodNotAllowed();
                     }
                 }
@@ -300,7 +308,9 @@ public abstract class BaseObjectEnabler implements LwM2mObjectEnabler {
 
         // check if the resource is writable
         ResourceModel resourceModel = objectModel.resources.get(path.getResourceId());
-        if (resourceModel != null && !resourceModel.operations.isExecutable()) {
+        if (resourceModel == null) {
+            return ExecuteResponse.notFound();
+        } else if (!resourceModel.operations.isExecutable()) {
             return ExecuteResponse.methodNotAllowed();
         }
 
@@ -386,8 +396,11 @@ public abstract class BaseObjectEnabler implements LwM2mObjectEnabler {
             // check if the resource is readable.
             if (path.isResource()) {
                 ResourceModel resourceModel = objectModel.resources.get(path.getResourceId());
-                if (resourceModel != null && !resourceModel.operations.isReadable())
+                if (resourceModel == null) {
+                    return ObserveResponse.notFound();
+                } else if (!resourceModel.operations.isReadable()) {
                     return ObserveResponse.methodNotAllowed();
+                }
             }
         }
         return doObserve(identity, request);

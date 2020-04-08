@@ -2,11 +2,11 @@
  * Copyright (c) 2013-2015 Sierra Wireless and others.
  * 
  * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
+ * are made available under the terms of the Eclipse Public License v2.0
  * and Eclipse Distribution License v1.0 which accompany this distribution.
  * 
  * The Eclipse Public License is available at
- *    http://www.eclipse.org/legal/epl-v10.html
+ *    http://www.eclipse.org/legal/epl-v20.html
  * and the Eclipse Distribution License is available at
  *    http://www.eclipse.org/org/documents/edl-v10.html.
  * 
@@ -64,7 +64,7 @@ public class Link implements Serializable {
      * @param url the link URL
      * @param attributes the object link attributes or <code>null</code> if the link has no attributes
      */
-    public <T> Link(String url, Map<String, String> attributes) {
+    public Link(String url, Map<String, String> attributes) {
         Validate.notNull(url);
         this.url = url;
         if (attributes != null) {
@@ -166,7 +166,7 @@ public class Link implements Serializable {
     /**
      * Parse a byte arrays representation of a {@code String} encoding with UTF_8 {@link Charset}.
      * 
-     * @param a byte arrays representing {@code String} encoding with UTF_8 {@link Charset}.
+     * @param content a byte arrays representing {@code String} encoding with UTF_8 {@link Charset}.
      * @return an array of {@code Link}
      */
     public static Link[] parse(byte[] content) {
