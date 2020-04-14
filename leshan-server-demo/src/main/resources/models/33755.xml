@@ -48,17 +48,7 @@
 				<Type>Time</Type>
 				<RangeEnumeration></RangeEnumeration>
 				<Units></Units>
-				<Description><![CDATA[Time when device group must perform alarm test. Absolute UNIX time.]]></Description>
-			</Item>
-			<Item ID="4">
-				<Name>Self Test Duration</Name>
-				<Operations>RW</Operations>
-				<MultipleInstances>Single</MultipleInstances>
-				<Mandatory>Mandatory</Mandatory>
-				<Type>Integer</Type>
-				<RangeEnumeration>3..120</RangeEnumeration>
-				<Units>s</Units>
-				<Description><![CDATA[Alarm test duration in units s.]]></Description>
+				<Description><![CDATA[Time when device group must perform self test. Absolute UNIX time.]]></Description>
 			</Item>
 			<Item ID="5">
 				<Name>Notify Delay</Name>
