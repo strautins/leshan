@@ -22,8 +22,8 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.Certificate;
 
-import org.eclipse.leshan.LwM2m;
-import org.eclipse.leshan.SecurityMode;
+import org.eclipse.leshan.core.LwM2m;
+import org.eclipse.leshan.core.SecurityMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,6 +37,7 @@ public class ServerInfo {
     private static final Logger LOG = LoggerFactory.getLogger(ServerInfo.class);
 
     public long serverId;
+    public boolean bootstrap = false;
     public URI serverUri;
     public SecurityMode secureMode;
 

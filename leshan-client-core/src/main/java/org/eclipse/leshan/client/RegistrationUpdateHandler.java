@@ -15,14 +15,15 @@
  *******************************************************************************/
 package org.eclipse.leshan.client;
 
-import org.eclipse.leshan.LwM2mId;
 import org.eclipse.leshan.client.bootstrap.BootstrapHandler;
 import org.eclipse.leshan.client.engine.RegistrationEngine;
 import org.eclipse.leshan.client.resource.LwM2mObjectEnabler;
 import org.eclipse.leshan.client.resource.LwM2mObjectTree;
 import org.eclipse.leshan.client.resource.listener.ObjectsListener;
+import org.eclipse.leshan.client.servers.ServerIdentity;
 import org.eclipse.leshan.client.servers.ServersInfoExtractor;
 import org.eclipse.leshan.client.util.LinkFormatHelper;
+import org.eclipse.leshan.core.LwM2mId;
 import org.eclipse.leshan.core.request.BindingMode;
 
 /**
@@ -82,8 +83,18 @@ public class RegistrationUpdateHandler {
                                 bindingMode = ServersInfoExtractor.getBindingMode(object, instanceId);
                             }
                         }
-                        engine.triggerRegistrationUpdate(
-                                new RegistrationUpdate(lifetime, null, bindingMode, null, null));
+
+                        if (bindingMode != null || lifetime != null) {
+                            Long serverId = null;
+                            serverId = ServersInfoExtractor.getServerId(object, instanceId);
+                            if (serverId != null) {
+                                ServerIdentity server = engine.getRegisteredServer(serverId);
+                                if (server != null)
+                                    engine.triggerRegistrationUpdate(server,
+                                            new RegistrationUpdate(lifetime, null, bindingMode, null, null));
+                            }
+                        }
+
                     }
             }
         });

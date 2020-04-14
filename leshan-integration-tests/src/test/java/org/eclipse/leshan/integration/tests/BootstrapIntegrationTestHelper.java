@@ -35,14 +35,15 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
-import org.eclipse.leshan.LwM2mId;
-import org.eclipse.leshan.SecurityMode;
 import org.eclipse.leshan.client.californium.LeshanClientBuilder;
 import org.eclipse.leshan.client.object.Device;
 import org.eclipse.leshan.client.object.Security;
 import org.eclipse.leshan.client.resource.DummyInstanceEnabler;
 import org.eclipse.leshan.client.resource.ObjectsInitializer;
+import org.eclipse.leshan.core.LwM2mId;
+import org.eclipse.leshan.core.SecurityMode;
 import org.eclipse.leshan.core.request.Identity;
+import org.eclipse.leshan.core.util.Hex;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig.ACLConfig;
 import org.eclipse.leshan.server.bootstrap.BootstrapConfig.ServerConfig;
@@ -54,7 +55,6 @@ import org.eclipse.leshan.server.californium.bootstrap.LeshanBootstrapServerBuil
 import org.eclipse.leshan.server.security.BootstrapSecurityStore;
 import org.eclipse.leshan.server.security.EditableSecurityStore;
 import org.eclipse.leshan.server.security.SecurityInfo;
-import org.eclipse.leshan.util.Hex;
 
 /**
  * Helper for running a server and executing a client against it.

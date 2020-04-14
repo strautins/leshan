@@ -16,8 +16,8 @@
  *******************************************************************************/
 package org.eclipse.leshan.client.servers;
 
-import static org.eclipse.leshan.LwM2mId.*;
-import static org.eclipse.leshan.client.request.ServerIdentity.SYSTEM;
+import static org.eclipse.leshan.client.servers.ServerIdentity.SYSTEM;
+import static org.eclipse.leshan.core.LwM2mId.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -35,18 +35,17 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Map;
 
-import org.eclipse.leshan.LwM2mId;
-import org.eclipse.leshan.SecurityMode;
-import org.eclipse.leshan.client.request.ServerIdentity;
 import org.eclipse.leshan.client.resource.LwM2mInstanceEnabler;
 import org.eclipse.leshan.client.resource.LwM2mObjectEnabler;
+import org.eclipse.leshan.core.LwM2mId;
+import org.eclipse.leshan.core.SecurityMode;
 import org.eclipse.leshan.core.node.LwM2mObject;
 import org.eclipse.leshan.core.node.LwM2mObjectInstance;
 import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.request.BindingMode;
 import org.eclipse.leshan.core.request.ReadRequest;
 import org.eclipse.leshan.core.response.ReadResponse;
-import org.eclipse.leshan.util.SecurityUtil;
+import org.eclipse.leshan.core.util.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,6 +74,7 @@ public class ServersInfoExtractor {
                     } else {
                         // create bootstrap info
                         ServerInfo info = new ServerInfo();
+                        info.bootstrap = true;
                         LwM2mResource serverIdResource = security.getResource(SEC_SERVER_ID);
                         if (serverIdResource != null && serverIdResource.getValue() != null)
                             info.serverId = (long) serverIdResource.getValue();
@@ -99,6 +99,7 @@ public class ServersInfoExtractor {
                 } else {
                     // create device management info
                     DmServerInfo info = new DmServerInfo();
+                    info.bootstrap = false;
                     info.serverUri = new URI((String) security.getResource(SEC_SERVER_URI).getValue());
                     info.serverId = (long) security.getResource(SEC_SERVER_ID).getValue();
                     info.secureMode = getSecurityMode(security);
@@ -163,6 +164,16 @@ public class ServersInfoExtractor {
                 new ReadRequest(SERVER, instanceId, SRV_BINDING));
         if (response.isSuccess()) {
             return BindingMode.valueOf((String) ((LwM2mResource) response.getContent()).getValue());
+        } else {
+            return null;
+        }
+    }
+
+    public static Long getServerId(LwM2mObjectEnabler serverEnabler, int instanceId) {
+        ReadResponse response = serverEnabler.read(ServerIdentity.SYSTEM,
+                new ReadRequest(SERVER, instanceId, SRV_SERVER_ID));
+        if (response.isSuccess()) {
+            return (Long) ((LwM2mResource) response.getContent()).getValue();
         } else {
             return null;
         }

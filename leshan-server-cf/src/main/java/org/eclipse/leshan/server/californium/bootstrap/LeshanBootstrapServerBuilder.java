@@ -31,7 +31,7 @@ import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig.Builder;
 import org.eclipse.californium.scandium.dtls.CertificateType;
-import org.eclipse.leshan.LwM2m;
+import org.eclipse.leshan.core.LwM2m;
 import org.eclipse.leshan.core.californium.DefaultEndpointFactory;
 import org.eclipse.leshan.core.californium.EndpointFactory;
 import org.eclipse.leshan.core.model.LwM2mModel;
@@ -393,7 +393,6 @@ public class LeshanBootstrapServerBuilder {
     public NetworkConfig createDefaultNetworkConfig() {
         NetworkConfig networkConfig = new NetworkConfig();
         networkConfig.set(Keys.MID_TRACKER, "NULL");
-        networkConfig.set(Keys.USE_MESSAGE_OFFLOADING, false);
         return networkConfig;
     }
 

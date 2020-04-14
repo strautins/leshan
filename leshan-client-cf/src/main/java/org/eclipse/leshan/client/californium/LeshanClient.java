@@ -42,10 +42,11 @@ import org.eclipse.leshan.client.resource.LwM2mObjectEnabler;
 import org.eclipse.leshan.client.resource.LwM2mObjectTree;
 import org.eclipse.leshan.client.resource.listener.ObjectListener;
 import org.eclipse.leshan.client.resource.listener.ObjectsListenerAdapter;
+import org.eclipse.leshan.client.servers.ServerIdentity;
 import org.eclipse.leshan.core.californium.EndpointFactory;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeDecoder;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeEncoder;
-import org.eclipse.leshan.util.Validate;
+import org.eclipse.leshan.core.util.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,14 +81,15 @@ public class LeshanClient implements LwM2mClient {
         objectTree = createObjectTree(objectEnablers);
         observers = createClientObserverDispatcher();
         bootstrapHandler = createBoostrapHandler(objectTree);
-        coapServer = createCoapServer(coapConfig, sharedExecutor);
-        linkObjectTreeToCoapServer(coapServer, bootstrapHandler, objectTree, encoder, decoder);
-        coapServer.add(createBootstrapResource(bootstrapHandler));
-        endpointsManager = createEndpointsManager(coapServer, localAddress, coapConfig, dtlsConfigBuilder,
-                endpointFactory);
+        endpointsManager = createEndpointsManager(localAddress, coapConfig, dtlsConfigBuilder, endpointFactory);
         requestSender = createRequestSender(endpointsManager, sharedExecutor);
         engine = engineFactory.createRegistratioEngine(endpoint, objectTree, endpointsManager, requestSender,
                 bootstrapHandler, observers, additionalAttributes, sharedExecutor);
+
+        coapServer = createCoapServer(coapConfig, sharedExecutor);
+        coapServer.add(createBootstrapResource(engine, bootstrapHandler));
+        endpointsManager.setCoapServer(coapServer);
+        linkObjectTreeToCoapServer(coapServer, engine, objectTree, encoder, decoder);
         createRegistrationUpdateHandler(engine, endpointsManager, bootstrapHandler, objectTree);
 
         coapApi = new CoapAPI();
@@ -111,7 +113,7 @@ public class LeshanClient implements LwM2mClient {
             @Override
             protected Resource createRoot() {
                 // Use to handle Delete on "/"
-                return new org.eclipse.leshan.client.californium.RootResource(bootstrapHandler, this);
+                return new org.eclipse.leshan.client.californium.RootResource(engine, bootstrapHandler, this);
             }
         };
 
@@ -128,12 +130,12 @@ public class LeshanClient implements LwM2mClient {
         return coapServer;
     }
 
-    protected void linkObjectTreeToCoapServer(final CoapServer coapServer, final BootstrapHandler bootstrapHandler,
+    protected void linkObjectTreeToCoapServer(final CoapServer coapServer, final RegistrationEngine registrationEngine,
             LwM2mObjectTree objectTree, final LwM2mNodeEncoder encoder, final LwM2mNodeDecoder decoder) {
 
         // Create CoAP resources for each lwm2m Objects.
         for (LwM2mObjectEnabler enabler : objectTree.getObjectEnablers().values()) {
-            CoapResource clientObject = createObjectResource(enabler, bootstrapHandler, encoder, decoder);
+            CoapResource clientObject = createObjectResource(enabler, registrationEngine, encoder, decoder);
             coapServer.add(clientObject);
         }
 
@@ -141,7 +143,7 @@ public class LeshanClient implements LwM2mClient {
         objectTree.addListener(new ObjectsListenerAdapter() {
             @Override
             public void objectAdded(LwM2mObjectEnabler object) {
-                CoapResource clientObject = createObjectResource(object, bootstrapHandler, encoder, decoder);
+                CoapResource clientObject = createObjectResource(object, registrationEngine, encoder, decoder);
                 coapServer.add(clientObject);
             }
 
@@ -156,19 +158,18 @@ public class LeshanClient implements LwM2mClient {
         });
     }
 
-    protected CoapResource createObjectResource(LwM2mObjectEnabler enabler, BootstrapHandler bootstrapHandler,
+    protected CoapResource createObjectResource(LwM2mObjectEnabler enabler, RegistrationEngine registrationEngine,
             LwM2mNodeEncoder encoder, LwM2mNodeDecoder decoder) {
-        return new ObjectResource(enabler, bootstrapHandler, encoder, decoder);
+        return new ObjectResource(enabler, registrationEngine, encoder, decoder);
     }
 
-    protected CoapResource createBootstrapResource(BootstrapHandler bootstrapHandler) {
-        return new BootstrapResource(bootstrapHandler);
+    protected CoapResource createBootstrapResource(RegistrationEngine engine, BootstrapHandler bootstrapHandler) {
+        return new BootstrapResource(engine, bootstrapHandler);
     }
 
-    protected CaliforniumEndpointsManager createEndpointsManager(CoapServer coapServer, InetSocketAddress localAddress,
+    protected CaliforniumEndpointsManager createEndpointsManager(InetSocketAddress localAddress,
             NetworkConfig coapConfig, Builder dtlsConfigBuilder, EndpointFactory endpointFactory) {
-        return new CaliforniumEndpointsManager(coapServer, localAddress, coapConfig, dtlsConfigBuilder,
-                endpointFactory);
+        return new CaliforniumEndpointsManager(localAddress, coapConfig, dtlsConfigBuilder, endpointFactory);
     }
 
     protected CaliforniumLwM2mRequestSender createRequestSender(CaliforniumEndpointsManager endpointsManager,
@@ -221,6 +222,11 @@ public class LeshanClient implements LwM2mClient {
         engine.triggerRegistrationUpdate();
     }
 
+    @Override
+    public void triggerRegistrationUpdate(ServerIdentity server) {
+        engine.triggerRegistrationUpdate(server);
+    }
+
     /**
      * A CoAP API, generally needed if you want to access to underlying CoAP layer.
      */
@@ -237,15 +243,12 @@ public class LeshanClient implements LwM2mClient {
         }
 
         /**
-         * Returns the current {@link CoapEndpoint} used to communicate with the server.
-         * <p>
-         * A different endpoint address should be used by connected server, so this method only make sense as current
-         * implementation supports only one LWM2M server.
+         * Returns the current {@link CoapEndpoint} used to communicate with the given server.
          * 
          * @return the {@link CoapEndpoint} used to communicate to LWM2M server.
          */
-        public CoapEndpoint getEndpoint() {
-            return (CoapEndpoint) endpointsManager.getEndpoint(null);
+        public CoapEndpoint getEndpoint(ServerIdentity server) {
+            return (CoapEndpoint) endpointsManager.getEndpoint(server);
         }
     }
 
@@ -264,26 +267,27 @@ public class LeshanClient implements LwM2mClient {
     }
 
     /**
-     * Returns the current registration Id.
-     * <p>
-     * Client should have 1 registration Id by connected server, so this method only make sense as current
-     * implementation supports only one LWM2M server.
+     * Returns the registration Id for the given server.
      * 
      * @return the client registration Id or <code>null</code> if the client is not registered
      */
-    public String getRegistrationId() {
-        return engine.getRegistrationId();
+    public String getRegistrationId(ServerIdentity server) {
+        return engine.getRegistrationId(server);
     }
 
     /**
-     * Returns the current {@link InetSocketAddress} use to communicate with the server.
-     * <p>
-     * A different endpoint/socket address should be used by connected server, so this method only make sense as current
-     * implementation supports only one LWM2M server.
+     * @return All the registered Server indexed by the corresponding registration id;
+     */
+    public Map<String, ServerIdentity> getRegisteredServers() {
+        return engine.getRegisteredServers();
+    }
+
+    /**
+     * Returns the current {@link InetSocketAddress} use to communicate with the given server.
      * 
      * @return the address used to connect to the server or <code>null</code> if the client is not started.
      */
-    public InetSocketAddress getAddress() {
-        return endpointsManager.getEndpoint(null).getAddress();
+    public InetSocketAddress getAddress(ServerIdentity server) {
+        return endpointsManager.getEndpoint(server).getAddress();
     }
 }

@@ -43,16 +43,20 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.eclipse.californium.core.network.config.NetworkConfig;
+import org.eclipse.californium.core.network.config.NetworkConfig.Keys;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
+import org.eclipse.californium.scandium.dtls.MultiNodeConnectionIdGenerator;
+import org.eclipse.californium.scandium.dtls.SingleNodeConnectionIdGenerator;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.webapp.WebAppContext;
-import org.eclipse.leshan.LwM2m;
+import org.eclipse.leshan.core.LwM2m;
 import org.eclipse.leshan.core.model.ObjectLoader;
 import org.eclipse.leshan.core.model.ObjectModel;
 import org.eclipse.leshan.core.node.codec.DefaultLwM2mNodeDecoder;
 import org.eclipse.leshan.core.node.codec.DefaultLwM2mNodeEncoder;
 import org.eclipse.leshan.core.node.codec.LwM2mNodeDecoder;
+import org.eclipse.leshan.core.util.SecurityUtil;
 import org.eclipse.leshan.server.californium.LeshanServer;
 import org.eclipse.leshan.server.californium.LeshanServerBuilder;
 import org.eclipse.leshan.server.demo.mt.FileResource;
@@ -74,7 +78,6 @@ import org.eclipse.leshan.server.redis.RedisRegistrationStore;
 import org.eclipse.leshan.server.redis.RedisSecurityStore;
 import org.eclipse.leshan.server.security.EditableSecurityStore;
 import org.eclipse.leshan.server.security.FileSecurityStore;
-import org.eclipse.leshan.util.SecurityUtil;
 import org.mikrotik.iot.sd.utils.ByteUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -306,6 +309,23 @@ public class LeshanServerDemo {
         // Create DTLS Config
         DtlsConnectorConfig.Builder dtlsConfig = new DtlsConnectorConfig.Builder();
         dtlsConfig.setRecommendedCipherSuitesOnly(!supportDeprecatedCiphers);
+        
+        //ConnectionId
+        Integer cidLength = coapConfig.getInt(Keys.DTLS_CONNECTION_ID_LENGTH);
+        Integer cidNode = coapConfig.getInt(Keys.DTLS_CONNECTION_ID_NODE_ID);
+        if (cidLength != null) {
+            if (cidNode != null && cidNode > 1) {
+                LOG.warn(
+                        "Create MultiNodeConnectionIdGenerator. DTLS_CONNECTION_ID_LENGTH: {},  DTLS_CONNECTION_ID_NODE_ID: {}",
+                        cidLength, cidNode);
+                        dtlsConfig.setConnectionIdGenerator(new MultiNodeConnectionIdGenerator(cidNode, cidLength));
+            } else {
+                LOG.warn(
+                        "Create SingleNodeConnectionIdGenerator. DTLS_CONNECTION_ID_LENGTH: {},  DTLS_CONNECTION_ID_NODE_ID: {}",
+                        cidLength, cidNode);
+                        dtlsConfig.setConnectionIdGenerator(new SingleNodeConnectionIdGenerator(cidLength));
+            }
+        }
 
         X509Certificate serverCertificate = null;
         // Set up X.509 mode
@@ -484,7 +504,7 @@ public class LeshanServerDemo {
             jmdns.registerService(coapSecureServiceInfo);
         }
         
-        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 14.02.2019 13:08:00");  
+        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 14.04.2019 16:07:00");  
 
         // Start Jetty & Leshan & processSD
         lwServer.start();

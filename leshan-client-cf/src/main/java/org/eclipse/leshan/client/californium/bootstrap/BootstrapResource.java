@@ -25,7 +25,8 @@ import org.eclipse.californium.core.server.resources.CoapExchange;
 import org.eclipse.californium.core.server.resources.Resource;
 import org.eclipse.leshan.client.bootstrap.BootstrapHandler;
 import org.eclipse.leshan.client.californium.LwM2mClientCoapResource;
-import org.eclipse.leshan.client.request.ServerIdentity;
+import org.eclipse.leshan.client.engine.RegistrationEngine;
+import org.eclipse.leshan.client.servers.ServerIdentity;
 import org.eclipse.leshan.core.request.BootstrapFinishRequest;
 import org.eclipse.leshan.core.response.BootstrapFinishResponse;
 import org.eclipse.leshan.core.response.SendableResponse;
@@ -35,15 +36,21 @@ import org.eclipse.leshan.core.response.SendableResponse;
  */
 public class BootstrapResource extends LwM2mClientCoapResource {
 
-    public BootstrapResource(BootstrapHandler bootstrapHandler) {
-        super("bs", bootstrapHandler);
+    protected BootstrapHandler bootstrapHandler;
+
+    public BootstrapResource(RegistrationEngine registrationEngine, BootstrapHandler bootstrapHandler) {
+        super("bs", registrationEngine);
+        this.bootstrapHandler = bootstrapHandler;
         this.setVisible(false);
     }
 
     @Override
     public void handlePOST(CoapExchange exchange) {
         // Handle bootstrap request
-        ServerIdentity identity = extractServerIdentity(exchange);
+        ServerIdentity identity = getServerOrRejectRequest(exchange);
+        if (identity == null)
+            return;
+
         // Acknowledge bootstrap finished request
         exchange.accept();
         final SendableResponse<BootstrapFinishResponse> sendableResponse = bootstrapHandler.finished(identity,

@@ -15,7 +15,6 @@
  *******************************************************************************/
 package org.eclipse.leshan.client.californium.request;
 
-import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -25,13 +24,14 @@ import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
 import org.eclipse.leshan.client.californium.CaliforniumEndpointsManager;
 import org.eclipse.leshan.client.request.LwM2mRequestSender;
+import org.eclipse.leshan.client.servers.ServerIdentity;
 import org.eclipse.leshan.core.californium.AsyncRequestObserver;
 import org.eclipse.leshan.core.californium.SyncRequestObserver;
 import org.eclipse.leshan.core.request.UplinkRequest;
 import org.eclipse.leshan.core.response.ErrorCallback;
 import org.eclipse.leshan.core.response.LwM2mResponse;
 import org.eclipse.leshan.core.response.ResponseCallback;
-import org.eclipse.leshan.util.NamedThreadFactory;
+import org.eclipse.leshan.core.util.NamedThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,10 +59,10 @@ public class CaliforniumLwM2mRequestSender implements LwM2mRequestSender {
     }
 
     @Override
-    public <T extends LwM2mResponse> T send(InetSocketAddress serverAddress, boolean secure,
-            final UplinkRequest<T> request, long timeout) throws InterruptedException {
+    public <T extends LwM2mResponse> T send(ServerIdentity server, final UplinkRequest<T> request, long timeout)
+            throws InterruptedException {
         // Create the CoAP request from LwM2m request
-        CoapRequestBuilder coapClientRequestBuilder = new CoapRequestBuilder(serverAddress);
+        CoapRequestBuilder coapClientRequestBuilder = new CoapRequestBuilder(server.getIdentity());
         request.accept(coapClientRequestBuilder);
         Request coapRequest = coapClientRequestBuilder.getRequest();
 
@@ -79,18 +79,17 @@ public class CaliforniumLwM2mRequestSender implements LwM2mRequestSender {
         coapRequest.addMessageObserver(syncMessageObserver);
 
         // Send CoAP request asynchronously
-        endpointsManager.getEndpoint(null).sendRequest(coapRequest);
+        endpointsManager.getEndpoint(server).sendRequest(coapRequest);
 
         // Wait for response, then return it
         return syncMessageObserver.waitForResponse();
     }
 
     @Override
-    public <T extends LwM2mResponse> void send(InetSocketAddress serverAddress, boolean secure,
-            final UplinkRequest<T> request, long timeout, ResponseCallback<T> responseCallback,
-            ErrorCallback errorCallback) {
+    public <T extends LwM2mResponse> void send(ServerIdentity server, final UplinkRequest<T> request, long timeout,
+            ResponseCallback<T> responseCallback, ErrorCallback errorCallback) {
         // Create the CoAP request from LwM2m request
-        CoapRequestBuilder coapClientRequestBuilder = new CoapRequestBuilder(serverAddress);
+        CoapRequestBuilder coapClientRequestBuilder = new CoapRequestBuilder(server.getIdentity());
         request.accept(coapClientRequestBuilder);
         Request coapRequest = coapClientRequestBuilder.getRequest();
 
@@ -108,7 +107,7 @@ public class CaliforniumLwM2mRequestSender implements LwM2mRequestSender {
         coapRequest.addMessageObserver(obs);
 
         // Send CoAP request asynchronously
-        endpointsManager.getEndpoint(null).sendRequest(coapRequest);
+        endpointsManager.getEndpoint(server).sendRequest(coapRequest);
     }
 
     @Override

@@ -27,12 +27,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.eclipse.leshan.Link;
-import org.eclipse.leshan.LwM2mId;
 import org.eclipse.leshan.client.LwM2mClient;
-import org.eclipse.leshan.client.request.ServerIdentity;
 import org.eclipse.leshan.client.resource.listener.ObjectListener;
+import org.eclipse.leshan.client.servers.ServerIdentity;
 import org.eclipse.leshan.client.util.LinkFormatHelper;
+import org.eclipse.leshan.core.Link;
+import org.eclipse.leshan.core.LwM2mId;
 import org.eclipse.leshan.core.model.ObjectModel;
 import org.eclipse.leshan.core.model.ResourceModel;
 import org.eclipse.leshan.core.node.LwM2mObjectInstance;
@@ -111,6 +111,9 @@ public abstract class BaseObjectEnabler implements LwM2mObjectEnabler {
                 if (id == LwM2mId.SECURITY) {
                     return CreateResponse.notFound();
                 }
+            } else if (identity.isLwm2mBootstrapServer()) {
+                // create is not supported for bootstrap
+                CreateResponse.methodNotAllowed();
             }
 
             if (request.unknownObjectInstanceId()) {
@@ -238,7 +241,7 @@ public abstract class BaseObjectEnabler implements LwM2mObjectEnabler {
     public synchronized BootstrapWriteResponse write(ServerIdentity identity, BootstrapWriteRequest request) {
 
         // We should not get a bootstrapWriteRequest from a LWM2M server
-        if (!identity.isLwm2mBootstrapServer()) {
+        if (identity.isLwm2mServer()) {
             return BootstrapWriteResponse.internalServerError("bootstrap write request from LWM2M server");
         }
 
@@ -253,6 +256,8 @@ public abstract class BaseObjectEnabler implements LwM2mObjectEnabler {
     @Override
     public synchronized DeleteResponse delete(ServerIdentity identity, DeleteRequest request) {
         if (!identity.isSystem()) {
+            if (identity.isLwm2mBootstrapServer())
+                return DeleteResponse.methodNotAllowed();
 
             // delete the security object is forbidden
             if (id == LwM2mId.SECURITY) {
@@ -275,6 +280,9 @@ public abstract class BaseObjectEnabler implements LwM2mObjectEnabler {
     @Override
     public synchronized BootstrapDeleteResponse delete(ServerIdentity identity, BootstrapDeleteRequest request) {
         if (!identity.isSystem()) {
+            if (identity.isLwm2mServer()) {
+                return BootstrapDeleteResponse.internalServerError("bootstrap delete request from LWM2M server");
+            }
             if (id == LwM2mId.DEVICE) {
                 return BootstrapDeleteResponse.badRequest("Device object instance is not deletable");
             }
@@ -325,6 +333,10 @@ public abstract class BaseObjectEnabler implements LwM2mObjectEnabler {
     @Override
     public synchronized WriteAttributesResponse writeAttributes(ServerIdentity identity,
             WriteAttributesRequest request) {
+        // execute is not supported for bootstrap
+        if (identity.isLwm2mBootstrapServer()) {
+            return WriteAttributesResponse.methodNotAllowed();
+        }
         // TODO should be implemented here to be available for all object enabler
         // This should be a not implemented error, but this is not defined in the spec.
         return WriteAttributesResponse.internalServerError("not implemented");

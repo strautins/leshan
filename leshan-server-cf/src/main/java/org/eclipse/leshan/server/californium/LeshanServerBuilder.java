@@ -34,9 +34,7 @@ import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig.Builder;
 import org.eclipse.californium.scandium.dtls.CertificateType;
-import org.eclipse.californium.scandium.dtls.MultiNodeConnectionIdGenerator;
-import org.eclipse.californium.scandium.dtls.SingleNodeConnectionIdGenerator;
-import org.eclipse.leshan.LwM2m;
+import org.eclipse.leshan.core.LwM2m;
 import org.eclipse.leshan.core.californium.DefaultEndpointFactory;
 import org.eclipse.leshan.core.californium.EndpointFactory;
 import org.eclipse.leshan.core.node.LwM2mNode;
@@ -301,33 +299,7 @@ public class LeshanServerBuilder {
     }
 
     /**
-<<<<<<< HEAD
-     * Set the Californium/DTLS connectionID
-     */
-    public LeshanServerBuilder createConnectionId() {
-        Integer cidLength = coapConfig.getInt(Keys.DTLS_CONNECTION_ID_LENGTH);
-        Integer cidNode = coapConfig.getInt(Keys.DTLS_CONNECTION_ID_NODE_ID);
-        if (cidLength != null) {
-            if (cidNode != null && cidNode > 1) {
-                LOG.warn(
-                        "Create MultiNodeConnectionIdGenerator. DTLS_CONNECTION_ID_LENGTH: {},  DTLS_CONNECTION_ID_NODE_ID: {}",
-                        cidLength, cidNode);
-                this.dtlsConfigBuilder.setConnectionIdGenerator(new MultiNodeConnectionIdGenerator(cidNode, cidLength));
-            } else {
-                LOG.warn(
-                        "Create SingleNodeConnectionIdGenerator. DTLS_CONNECTION_ID_LENGTH: {},  DTLS_CONNECTION_ID_NODE_ID: {}",
-                        cidLength, cidNode);
-                this.dtlsConfigBuilder.setConnectionIdGenerator(new SingleNodeConnectionIdGenerator(cidLength));
-            }
-        }
-        return this;
-    }
-
-    /**
-     * Set the Scandium/DTLS Configuration : {@link DtlsConnectorConfig.Builder}.
-=======
      * Set the Scandium/DTLS Configuration : {@link Builder}.
->>>>>>> 2fdeaeb3e78e4ceec037011b1325f64dfc04d299
      */
     public LeshanServerBuilder setDtlsConfig(DtlsConnectorConfig.Builder config) {
         this.dtlsConfigBuilder = config;
@@ -409,7 +381,6 @@ public class LeshanServerBuilder {
     public static NetworkConfig createDefaultNetworkConfig() {
         NetworkConfig networkConfig = new NetworkConfig();
         networkConfig.set(Keys.MID_TRACKER, "NULL");
-        networkConfig.set(Keys.USE_MESSAGE_OFFLOADING, false);
         return networkConfig;
     }
 

@@ -20,8 +20,8 @@ import static org.eclipse.leshan.core.californium.ResponseCodeUtil.toLwM2mRespon
 import org.eclipse.californium.core.coap.MediaTypeRegistry;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.coap.Response;
-import org.eclipse.leshan.Link;
-import org.eclipse.leshan.ResponseCode;
+import org.eclipse.leshan.core.Link;
+import org.eclipse.leshan.core.ResponseCode;
 import org.eclipse.leshan.core.model.LwM2mModel;
 import org.eclipse.leshan.core.node.LwM2mNode;
 import org.eclipse.leshan.core.node.LwM2mPath;
@@ -57,8 +57,8 @@ import org.eclipse.leshan.core.response.ObserveResponse;
 import org.eclipse.leshan.core.response.ReadResponse;
 import org.eclipse.leshan.core.response.WriteAttributesResponse;
 import org.eclipse.leshan.core.response.WriteResponse;
+import org.eclipse.leshan.core.util.Hex;
 import org.eclipse.leshan.server.californium.observation.ObserveUtil;
-import org.eclipse.leshan.util.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

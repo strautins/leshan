@@ -40,10 +40,11 @@ import org.eclipse.californium.scandium.dtls.HandshakeException;
 import org.eclipse.californium.scandium.dtls.pskstore.StaticPskStore;
 import org.eclipse.californium.scandium.dtls.rpkstore.TrustedRpkStore;
 import org.eclipse.californium.scandium.dtls.x509.CertificateVerifier;
-import org.eclipse.leshan.SecurityMode;
 import org.eclipse.leshan.client.EndpointsManager;
-import org.eclipse.leshan.client.servers.Server;
+import org.eclipse.leshan.client.servers.ServerIdentity;
+import org.eclipse.leshan.client.servers.ServerIdentity.Role;
 import org.eclipse.leshan.client.servers.ServerInfo;
+import org.eclipse.leshan.core.SecurityMode;
 import org.eclipse.leshan.core.californium.EndpointContextUtil;
 import org.eclipse.leshan.core.californium.EndpointFactory;
 import org.eclipse.leshan.core.request.Identity;
@@ -51,7 +52,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * An {@link EndpointsManager} based on Californium(CoAP implementation) and Scandium (DTLS implementation).
+ * An {@link EndpointsManager} based on Californium(CoAP implementation) and Scandium (DTLS implementation) which
+ * supports only 1 server.
  */
 public class CaliforniumEndpointsManager implements EndpointsManager {
 
@@ -59,24 +61,29 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
 
     protected boolean started = false;
 
+    protected ServerIdentity currentServer;
     protected CoapEndpoint currentEndpoint;
+
     protected Builder dtlsConfigbuilder;
     protected NetworkConfig coapConfig;
     protected InetSocketAddress localAddress;
     protected CoapServer coapServer;
     protected EndpointFactory endpointFactory;
 
-    public CaliforniumEndpointsManager(CoapServer coapServer, InetSocketAddress localAddress, NetworkConfig coapConfig,
+    public CaliforniumEndpointsManager(InetSocketAddress localAddress, NetworkConfig coapConfig,
             Builder dtlsConfigBuilder, EndpointFactory endpointFactory) {
-        this.coapServer = coapServer;
         this.localAddress = localAddress;
         this.coapConfig = coapConfig;
         this.dtlsConfigbuilder = dtlsConfigBuilder;
         this.endpointFactory = endpointFactory;
     }
 
+    public void setCoapServer(CoapServer coapServer) {
+        this.coapServer = coapServer;
+    }
+
     @Override
-    public synchronized Server createEndpoint(ServerInfo serverInfo) {
+    public synchronized ServerIdentity createEndpoint(ServerInfo serverInfo) {
         // Clear previous endpoint
         if (currentEndpoint != null) {
             coapServer.getEndpoints().remove(currentEndpoint);
@@ -168,34 +175,43 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
         coapServer.addEndpoint(currentEndpoint);
 
         // Start endpoint if needed
-        Server server = new Server(serverIdentity, serverInfo.serverId);
+        if (serverInfo.bootstrap) {
+            currentServer = new ServerIdentity(serverIdentity, serverInfo.serverId, Role.LWM2M_BOOTSTRAP_SERVER);
+        } else {
+            currentServer = new ServerIdentity(serverIdentity, serverInfo.serverId);
+        }
         if (started) {
             coapServer.start();
             try {
                 currentEndpoint.start();
-                LOG.info("New endpoint created for server {} at {}", server.getUri(), currentEndpoint.getUri());
+                LOG.info("New endpoint created for server {} at {}", currentServer.getUri(), currentEndpoint.getUri());
             } catch (IOException e) {
                 throw new RuntimeException("Unable to start endpoint", e);
             }
         }
-        return server;
+        return currentServer;
     }
 
     @Override
-    public synchronized Collection<Server> createEndpoints(Collection<? extends ServerInfo> serverInfo) {
+    public synchronized Collection<ServerIdentity> createEndpoints(Collection<? extends ServerInfo> serverInfo) {
         if (serverInfo == null || serverInfo.isEmpty())
             return null;
         else {
             // TODO support multi server
+            if (serverInfo.size() > 1) {
+                LOG.warn(
+                        "CaliforniumEndpointsManager support only connection to 1 LWM2M server, first server will be used from the server list of {}",
+                        serverInfo.size());
+            }
             ServerInfo firstServer = serverInfo.iterator().next();
-            Collection<Server> servers = new ArrayList<>(1);
+            Collection<ServerIdentity> servers = new ArrayList<>(1);
             servers.add(createEndpoint(firstServer));
             return servers;
         }
     }
 
     @Override
-    public long getMaxCommunicationPeriodFor(Server server, long lifetimeInMs) {
+    public long getMaxCommunicationPeriodFor(ServerIdentity server, long lifetimeInMs) {
         // See https://github.com/OpenMobileAlliance/OMA_LwM2M_for_Developers/issues/283 to better understand.
         // TODO For DTLS, worst Handshake scenario should be taking into account too.
 
@@ -217,8 +233,11 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
     }
 
     @Override
-    public synchronized void forceReconnection(Server server, boolean resume) {
+    public synchronized void forceReconnection(ServerIdentity server, boolean resume) {
         // TODO support multi server
+        if (server == null || !server.equals(currentServer))
+            return;
+
         Connector connector = currentEndpoint.getConnector();
         if (connector instanceof DTLSConnector) {
             if (resume) {
@@ -232,9 +251,9 @@ public class CaliforniumEndpointsManager implements EndpointsManager {
 
     }
 
-    public synchronized Endpoint getEndpoint(Identity server) {
+    public synchronized Endpoint getEndpoint(ServerIdentity server) {
         // TODO support multi server
-        if (currentEndpoint.isStarted())
+        if (server != null && server.equals(currentServer) && currentEndpoint.isStarted())
             return currentEndpoint;
         return null;
     }
