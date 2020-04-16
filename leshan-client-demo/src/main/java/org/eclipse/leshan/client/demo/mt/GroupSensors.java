@@ -37,7 +37,7 @@ public class GroupSensors extends BaseInstanceEnabler {
     private static final int R1 = 1;
     private static final int R2 = 2;
     private static final int R3 = 3;
-    private static final int R4 = 4;
+    //private static final int R4 = 4;
     private static final int R5 = 5;
     private static final int R6 = 6;
     private static final int R7 = 7;
@@ -51,7 +51,7 @@ public class GroupSensors extends BaseInstanceEnabler {
     private final Map<Integer, SensorReadings> mSensorMap = new HashMap<Integer, SensorReadings>();
     private final ArrayList<AlarmStatus> mAlarmStatusList = new ArrayList<AlarmStatus>();
     private final ArrayList<Devices> mDevicesList = new ArrayList<Devices>();
-    private static final List<Integer> supportedResources = Arrays.asList(R0, R1, R2, R3, R4, R5, R6, R7);
+    private static final List<Integer> supportedResources = Arrays.asList(R0, R1, R2, R3, /*R4,*/ R5, R6, R7);
 
     private byte[] mEventConfig = new byte[0];
     private int mNotifyDelay = 300;
@@ -181,8 +181,8 @@ public class GroupSensors extends BaseInstanceEnabler {
             return super.read(identity, resourceId);    
         case R3:
             return super.read(identity, resourceId);
-        case R4:
-            return super.read(identity, resourceId);
+        //case R4:
+        //    return super.read(identity, resourceId);
         case R5:
             return ReadResponse.success(resourceId, this.mNotifyDelay);
         case R6:
