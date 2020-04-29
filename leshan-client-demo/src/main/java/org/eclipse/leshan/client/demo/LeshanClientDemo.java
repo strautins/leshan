@@ -26,6 +26,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.KeyStore.Entry;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
@@ -44,8 +45,13 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Option.Builder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.eclipse.californium.core.coap.MessageObserver;
+import org.eclipse.californium.core.coap.Request;
+import org.eclipse.californium.core.coap.Response;
 import org.eclipse.californium.core.network.config.NetworkConfig;
+import org.eclipse.californium.core.network.interceptors.MessageInterceptorAdapter;
 import org.eclipse.californium.elements.Connector;
+import org.eclipse.californium.elements.EndpointContext;
 import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.ClientHandshaker;
@@ -63,7 +69,9 @@ import org.eclipse.leshan.client.object.Server;
 import org.eclipse.leshan.client.resource.LwM2mObjectEnabler;
 import org.eclipse.leshan.client.resource.ObjectsInitializer;
 import org.eclipse.leshan.client.demo.mt.GroupSensors;
+import org.eclipse.leshan.client.demo.mt.MyMessageTracer;
 import org.eclipse.leshan.client.resource.listener.ObjectsListenerAdapter;
+import org.eclipse.leshan.client.servers.ServerIdentity;
 import org.eclipse.leshan.core.LwM2m;
 import org.eclipse.leshan.core.californium.DefaultEndpointFactory;
 import org.eclipse.leshan.core.model.LwM2mModel;
@@ -82,41 +90,40 @@ public class LeshanClientDemo {
 
     private static final Logger LOG = LoggerFactory.getLogger(LeshanClientDemo.class);
 
-    // /!\ This class is a COPY of org.eclipse.leshan.server.demo.LeshanServerDemo.modelPaths /!\
+    // /!\ This class is a COPY of
+    // org.eclipse.leshan.server.demo.LeshanServerDemo.modelPaths /!\
     // TODO create a leshan-demo project ?
     private final static String[] modelPaths = new String[] { "31024.xml",
 
-                            "10241.xml", "10242.xml", "10243.xml", "10244.xml", "10245.xml", "10246.xml", "10247.xml",
-                            "10248.xml", "10249.xml", "10250.xml",
+            "10241.xml", "10242.xml", "10243.xml", "10244.xml", "10245.xml", "10246.xml", "10247.xml", "10248.xml",
+            "10249.xml", "10250.xml",
 
-                            "2048.xml", "2049.xml", "2050.xml", "2051.xml", "2052.xml", "2053.xml", "2054.xml",
-                            "2055.xml", "2056.xml", "2057.xml",
+            "2048.xml", "2049.xml", "2050.xml", "2051.xml", "2052.xml", "2053.xml", "2054.xml", "2055.xml", "2056.xml",
+            "2057.xml",
 
-                            "3200.xml", "3201.xml", "3202.xml", "3203.xml", "3300.xml", "3301.xml", "3302.xml",
-                            "3303.xml", "3304.xml", "3305.xml", "3306.xml", "3308.xml", "3310.xml", "3311.xml",
-                            "3312.xml", "3313.xml", "3314.xml", "3315.xml", "3316.xml", "3317.xml", "3318.xml",
-                            "3319.xml", "3320.xml", "3321.xml", "3322.xml", "3323.xml", "3324.xml", "3325.xml",
-                            "3326.xml", "3327.xml", "3328.xml", "3329.xml", "3330.xml", "3331.xml", "3332.xml",
-                            "3333.xml", "3334.xml", "3335.xml", "3336.xml", "3337.xml", "3338.xml", "3339.xml",
-                            "3340.xml", "3341.xml", "3342.xml", "3343.xml", "3344.xml", "3345.xml", "3346.xml",
-                            "3347.xml", "3348.xml", "3349.xml", "3350.xml",
+            "3200.xml", "3201.xml", "3202.xml", "3203.xml", "3300.xml", "3301.xml", "3302.xml", "3303.xml", "3304.xml",
+            "3305.xml", "3306.xml", "3308.xml", "3310.xml", "3311.xml", "3312.xml", "3313.xml", "3314.xml", "3315.xml",
+            "3316.xml", "3317.xml", "3318.xml", "3319.xml", "3320.xml", "3321.xml", "3322.xml", "3323.xml", "3324.xml",
+            "3325.xml", "3326.xml", "3327.xml", "3328.xml", "3329.xml", "3330.xml", "3331.xml", "3332.xml", "3333.xml",
+            "3334.xml", "3335.xml", "3336.xml", "3337.xml", "3338.xml", "3339.xml", "3340.xml", "3341.xml", "3342.xml",
+            "3343.xml", "3344.xml", "3345.xml", "3346.xml", "3347.xml", "3348.xml", "3349.xml", "3350.xml",
 
-                            "33755.xml" , "33756.xml", "33757.xml", "33758.xml",
+            "33755.xml", "33756.xml", "33757.xml", "33758.xml",
 
-                            "Communication_Characteristics-V1_0.xml",
+            "Communication_Characteristics-V1_0.xml",
 
-                            "LWM2M_Lock_and_Wipe-V1_0.xml", "LWM2M_Cellular_connectivity-v1_0.xml",
-                            "LWM2M_APN_connection_profile-v1_0.xml", "LWM2M_WLAN_connectivity4-v1_0.xml",
-                            "LWM2M_Bearer_selection-v1_0.xml", "LWM2M_Portfolio-v1_0.xml", "LWM2M_DevCapMgmt-v1_0.xml",
-                            "LWM2M_Software_Component-v1_0.xml", "LWM2M_Software_Management-v1_0.xml",
+            "LWM2M_Lock_and_Wipe-V1_0.xml", "LWM2M_Cellular_connectivity-v1_0.xml",
+            "LWM2M_APN_connection_profile-v1_0.xml", "LWM2M_WLAN_connectivity4-v1_0.xml",
+            "LWM2M_Bearer_selection-v1_0.xml", "LWM2M_Portfolio-v1_0.xml", "LWM2M_DevCapMgmt-v1_0.xml",
+            "LWM2M_Software_Component-v1_0.xml", "LWM2M_Software_Management-v1_0.xml",
 
-                            "Non-Access_Stratum_NAS_configuration-V1_0.xml" };
+            "Non-Access_Stratum_NAS_configuration-V1_0.xml" };
 
-    //private static final int OBJECT_ID_TEMPERATURE_SENSOR = 3303;
+    // private static final int OBJECT_ID_TEMPERATURE_SENSOR = 3303;
     private static final int OBJECT_ID_GROUP_DATA = 33755;
     private static final int OBJECT_ID_DEVICES = 33756;
     private static final int OBJECT_ID_SENSORS = 33758;
-    private static final int OBJECT_ID_SMOKE  = 33757;
+    private static final int OBJECT_ID_SMOKE = 33757;
     private final static String DEFAULT_ENDPOINT = "LeshanClientDemo";
     private final static int DEFAULT_LIFETIME = 5 * 60; // 5min in seconds
     private final static String USAGE = "java -jar leshan-client-demo.jar [OPTION]\n\n";
@@ -436,7 +443,7 @@ public class LeshanClientDemo {
             boolean supportDeprecatedCiphers, boolean reconnectOnUpdate, boolean forceFullhandshake,
             String modelsFolderPath) throws CertificateEncodingException {
 
-        locationInstance = new MyLocation((float)56.946285, (float)524.105078, scaleFactor);
+        locationInstance = new MyLocation((float) 56.946285, (float) 524.105078, scaleFactor);
 
         // Initialize model
         List<ObjectModel> models = ObjectLoader.loadDefault();
@@ -485,11 +492,11 @@ public class LeshanClientDemo {
         }
         initializer.setInstancesForObject(DEVICE, new MyDevice());
         initializer.setInstancesForObject(LOCATION, locationInstance);
-        // RandomTemperatureSensor r0 = new RandomTemperatureSensor(); 
+        // RandomTemperatureSensor r0 = new RandomTemperatureSensor();
         // RandomTemperatureSensor r1 =new RandomTemperatureSensor();
         // initializer.setInstancesForObject(OBJECT_ID_TEMPERATURE_SENSOR, r0, r1);
-        
-         //>>>//additional sensors
+
+        // >>>//additional sensors
         GroupSensors gs = new GroupSensors();
         gs.setGroupSensors("SN00000000001", "SN00000000002", "SN00000000003", "SN00000000004", "SN00000000005");
         gs.setNotifyDelay(lifetime);
@@ -498,7 +505,7 @@ public class LeshanClientDemo {
         initializer.setInstancesForObject(OBJECT_ID_SMOKE, gs.getAlarmReadings());
         initializer.setInstancesForObject(OBJECT_ID_DEVICES, gs.getDevices());
         List<LwM2mObjectEnabler> enablers = initializer.createAll();
-        //<<<//additional sensors
+        // <<<//additional sensors
         // Create CoAP Config
         NetworkConfig coapConfig;
         File configFile = new File(NetworkConfig.DEFAULT_FILE_NAME);
@@ -679,6 +686,26 @@ public class LeshanClientDemo {
                 client.destroy(true); // send de-registration request before destroy
             }
         });
+        LOG.warn("add messageInterceptorAdapter");
+
+        Thread thread = new Thread() {
+            public void run() {
+                try {
+                    Thread.sleep(4000);
+                } catch (InterruptedException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+			  //todo: remove me!
+              for (Map.Entry<String, ServerIdentity> entry : client.getRegisteredServers().entrySet()) {
+                LOG.warn("add messageInterceptorAdapter: {} {}", entry.getKey(), entry.getValue());
+                client.coap().getEndpoint(entry.getValue()).addInterceptor(messageInterceptorAdapter);
+                client.coap().getEndpoint(entry.getValue()).addInterceptor(myMessageTracer);
+                }   
+			}
+		};
+		thread.start();
+      
 
         // Change the location through the Console
         try (Scanner scanner = new Scanner(System.in)) {
@@ -729,4 +756,82 @@ public class LeshanClientDemo {
             }
         }
     }
+
+    private static final MyMessageTracer myMessageTracer = new MyMessageTracer();
+
+    private static final MessageInterceptorAdapter messageInterceptorAdapter = new MessageInterceptorAdapter() {
+        @Override
+        public void sendRequest(final Request request) {
+            if (request.getNanoTimestamp() == 0) {
+                request.addMessageObserver(new MessageObserver() {
+                    @Override
+                    public void onTimeout() {
+                        LOG.warn("timeout at {} : {}", System.currentTimeMillis(), request);
+                    }
+
+                    @Override
+                    public void onSendError(Throwable error) {
+                        LOG.warn("sent error {} at {} : {}", error, System.currentTimeMillis(), request);
+                    }
+
+                    @Override
+                    public void onRetransmission() {
+                        LOG.warn("retransmission at {} : {}", System.currentTimeMillis(), request);
+                    }
+
+                    @Override
+                    public void onResponse(Response response) {
+                        LOG.warn("get response {} at {} : {}", response, System.currentTimeMillis(), request);
+
+                    }
+
+                    @Override
+                    public void onReject() {
+                        LOG.warn("rejected at {} : {}", System.currentTimeMillis(), request);
+                    }
+
+                    @Override
+                    public void onReadyToSend() {
+                        LOG.warn("ready to send at {} : {}", System.currentTimeMillis(), request);
+                    }
+
+                    @Override
+                    public void onDtlsRetransmission(int flight) {
+                        LOG.warn("retransmit flight {}  at {} : {}", flight, System.currentTimeMillis(), request);
+                    }
+
+                    @Override
+                    public void onContextEstablished(EndpointContext endpointContext) {
+                    }
+
+                    @Override
+                    public void onConnecting() {
+                        LOG.warn("connecting at {} : {}", System.currentTimeMillis(), request);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        LOG.warn("completed at {} : {}", System.currentTimeMillis(), request);
+                    }
+
+                    @Override
+                    public void onCancel() {
+                        LOG.warn("cancelled at {} : {}", System.currentTimeMillis(), request);
+                    }
+
+                    @Override
+                    public void onAcknowledgement() {
+                        LOG.warn("acknowledged at {} : {}", System.currentTimeMillis(), request);
+                    }
+
+                    @Override
+                    public void onSent(boolean retransmission) {
+                        LOG.warn("sent at {} : {} : {}", System.currentTimeMillis(), request);
+                    }
+
+                });
+            }
+            request.setNanoTimestamp(System.currentTimeMillis()); 
+        }
+    };
 }
