@@ -15,6 +15,7 @@ import org.eclipse.leshan.core.response.WriteResponse;
 import org.mikrotik.iot.sd.utils.ByteUtil;
 import org.mikrotik.iot.sd.utils.CodeWrapper;
 import org.mikrotik.iot.sd.utils.CustomEvent;
+import org.mikrotik.iot.sd.utils.PacketConfig;
 import org.eclipse.leshan.core.node.LwM2mResource;
 import org.eclipse.leshan.core.model.ObjectModel;
 
@@ -47,12 +48,18 @@ public class SensorReadings extends BaseInstanceEnabler {
     }
 
     public SensorReadings() {
-        this.mSensors.put(R0, new SensorEngine(60, -20d, 32d, 2d, 0.5d, "01011000"));
-        this.mSensors.put(R1, new SensorEngine(60, 30d, 70d, 10d, 1d, "00100000"));
-        this.mSensors.put(R2, new SensorEngine(60, 990d, 1030d, 2d, 0.5d, "01011000"));
-        this.mSensors.put(R3, new SensorEngine(60, 450d, 1800d, 50d, 15d, "01000000"));
-        this.mSensors.put(R4, new SensorEngine(60, 0d, 20, 2d, 0.5d, "01011000"));
-        this.mSensors.put(R5, new SensorEngine(60, 0d, 500d, 30, 5d, "01000000"));
+        this.mSensors.put(R0, new SensorEngine(60, -20d, 32d, 2d, 0.5d, new PacketConfig("00011010")));
+        this.mSensors.put(R1, new SensorEngine(60, 30d, 70d, 10d, 1d, new PacketConfig("00000001")));
+        this.mSensors.put(R2, new SensorEngine(60, 990d, 1030d, 2d, 0.5d, new PacketConfig("00110010")));
+        this.mSensors.put(R3, new SensorEngine(60, 450d, 1800d, 50d, 15d, new PacketConfig("00000010")));
+        this.mSensors.put(R4, new SensorEngine(60, 0d, 20, 2d, 0.5d, new PacketConfig("00110010")));
+        this.mSensors.put(R5, new SensorEngine(60, 0d, 500d, 30, 5d, new PacketConfig("00000010")));
+        // this.mSensors.put(R0, new SensorEngine(60, -20d, 32d, 2d, 0.5d, new PacketConfig("01011000")));
+        // this.mSensors.put(R1, new SensorEngine(60, 30d, 70d, 10d, 1d, new PacketConfig("00100000")));
+        // this.mSensors.put(R2, new SensorEngine(60, 990d, 1030d, 2d, 0.5d, new PacketConfig("01011000")));
+        // this.mSensors.put(R3, new SensorEngine(60, 450d, 1800d, 50d, 15d, new PacketConfig("01000000")));
+        // this.mSensors.put(R4, new SensorEngine(60, 0d, 20, 2d, 0.5d, new PacketConfig("01011000")));
+        // this.mSensors.put(R5, new SensorEngine(60, 0d, 500d, 30, 5d, new PacketConfig("01000000")));
 
         for(Map.Entry<Integer, SensorEngine> entry : mSensors.entrySet() ) {
             entry.getValue().setSensorReadings(this);  
@@ -112,16 +119,17 @@ public class SensorReadings extends BaseInstanceEnabler {
             int packetValueCount = Math.min(valuesInPacket, s.getMeasurementList().size());
             int packetCount = packetValueCount == 0 ? 1 : (int)ByteUtil.getDoubleRoundUp((double)s.getMeasurementList().size() / (double)packetValueCount, 0);
             byte[] result = new byte[0]; 
-            int pow = ByteUtil.bitStringToInt(s.getCfg().substring(3, 6), true);
-            //-3 to 3;1 to -1;...
-            pow = -pow; //reverse sign for encode 
+            int pow = -s.getCfg().mPow; // + reverse sign for encode -3 to 3;1 to -1;...
+            //int pow = ByteUtil.bitStringToInt(s.getCfg().substring(3, 6), true);
+            //!!Can't use config powValue, it's for decoding
             double powValue = Math.pow(10, pow);
             for (int i = 0; i < packetCount; i++) {
                 byte[] valueArray;
                 //left values or packetValueCount
                 int localPacketValueCount = Math.min(s.getMeasurementList().size() - i * packetValueCount, packetValueCount);
                 if(localPacketValueCount != 0) {
-                    int valueByteSize = CFG_BYTES.get(ByteUtil.bitStringToInt(s.getCfg().substring(0, 3), false));
+                    int valueByteSize = s.getCfg().mMeasurementByteCount;
+                    //int valueByteSize = CFG_BYTES.get(ByteUtil.bitStringToInt(s.getCfg().substring(0, 3), false));
                     valueArray = new byte[localPacketValueCount * valueByteSize];
                     for (int j = 0; j < localPacketValueCount; j++) {
                         //(0*5 = 0) + j(0,1,2...); (1*5 = 5) + j(0,1,2...);...
@@ -173,7 +181,7 @@ public class SensorReadings extends BaseInstanceEnabler {
                 (byte) (interval & 0xFF),
                 (byte) (interval >> 8 & 0xFF),
                 (byte) packetCount,
-                Byte.parseByte(s.getCfg(), 2)
+                Byte.parseByte(s.getCfg().mConfig, 2)
             };
     }
 

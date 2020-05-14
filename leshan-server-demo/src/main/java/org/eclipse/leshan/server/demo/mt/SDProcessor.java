@@ -2,6 +2,7 @@ package org.eclipse.leshan.server.demo.mt;
 
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -43,6 +44,7 @@ import org.mikrotik.iot.sd.utils.ByteUtil;
 import org.mikrotik.iot.sd.utils.CodeWrapper;
 import org.mikrotik.iot.sd.utils.CustomEvent;
 import org.mikrotik.iot.sd.utils.OutputStateConfig;
+import org.mikrotik.iot.sd.utils.PacketConfig;
 import org.mikrotik.iot.sd.utils.PredefinedEvent;
 import org.mikrotik.iot.sd.utils.CodeWrapper.EventCode;
 import org.mikrotik.iot.sd.utils.CodeWrapper.OutputPolarity;
@@ -99,16 +101,6 @@ public class SDProcessor {
     private EventServlet mEventServlet = null;
 
     private final long mTimeout;
-
-    private static final Map<Integer, Integer> CFG_BYTES;
-    static {
-        Map<Integer, Integer> bytes = new HashMap<Integer, Integer>();
-        bytes.put(0, 1); // 1*8=8
-        bytes.put(1, 2); // 2*8=16
-        bytes.put(2, 4); // 4*8=32
-        bytes.put(3, 4); // 4*8=32
-        CFG_BYTES = Collections.unmodifiableMap(bytes);
-    }
 
     private final Gson gson;
 
@@ -444,85 +436,56 @@ public class SDProcessor {
     // payload = [packet,packet...]
     private void processSensorData(Payload payload, int instance, int resource, byte[] opaque) {
         // ->dbg
-        // StringBuilder sb = new StringBuilder();
-        // for(byte bs: opaque) {
-        // sb.append(ByteUtil.byteToString(bs));
-        // sb.append(" ");
-        // }
-        // LOG.debug("Instance:{};Resource:{};Opaque.length:{};Byte[]:{};",instance,resource,
-        // opaque.length, sb.toString());
+        StringBuilder sb = new StringBuilder();
+        for(byte bs: opaque) {
+            sb.append(ByteUtil.byteToString(bs));
+            sb.append(" ");
+        }
+        LOG.debug("Instance:{};Resource:{};Opaque.length:{};Byte[]:{};",instance,resource,
+            opaque.length, sb.toString());
 
         int posStart = 0; // each payload packet start position
         Map<Integer, Object> collect = null;
         int maxPacketCount = 5; // safety, do we need?
         int currentPacket = 0;
         while (posStart != opaque.length && currentPacket < maxPacketCount) {
+            LOG.debug("Decoding Packet in while. Packet: {}; Array position: {};", currentPacket, posStart);
             currentPacket++;
-            // working with 4 byte variable
-            byte[] byteArray = ByteUtil.getEmptyByteArray(0);
-            // unix time
-            byteArray[0] = opaque[posStart + 0];
-            byteArray[1] = opaque[posStart + 1];
-            byteArray[2] = opaque[posStart + 2];
-            byteArray[3] = opaque[posStart + 3];
-            int unixTime = ByteUtil.byteToInt(byteArray, false);
-            // interval
-            byteArray[0] = opaque[posStart + 4];
-            byteArray[1] = opaque[posStart + 5];
-            byteArray[2] = 0;
-            byteArray[3] = 0;
-            int interval = ByteUtil.byteToInt(byteArray, false);
-            // measurement count
-            int valueCount = opaque[posStart + 6];
-            // 1B config as string
-            String cfgStr = ByteUtil.byteToString(opaque[posStart + 7]);
-            // is repeat call
-            boolean repeatCall = ByteUtil.bitStringToInt(cfgStr.substring(6, 7), false) == 1;
-            payload.setIfIsRepeatCall(repeatCall);
-            // floating point set
-            int pow = ByteUtil.bitStringToInt(cfgStr.substring(3, 6), true); // floating point
-            double powValue = Math.pow(10, pow);
-            // bytes in one measurement
-            int byteOfValue = CFG_BYTES.get(ByteUtil.bitStringToInt(cfgStr.substring(0, 3), false)); // value bytes
-            // full packet size
-            int packetByteSize = ByteUtil.CFG_HEADER_BYTES + valueCount * byteOfValue;
-            // LOG.debug("HEADER: {} : {} : {} : {} : {} : {} : {}",posStart, unixTime,
-            // interval, valueCount, pow, byteOfValue, packetByteSize);
-            if (opaque.length >= posStart + packetByteSize && valueCount > 0) {
+            if(posStart + ByteUtil.CFG_HEADER_BYTES >= opaque.length) {
+                LOG.error("Corrupted payload on instance: {}; resource: {}; opaque.length: {}; expected length: {};",
+                instance, resource, opaque.length, posStart + ByteUtil.CFG_HEADER_BYTES);
+            }
+            PacketConfig cfg = new PacketConfig(Arrays.copyOfRange(opaque, posStart, posStart + ByteUtil.CFG_HEADER_BYTES)); 
+            LOG.debug(cfg.toString());     
+            payload.setIfIsRepeatCall(cfg.mIsRepeatCall);
+            if (opaque.length >= posStart + cfg.mPacketByteSize && cfg.mMeasurementCount > 0) {
                 if (collect == null) {
                     collect = new HashMap<Integer, Object>();
                 }
-                int posInList = 0; // measurement in lost
-                int offset = ByteUtil.VALUE_BYTES - byteOfValue;
-                // clear working variable
-                byteArray[0] = 0;
-                byteArray[1] = 0;
-                byteArray[2] = 0;
-                byteArray[3] = 0;
-                for (int i = 0; i < (valueCount * byteOfValue); i++) {
+                int intervalPosition = 0;
+                byte[] byteArray = ByteUtil.getEmptyByteArray(0);
+                for (int i = 0; i < (cfg.mMeasurementCount * cfg.mMeasurementByteCount); i++) {
                     int payloadPos = posStart + ByteUtil.CFG_HEADER_BYTES + i;
-                    int valuePos = (i % byteOfValue);
+                    int valuePos = (i % cfg.mMeasurementByteCount);
                     byteArray[valuePos] = opaque[payloadPos];
                     // last byte in value array is added, create value
-                    if (offset + valuePos == ByteUtil.VALUE_BYTES - 1) {
-                        // int value =
+                    if (cfg.mOffset + valuePos == ByteUtil.VALUE_BYTES - 1) {
                         // ByteBuffer.wrap(rawValue).order(ByteOrder.LITTLE_ENDIAN).getInt();
                         int value = ByteUtil.byteToInt(byteArray);
-                        int valueTim = unixTime + (posInList * interval);
-                        if (pow < 0) {// @floatingPoint must be 0.1,0.01.. //double, round remove 12.2300000000001
-                            collect.put(valueTim, ByteUtil.getDoubleRound((double) value * powValue, Math.abs(pow)));
+                        int valueTim = cfg.mUnixTime + (intervalPosition * cfg.mInterval);
+                        if (cfg.mPow < 0) {// @floatingPoint must be 0.1,0.01.. //double, round remove 12.2300000000001
+                            collect.put(valueTim, ByteUtil.getDoubleRound((double) value * cfg.mPowValue, Math.abs(cfg.mPow)));
                         } else {// int @floatingPoint must be 1,10..
-                            collect.put(valueTim, value * (int) powValue);
+                            collect.put(valueTim, value * (int) cfg.mPowValue);
                         }
-                        posInList++;
+                        intervalPosition++;
                     }
                 }
-                posStart += packetByteSize;
-            } else { // if something wrong with packet or only header provided
+                posStart += cfg.mPacketByteSize;
+            } else { //EXIT if something wrong with packet or only header provided
                 posStart = opaque.length;
             }
         }
-
         if (collect != null) {
             payload.add(instance, resource, collect);
         }

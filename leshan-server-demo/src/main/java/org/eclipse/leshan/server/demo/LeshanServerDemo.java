@@ -504,7 +504,7 @@ public class LeshanServerDemo {
             jmdns.registerService(coapSecureServiceInfo);
         }
         
-        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 14.04.2019 16:07:00");  
+        LOG.warn("Change this text in code to be sure that starting exact build you want! Last mod. text 14.05.2020 08:20:00");  
 
         // Start Jetty & Leshan & processSD
         lwServer.start();

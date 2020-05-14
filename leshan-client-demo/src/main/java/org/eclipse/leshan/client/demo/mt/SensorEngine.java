@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 import org.eclipse.californium.elements.util.NamedThreadFactory;
 import org.mikrotik.iot.sd.utils.ByteUtil;
 import org.mikrotik.iot.sd.utils.CustomEvent;
+import org.mikrotik.iot.sd.utils.PacketConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,11 +35,11 @@ public class SensorEngine {
     private double mDelta;
     private double mAdjust;
 
-    private String mCfg;
+    private PacketConfig mCfg;
 
     private List<Double> mMeasurementList = new ArrayList<Double>();
 
-    public SensorEngine(int interval, double low, double high, double delta, double adjust, String cfg) {
+    public SensorEngine(int interval, double low, double high, double delta, double adjust, PacketConfig cfg) {
         this.mLow = low;
         this.mHigh = high;
         this.mCurrentValue = low + (mRnd.nextDouble() * (high - low));
@@ -88,7 +89,7 @@ public class SensorEngine {
         return this.mInterval;
     }
 
-    public String getCfg() {
+    public PacketConfig getCfg() {
         return this.mCfg;
     }
 
