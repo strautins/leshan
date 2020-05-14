@@ -172,6 +172,7 @@ public class SensorReadings extends BaseInstanceEnabler {
             // }__packed;
             //1 * 5 * 60s = 300sec to next packet
             int interval = s.getInterval();
+            //time for next packet:1 * measurement:10 * interval:60, for first added time = 0;
             int unixTime = (int)(s.getFMT().getTime() / 1000) + (packet * packetCount * s.getInterval());
             return new byte[] { //LITTLE_ENDIAN
                 (byte) ((unixTime) & 0xFF),
